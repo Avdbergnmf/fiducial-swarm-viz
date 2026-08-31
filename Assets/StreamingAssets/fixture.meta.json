@@ -38,7 +38,7 @@
   "brain": "C:\\Users\\Alex_\\Documents\\Fiducial\\fiducial-take-home\\pkg\\examples\\build\\Release\\brain.dll",
   "sim_version": "swarm_sim 0.6.0",
   "header_schema": 1,
-  "generated_at": "2026-08-31T16:01:39Z"
+  "generated_at": "2026-08-31T16:44:59Z"
  },
  "entities": [
   {
@@ -9772,7 +9772,7 @@
    "budget_us": 2000,
    "mean_tick_us": 0.4,
    "overruns": 0,
-   "p99_tick_us": 1.4
+   "p99_tick_us": 1.5
   },
   "events": [
    {
@@ -9828,7 +9828,7 @@
    "wreckage_spawned": 0
   },
   "outcome": "asset_lost",
-  "realtime_factor": 65.2,
+  "realtime_factor": 60.6,
   "scenario": "s1",
   "schema": 2,
   "score": {
@@ -9841,6 +9841,6 @@
   "sim_time_s": 88.96,
   "sim_version": "swarm_sim 0.6.0",
   "ticks": 8896,
-  "wall_time_s": 1.3644
+  "wall_time_s": 1.4678
  }
 }
