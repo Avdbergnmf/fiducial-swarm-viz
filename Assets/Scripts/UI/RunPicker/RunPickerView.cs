@@ -61,9 +61,7 @@ namespace SwarmViewer
         {
             UnhookClock();
             _ctx = ctx;
-            if (rootCoordinator == null)
-                rootCoordinator = GetComponent<VisualizerRoot>();
-
+            EnsureCoordinator();
             if (rootCoordinator == null)
                 Debug.LogWarning("[viewer] RunPickerView: no VisualizerRoot.");
 
@@ -74,8 +72,15 @@ namespace SwarmViewer
             else CloseDialog();
         }
 
+        void EnsureCoordinator()
+        {
+            if (rootCoordinator == null)
+                rootCoordinator = GetComponent<VisualizerRoot>();
+        }
+
         void TryWireUi()
         {
+            EnsureCoordinator();
             if (uiDocument == null)
                 uiDocument = GetComponent<UIDocument>();
 
@@ -166,13 +171,17 @@ namespace SwarmViewer
             RefreshRunList();
             if (_modalBackdrop != null)
                 _modalBackdrop.style.display = DisplayStyle.Flex;
-            if (_errorLabel != null && !string.IsNullOrEmpty(message))
-                _errorLabel.text = message;
+            if (_errorLabel != null)
+            {
+                _errorLabel.style.display = DisplayStyle.Flex;
+                if (!string.IsNullOrEmpty(message))
+                    _errorLabel.text = message;
+            }
         }
 
         public void CloseDialog()
         {
-            if (_ctx != null && _ctx.Run != null && _modalBackdrop != null)
+            if (_modalBackdrop != null)
                 _modalBackdrop.style.display = DisplayStyle.None;
         }
 
@@ -400,16 +409,27 @@ namespace SwarmViewer
         {
             if (string.IsNullOrEmpty(_selectedStem))
             {
-                if (_errorLabel != null) _errorLabel.text = "Please select a run.";
+                ShowError("Please select a run.");
                 return;
             }
 
-            if (rootCoordinator != null)
+            EnsureCoordinator();
+            if (rootCoordinator == null)
             {
-                bool success = rootCoordinator.LoadRun(_selectedStem, out string errorMsg);
-                if (success) CloseDialog();
-                else if (_errorLabel != null) _errorLabel.text = errorMsg;
+                ShowError("No VisualizerRoot on this GameObject.");
+                return;
             }
+
+            bool success = rootCoordinator.LoadRun(_selectedStem, out string errorMsg);
+            if (success) CloseDialog();
+            else ShowError(errorMsg);
+        }
+
+        void ShowError(string message)
+        {
+            if (_errorLabel == null) return;
+            _errorLabel.style.display = DisplayStyle.Flex;
+            _errorLabel.text = message ?? "";
         }
 
         void OnDestroy()

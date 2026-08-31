@@ -9,14 +9,15 @@ namespace SwarmViewer
 {
     public sealed class PlaybackInput : MonoBehaviour, IRunView
     {
+        [SerializeField] UIDocument uiDocument;
+
         ViewerContext _ctx;
-        UIDocument _uiDocument;
 
         public void Bind(ViewerContext ctx)
         {
             _ctx = ctx;
-            if (_uiDocument == null)
-                _uiDocument = FindFirstObjectByType<UIDocument>();
+            if (uiDocument == null)
+                uiDocument = GetComponent<UIDocument>();
         }
 
         void Update()
@@ -75,9 +76,9 @@ namespace SwarmViewer
 
         bool IsAnyTextFieldFocused()
         {
-            if (_uiDocument != null && _uiDocument.rootVisualElement != null)
+            if (uiDocument != null && uiDocument.rootVisualElement != null)
             {
-                var focused = _uiDocument.rootVisualElement.focusController?.focusedElement;
+                var focused = uiDocument.rootVisualElement.focusController?.focusedElement;
                 if (focused is TextField || focused is TextInputBaseField<string>)
                     return true;
             }

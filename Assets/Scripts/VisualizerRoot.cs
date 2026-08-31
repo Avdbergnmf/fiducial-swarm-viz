@@ -86,7 +86,7 @@ namespace SwarmViewer
             };
 
             // 4. Bind all IRunView components in scene
-            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include);
             foreach (var comp in allComponents)
             {
                 if (comp is IRunView view)

@@ -23,11 +23,11 @@ namespace SwarmViewer
     {
         [SerializeField] LayerMask pickingLayer;
         [SerializeField] float doubleClickThreshold = 0.35f;
+        [SerializeField] OrbitCameraController orbitCamera;
+        [SerializeField] UIDocument uiDocument;
 
         ViewerContext _ctx;
         Camera _cam;
-        OrbitCameraController _orbitCamera;
-        UIDocument _uiDocument;
 
         EntityView _hoveredEntity;
         float _lastEmptyClickTime;
@@ -39,8 +39,12 @@ namespace SwarmViewer
             ClearHover();
             _ctx = ctx;
             if (_cam == null) _cam = GetComponent<Camera>() ?? Camera.main;
-            if (_orbitCamera == null) _orbitCamera = FindFirstObjectByType<OrbitCameraController>();
-            if (_uiDocument == null) _uiDocument = FindFirstObjectByType<UIDocument>();
+            if (orbitCamera == null)
+                orbitCamera = GetComponent<OrbitCameraController>();
+            if (uiDocument == null)
+                uiDocument = GetComponent<UIDocument>();
+            //if (uiDocument == null)
+            //    uiDocument = FindFirstObjectByType<UIDocument>(FindObjectsInactive.Exclude);
 
             if (pickingLayer.value == 0)
             {
@@ -126,8 +130,8 @@ namespace SwarmViewer
             if (now - _lastEmptyClickTime < doubleClickThreshold)
             {
                 _ctx.Selection.Clear();
-                if (_orbitCamera != null)
-                    _orbitCamera.ResetToDefaultView();
+                if (orbitCamera != null)
+                    orbitCamera.ResetToDefaultView();
                 _lastEmptyClickTime = 0f;
             }
             else
@@ -142,10 +146,10 @@ namespace SwarmViewer
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return true;
 
-            if (_uiDocument == null || _uiDocument.rootVisualElement == null)
+            if (uiDocument == null || uiDocument.rootVisualElement == null)
                 return false;
 
-            var root = _uiDocument.rootVisualElement;
+            var root = uiDocument.rootVisualElement;
             if (root.panel == null) return false;
 
             // Screen y-up -> panel y-down. Overlay wrappers are picking-mode Ignore,

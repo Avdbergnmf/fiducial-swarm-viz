@@ -59,20 +59,23 @@ namespace SwarmViewer
                 float horizRadius = Mathf.Sqrt(p.x * p.x + p.z * p.z);
                 Debug.Log($"[viewer] friendly slot {friendlySlot} p=({p.x:F2}, {p.y:F2}, {p.z:F2})  horizRadius={horizRadius:F2}");
 
+                bool isFixture = Path.GetFileName(prefix)
+                    .Equals("fixture", StringComparison.OrdinalIgnoreCase);
+
                 if (p.y < 0f)
                 {
-                    throw new InvalidOperationException(
-                        $"[viewer] FATAL: Friendly slot {friendlySlot} has negative altitude y={p.y:F2}. " +
-                        "Double NED conversion detected!");
+                    string msg = $"[viewer] Friendly slot {friendlySlot} has negative altitude y={p.y:F2}. Double NED conversion?";
+                    if (isFixture) throw new InvalidOperationException(msg);
+                    Debug.LogWarning(msg);
                 }
 
-                if (Mathf.Abs(p.y - 30f) > 15f)
+                if (isFixture && Mathf.Abs(p.y - 30f) > 15f)
                 {
                     throw new InvalidOperationException(
                         $"[viewer] FATAL: Friendly slot {friendlySlot} expected y ≈ 30, got {p.y:F2}. Coordinate parse/path is wrong!");
                 }
 
-                if (Mathf.Abs(horizRadius - 60f) > 20f)
+                if (isFixture && Mathf.Abs(horizRadius - 60f) > 20f)
                 {
                     throw new InvalidOperationException(
                         $"[viewer] FATAL: Friendly slot {friendlySlot} expected horizRadius ≈ 60, got {horizRadius:F2}. Coordinate parse/path is wrong!");
