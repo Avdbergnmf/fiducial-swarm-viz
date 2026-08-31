@@ -1,4 +1,4 @@
-// Editor utility script to generate project materials and entity prefab under Assets/Materials and Assets/Prefabs.
+// Editor utility script to generate project materials, drone mesh, and entity prefab under Assets/Materials, Assets/Meshes and Assets/Prefabs.
 // Accessible via Unity menu 'Swarm > Create Default Assets'.
 
 using System.IO;
@@ -42,8 +42,8 @@ namespace SwarmViewer.Editor
                 outlineMat.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Front);
             }
 
-            // 2. Create Entity Prefab
-            CreateEntityPrefab(friendlyMat, outlineMat, trailMat);
+            // 2. Create Drone Mesh
+            DroneMeshGenerator.GenerateDroneMeshAndAssign();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -54,6 +54,8 @@ namespace SwarmViewer.Editor
         {
             if (!Directory.Exists("Assets/Materials"))
                 Directory.CreateDirectory("Assets/Materials");
+            if (!Directory.Exists("Assets/Meshes"))
+                Directory.CreateDirectory("Assets/Meshes");
             if (!Directory.Exists("Assets/Prefabs"))
                 Directory.CreateDirectory("Assets/Prefabs");
         }
@@ -78,46 +80,6 @@ namespace SwarmViewer.Editor
             EditorUtility.SetDirty(mat);
             return mat;
         }
-
-        static void CreateEntityPrefab(Material baseMat, Material outlineMat, Material trailMat)
-        {
-            string prefabPath = "Assets/Prefabs/EntityPrefab.prefab";
-
-            // Temporary GameObject
-            GameObject root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            root.name = "EntityPrefab";
-            root.layer = LayerMask.NameToLayer("Picking");
-            if (root.layer == -1) root.layer = 0;
-
-            var meshRenderer = root.GetComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = baseMat;
-
-            var collider = root.GetComponent<CapsuleCollider>();
-            collider.isTrigger = false;
-
-            var entityView = root.AddComponent<EntityView>();
-
-            // Add TrailRenderer
-            var trail = root.AddComponent<TrailRenderer>();
-            trail.time = 8f;
-            trail.minVertexDistance = 0.5f;
-            trail.startWidth = 1.2f;
-            trail.endWidth = 0.05f;
-            trail.sharedMaterial = trailMat;
-
-            // Add Outline child
-            GameObject outlineObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            outlineObj.name = "Outline";
-            outlineObj.transform.SetParent(root.transform, false);
-            outlineObj.transform.localScale = Vector3.one * 1.08f;
-            Object.DestroyImmediate(outlineObj.GetComponent<Collider>());
-            var outlineRenderer = outlineObj.GetComponent<MeshRenderer>();
-            outlineRenderer.sharedMaterial = outlineMat;
-            outlineObj.SetActive(false);
-
-            // Save as Prefab
-            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
-            Object.DestroyImmediate(root);
-        }
     }
 }
+

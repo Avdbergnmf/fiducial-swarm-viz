@@ -995,9 +995,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 098d22f80fd38ed48a92fc82ac348121, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.VisualizerRoot
-  throwOnValidationError: 0
+  throwOnValidationError: 1
   runExpectations:
-    applies: 0
+    applies: 1
     expectedRingRadius: 60
     expectedAltitude: 30
     radiusTolerance: 8
