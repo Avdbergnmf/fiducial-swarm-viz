@@ -50,15 +50,27 @@ namespace SwarmViewer
     [Serializable] public class AssetInfo { public float[] position; public float radius; }
 
     [Serializable]
+    public class ProvenanceInfo // (where this file came from)
+    {
+        public string trace;
+        public string scenario;
+        public string brain;
+        public string sim_version;
+        public int header_schema;
+        public string generated_at;
+    }
+
+    [Serializable]
     public class RunMeta
     {
         public int format_version;
-        public string source, scenario;
+        public string source, scenario, sim_version, brain;
         public float dt, trace_hz, duration;
         public int frame_count, slot_count, stride, fleet_size;
         public Bounds3 arena;
         public AssetInfo asset;
         public float kill_radius;              // 0 when the field is absent (older meta files)
+        public ProvenanceInfo provenance;
 
         public List<EntityInfo> entities = new();
         public List<EventInfo> events = new();

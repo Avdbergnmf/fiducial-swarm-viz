@@ -11,11 +11,16 @@ namespace SwarmViewer
     /// <summary>
     /// Reads a run from disk. Needs com.unity.nuget.newtonsoft-json from the
     /// Package Manager -- JsonUtility cannot handle the nested meta file.
+    /// Load constructs; <see cref="RunValidator"/> checks. This class does not
+    /// throw on validation Errors — the caller decides.
     /// </summary>
     public static class RunLoader
     {
         /// <param name="prefix">Path or stem without extension, e.g. "fixture".</param>
-        public static RunData Load(string prefix)
+        public static RunData Load(string prefix) =>
+            Load(prefix, default, out _);
+
+        public static RunData Load(string prefix, RunExpectations expectations, out ValidationResult validation)
         {
             string metaPath = prefix + ".meta.json";
             string binPath = prefix + ".bin";
@@ -25,6 +30,7 @@ namespace SwarmViewer
             if (!File.Exists(binPath))
                 throw new FileNotFoundException($"[viewer] Binary trajectory file not found at: {binPath}");
 
+            // Load meta file (log lines, events, links, beliefs)
             var meta = JsonConvert.DeserializeObject<RunMeta>(File.ReadAllText(metaPath));
             if (meta == null) throw new InvalidDataException("[viewer] could not parse " + metaPath);
 
@@ -33,55 +39,21 @@ namespace SwarmViewer
             if (raw.Length != expected)
                 throw new InvalidDataException(
                     $"[viewer] {binPath}: {raw.Length} bytes but meta implies {expected}. " +
-                    "The two files are out of sync -- rerun the sidecar.");
+                    "The two files are out of sync — run scripts/sync_viewer_data.ps1 after the sidecar.");
 
-            var geo = new float[raw.Length / sizeof(float)];
-            Buffer.BlockCopy(raw, 0, geo, 0, raw.Length);
+            // Load binary trajectory data into float array. Each frame has slot_count * stride floats. (eleven floats total w/ positions, rotations, velocities)
+            var geometry = new float[raw.Length / sizeof(float)]; 
+            Buffer.BlockCopy(raw, 0, geometry, 0, raw.Length);
 
-            var runData = new RunData(meta, geo);
+            // instantiate RunData with meta and geometry
+            var runData = new RunData(meta, geometry);
 
-            Debug.Log($"[viewer] Resolved meta path: {metaPath}, bin path: {binPath}");
-            Debug.Log($"[viewer] fixture: {meta.frame_count} frames, {meta.slot_count} slots, {meta.duration:F1}s, bin {raw.Length} bytes");
+            string generated = meta.provenance != null ? meta.provenance.generated_at : "(no provenance)";
+            Debug.Log($"[viewer] loaded {prefix}: {meta.frame_count} frames, {meta.slot_count} slots, " +
+                      $"{meta.duration:F1}s, bin {raw.Length} bytes, generated {generated}");
 
-            // Validate the first alive friendly position
-            int friendlySlot = -1;
-            for (int i = 0; i < meta.entities.Count; i++)
-            {
-                if (meta.entities[i].drone_id >= 0 || meta.entities[i].Kind == EntityKind.Friendly)
-                {
-                    friendlySlot = meta.entities[i].slot;
-                    break;
-                }
-            }
-
-            if (friendlySlot >= 0 && runData.Sample(0f, friendlySlot, out var p, out _, out _))
-            {
-                float horizRadius = Mathf.Sqrt(p.x * p.x + p.z * p.z);
-                Debug.Log($"[viewer] friendly slot {friendlySlot} p=({p.x:F2}, {p.y:F2}, {p.z:F2})  horizRadius={horizRadius:F2}");
-
-                bool isFixture = Path.GetFileName(prefix)
-                    .Equals("fixture", StringComparison.OrdinalIgnoreCase);
-
-                if (p.y < 0f)
-                {
-                    string msg = $"[viewer] Friendly slot {friendlySlot} has negative altitude y={p.y:F2}. Double NED conversion?";
-                    if (isFixture) throw new InvalidOperationException(msg);
-                    Debug.LogWarning(msg);
-                }
-
-                if (isFixture && Mathf.Abs(p.y - 30f) > 15f)
-                {
-                    throw new InvalidOperationException(
-                        $"[viewer] FATAL: Friendly slot {friendlySlot} expected y ≈ 30, got {p.y:F2}. Coordinate parse/path is wrong!");
-                }
-
-                if (isFixture && Mathf.Abs(horizRadius - 60f) > 20f)
-                {
-                    throw new InvalidOperationException(
-                        $"[viewer] FATAL: Friendly slot {friendlySlot} expected horizRadius ≈ 60, got {horizRadius:F2}. Coordinate parse/path is wrong!");
-                }
-            }
-
+            validation = RunValidator.Validate(runData, expectations);
+            RunValidator.Log(validation);
             return runData;
         }
 
@@ -112,4 +84,3 @@ namespace SwarmViewer
         }
     }
 }
-

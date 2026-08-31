@@ -18,6 +18,11 @@ namespace SwarmViewer
         [SerializeField] GameObject assetPrefab;
         [SerializeField] Transform assetParent;
 
+        [Header("Fallbacks (used only when meta omits the field)")]
+        [SerializeField] float fallbackArenaMin = -200f;
+        [SerializeField] float fallbackArenaMax = 200f;
+        [SerializeField] float fallbackAssetRadius = 30f;
+
         GameObject _assetInstance;
 
         public void Bind(ViewerContext ctx)
@@ -42,11 +47,25 @@ namespace SwarmViewer
 
         public void UpdateEnvironment(RunMeta meta)
         {
-            // Determine area bounds from meta.arena.min/max, defaulting to -200..200 if not specified.
-            float minX = meta.arena?.min != null && meta.arena.min.Length > 0 ? meta.arena.min[0] : -200f;
-            float maxX = meta.arena?.max != null && meta.arena.max.Length > 0 ? meta.arena.max[0] : 200f;
-            float minZ = meta.arena?.min != null && meta.arena.min.Length > 2 ? meta.arena.min[2] : -200f;
-            float maxZ = meta.arena?.max != null && meta.arena.max.Length > 2 ? meta.arena.max[2] : 200f;
+            bool hasArena = meta.arena?.min != null && meta.arena.max != null
+                            && meta.arena.min.Length >= 3 && meta.arena.max.Length >= 3;
+
+            float minX, maxX, minZ, maxZ;
+            if (hasArena)
+            {
+                minX = meta.arena.min[0];
+                maxX = meta.arena.max[0];
+                minZ = meta.arena.min[2];
+                maxZ = meta.arena.max[2];
+            }
+            else
+            {
+                minX = minZ = fallbackArenaMin;
+                maxX = maxZ = fallbackArenaMax;
+                Debug.LogWarning(
+                    $"[viewer] meta.arena min/max missing; using inspector fallback " +
+                    $"[{minX}, {maxX}] on XZ. Not a measured arena — load continues.");
+            }
 
             float width = maxX - minX;
             float length = maxZ - minZ;
@@ -65,8 +84,22 @@ namespace SwarmViewer
             Vector3 assetPos = Vector3.zero;
             if (meta.asset?.position != null && meta.asset.position.Length >= 3)
                 assetPos = new Vector3(meta.asset.position[0], meta.asset.position[1], meta.asset.position[2]);
+            else
+                Debug.LogWarning(
+                    "[viewer] meta.asset.position missing; placing the asset at origin. Not a measured position — load continues.");
 
-            float assetRadius = meta.asset != null && meta.asset.radius > 0f ? meta.asset.radius : 30f;
+            float assetRadius;
+            if (meta.asset != null && meta.asset.radius > 0f)
+            {
+                assetRadius = meta.asset.radius;
+            }
+            else
+            {
+                assetRadius = fallbackAssetRadius;
+                Debug.LogWarning(
+                    $"[viewer] meta.asset.radius missing or 0; using inspector fallback {assetRadius} m. " +
+                    "Not a measured radius — load continues.");
+            }
 
             if (_assetInstance != null)
             {

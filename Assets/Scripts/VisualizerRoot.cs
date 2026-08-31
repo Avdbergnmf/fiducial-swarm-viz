@@ -13,6 +13,19 @@ namespace SwarmViewer
     /// </summary>
     public sealed class VisualizerRoot : MonoBehaviour
     {
+        [Tooltip("If true, a validation Error aborts the load. Turn off to inspect a broken run.")]
+        [SerializeField] bool throwOnValidationError = false;
+
+        [Tooltip("Example-brain geometry checks. Leave applies=false for your own brain.")]
+        [SerializeField] RunExpectations runExpectations = new()
+        {
+            applies = false,
+            expectedRingRadius = 60f,
+            expectedAltitude = 30f,
+            radiusTolerance = 8f,
+            altitudeTolerance = 5f,
+        };
+
         public ViewerContext Context { get; private set; }
 
         void Start()
@@ -50,7 +63,13 @@ namespace SwarmViewer
             try
             {
                 resolved = RunLoader.Resolve(prefix);
-                run = RunLoader.Load(resolved);
+                run = RunLoader.Load(resolved, runExpectations, out var validation);
+                if (throwOnValidationError && validation != null && validation.HasErrors)
+                {
+                    error = "validation failed: " + validation.Summary();
+                    Debug.LogError($"[viewer] load aborted ({error}). Uncheck Throw On Validation Error to inspect anyway.");
+                    return false;
+                }
             }
             catch (Exception e)
             {
@@ -77,7 +96,7 @@ namespace SwarmViewer
             // Time flows into state
             clock.OnTimeChanged += state.Evaluate;
 
-            // Primary slot drives the belief observer (must stay single-valued).
+            // Selecting a drone makes it the observer
             selection.OnSelectionChanged += slot =>
             {
                 if (slot < 0) return;
@@ -86,7 +105,7 @@ namespace SwarmViewer
             };
 
             // 4. Bind all IRunView components in scene
-            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include);
+            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var comp in allComponents)
             {
                 if (comp is IRunView view)
@@ -98,6 +117,69 @@ namespace SwarmViewer
             clock.Play();
 
             return true;
+        }
+
+        /// <summary>
+        /// Manual attitude check. A quaternion can be unit length and still have the
+        /// wrong handedness — no automated test catches that. Pause on a drone in
+        /// straight transit, select it, then run this from the component context menu.
+        /// transform.forward and velocity should roughly agree.
+        /// </summary>
+        [ContextMenu("Validate Attitude Visually")]
+        public void ValidateAttitudeVisually()
+        {
+            if (Context == null)
+            {
+                Debug.LogWarning("[viewer] attitude check: no run loaded");
+                return;
+            }
+
+            int slot = Context.Selection.Primary;
+            EntityView view = null;
+            var views = FindObjectsByType<EntityView>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            if (slot >= 0)
+            {
+                for (int i = 0; i < views.Length; i++)
+                    if (views[i].Slot == slot) { view = views[i]; break; }
+            }
+
+            if (view == null)
+            {
+                for (int i = 0; i < views.Length; i++)
+                {
+                    if (views[i].Current.Alive && views[i].Current.Velocity.sqrMagnitude > 1f)
+                    {
+                        view = views[i];
+                        slot = view.Slot;
+                        break;
+                    }
+                }
+            }
+
+            Vector3 fwd, vel;
+            if (view != null && view.Current.Alive)
+            {
+                fwd = view.transform.forward;
+                vel = view.Current.Velocity;
+            }
+            else if (slot >= 0 && Context.Run.Sample(Context.State.FrameIndex, slot, out _, out var rot, out vel))
+            {
+                fwd = rot * Vector3.forward;
+            }
+            else
+            {
+                Debug.LogWarning("[viewer] attitude check: pick a living entity (preferably a transiting civilian) and try again");
+                return;
+            }
+
+            float speed = vel.magnitude;
+            float angle = speed > 0.05f ? Vector3.Angle(fwd, vel) : float.NaN;
+            Debug.Log(
+                $"[viewer] attitude check slot={slot} (manual — a unit quaternion can still be rotated wrongly)\n" +
+                $"  transform.forward = {fwd}\n" +
+                $"  velocity          = {vel}  (|v|={speed:F2} m/s)\n" +
+                $"  angle between     = {(float.IsNaN(angle) ? "n/a (almost stationary)" : angle.ToString("F1") + " deg")}\n" +
+                "  In straight transit these should roughly agree. If they do not, fix ned_quat_to_unity in the sidecar, not here.");
         }
 
         static void RememberRun(string stem)
@@ -121,5 +203,3 @@ namespace SwarmViewer
         }
     }
 }
-
-

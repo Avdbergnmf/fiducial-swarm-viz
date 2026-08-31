@@ -47,6 +47,9 @@ namespace SwarmViewer
             var run = ctx.Run;
             var meta = run.Meta;
             float radius = run.KillRadiusOrDefault(killRadius);
+            if (run.KillRadius <= 0f)
+                Debug.LogWarning(
+                    $"[viewer] kill_radius unknown in meta; using inspector fallback {killRadius} m for the sphere.");
             if (killRadiusPrefab == null)
                 Debug.LogWarning("[viewer] SceneBuilder.killRadiusPrefab is not assigned; no kill-radius sphere.");
 
