@@ -1,6 +1,7 @@
 // Immutable container for loaded simulation metadata and frame-major trajectory geometry.
 // Provides spatial and temporal sampling without maintaining runtime playback state.
 
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SwarmViewer
@@ -13,6 +14,8 @@ namespace SwarmViewer
     public sealed class RunData
     {
         public readonly RunMeta Meta;
+        public readonly EntityEventIndex EventsBySlot;
+        public readonly DroneLogIndex LogsByDrone;
 
         readonly float[] _geo;      // frame-major: [(frame * slots + slot) * stride]
         readonly int _slots, _stride;
@@ -21,6 +24,12 @@ namespace SwarmViewer
         public int SlotCount => _slots;
         public float Duration => Meta.duration;
         public float TraceHz => Meta.trace_hz;
+
+        /// <summary>
+        /// Header kill radius in metres. 0 means the meta file predates the field;
+        /// call <see cref="KillRadiusOrDefault"/> with the inspector fallback.
+        /// </summary>
+        public float KillRadius => Meta.kill_radius;
 
         public RunData(RunMeta meta, float[] geometry)
         {
@@ -33,7 +42,18 @@ namespace SwarmViewer
             meta.events.Sort((a, b) => a.t.CompareTo(b.t));
             meta.beliefs.Sort((a, b) => a.t.CompareTo(b.t));
             meta.logs.Sort((a, b) => a.t.CompareTo(b.t));
+
+            EventsBySlot = new EntityEventIndex(meta.events, meta.slot_count);
+            LogsByDrone = new DroneLogIndex(meta.logs);
         }
+
+        /// <summary>Uses the meta value when present, otherwise <paramref name="fallback"/>.</summary>
+        public float KillRadiusOrDefault(float fallback) =>
+            Meta.kill_radius > 0f ? Meta.kill_radius : fallback;
+
+        public IReadOnlyList<EntityEventRecord> EventsFor(int slot) => EventsBySlot.ForSlot(slot);
+
+        public IReadOnlyList<LogLine> LogsForDrone(int droneId) => LogsByDrone.ForDrone(droneId);
 
         static EntityKind ParseKind(string s) => s switch
         {

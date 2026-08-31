@@ -1,6 +1,7 @@
 // Root coordinator component that initializes data loading, manages the playback clock, and drives views.
-// Handles playback user input and displays a lightweight debug HUD.
+// Supports dynamic run loading, clean view rebinding, and error reporting.
 
+using System;
 using UnityEngine;
 
 namespace SwarmViewer
@@ -12,39 +13,71 @@ namespace SwarmViewer
     /// </summary>
     public sealed class VisualizerRoot : MonoBehaviour
     {
-        [Tooltip("Path without extension, relative to StreamingAssets or the project folder.")]
-        [SerializeField] string runPrefix = "fixture";
-
         public ViewerContext Context { get; private set; }
 
         void Start()
         {
-            RunData run;
-            try
-            {
-                run = RunLoader.Load(RunLoader.Resolve(runPrefix));
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[viewer] could not load '{runPrefix}': {e.Message}");
-                enabled = false;
+            var settings = ViewerSettings.Load();
+            string last = settings.lastRunStem;
+            if (RunLoader.Exists(last) && LoadRun(last, out _))
                 return;
+
+            string message = string.IsNullOrEmpty(last)
+                ? "No last run saved. Select a run to load."
+                : $"Could not load last run:\n{last}";
+            Debug.LogWarning("[viewer] " + message);
+
+            var picker = GetComponent<RunPickerView>();
+            if (picker != null)
+                picker.OpenDialog(message);
+        }
+
+        public bool LoadRun(string prefix, out string error)
+        {
+            error = string.Empty;
+
+            // 1. Teardown existing run if any
+            if (Context != null)
+            {
+                Context.Clock.Pause();
+                Context.Selection.Clear();
+                Context.Clock.OnTimeChanged -= Context.State.Evaluate;
             }
 
+            // 2. Load new RunData
+            RunData run;
+            string resolved;
+            try
+            {
+                resolved = RunLoader.Resolve(prefix);
+                run = RunLoader.Load(resolved);
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                Debug.LogError($"[viewer] could not load '{prefix}': {e.Message}");
+                return false;
+            }
+
+            RememberRun(resolved);
+
+            // 3. Setup fresh state, clock, selection
             var state = new RunState(run);
             var clock = new PlaybackClock(run);
             var selection = new SelectionModel();
 
             Context = new ViewerContext
             {
-                Run = run, State = state, Clock = clock, Selection = selection,
+                Run = run,
+                State = state,
+                Clock = clock,
+                Selection = selection,
             };
 
-            // The one place time flows into the world.
+            // Time flows into state
             clock.OnTimeChanged += state.Evaluate;
 
-            // Selecting a drone makes it the observer, so a belief view follows the
-            // click without a second control to operate.
+            // Primary slot drives the belief observer (must stay single-valued).
             selection.OnSelectionChanged += slot =>
             {
                 if (slot < 0) return;
@@ -52,58 +85,41 @@ namespace SwarmViewer
                 if (info.IsFriendly) selection.Observer = info.drone_id;
             };
 
-            foreach (var view in GetComponentsInChildren<IRunView>(true))
-                view.Bind(Context);
+            // 4. Bind all IRunView components in scene
+            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var comp in allComponents)
+            {
+                if (comp is IRunView view)
+                    view.Bind(Context);
+            }
 
+            // 5. Initial evaluation at t = 0
             state.Evaluate(0f);
             clock.Play();
+
+            return true;
+        }
+
+        static void RememberRun(string stem)
+        {
+            var settings = ViewerSettings.Load();
+            if (settings.lastRunStem == stem) return;
+            settings.lastRunStem = stem ?? "";
+            settings.Save();
         }
 
         void Update()
         {
             if (Context == null) return;
             Context.Clock.Tick(Time.deltaTime);
-            HandleKeys();
-        }
-
-        void HandleKeys()
-        {
-            var clock = Context.Clock;
-
-            if (Input.GetKeyDown(KeyCode.Space)) clock.TogglePlay();
-
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            if (Input.GetKeyDown(KeyCode.RightArrow))
-            { if (shift) clock.StepSeconds(1f); else clock.StepFrames(1); }
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
-            { if (shift) clock.StepSeconds(-1f); else clock.StepFrames(-1); }
-
-            if (Input.GetKeyDown(KeyCode.Alpha1)) clock.Speed = 0.25f;
-            if (Input.GetKeyDown(KeyCode.Alpha2)) clock.Speed = 1f;
-            if (Input.GetKeyDown(KeyCode.Alpha3)) clock.Speed = 2f;
-
-            if (Input.GetKeyDown(KeyCode.Tab))
-                Context.Selection.Mode = Context.Selection.Mode == ViewMode.GroundTruth
-                    ? ViewMode.FleetBelief : ViewMode.GroundTruth;
-
-            if (Input.GetKeyDown(KeyCode.Escape)) Context.Selection.Clear();
-        }
-
-        void OnGUI()
-        {
-            if (Context == null) return;
-            var c = Context.Clock;
-            GUI.Label(new Rect(10, 10, 400, 20),
-                $"t = {c.Time,6:F2} / {c.Duration:F0} s   frame {c.FrameIndex}   " +
-                $"x{c.Speed}   {(c.IsPlaying ? "playing" : "paused")}");
-            GUI.Label(new Rect(10, 30, 600, 20),
-                "space play/pause   arrows step frame   shift+arrows step second   1/2/3 speed   tab view");
         }
 
         void OnDestroy()
         {
-            if (Context != null) Context.Clock.OnTimeChanged -= Context.State.Evaluate;
+            if (Context != null)
+                Context.Clock.OnTimeChanged -= Context.State.Evaluate;
         }
     }
 }
+
 

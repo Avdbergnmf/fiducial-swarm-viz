@@ -58,6 +58,7 @@ namespace SwarmViewer
         public int frame_count, slot_count, stride, fleet_size;
         public Bounds3 arena;
         public AssetInfo asset;
+        public float kill_radius;              // 0 when the field is absent (older meta files)
 
         public List<EntityInfo> entities = new();
         public List<EventInfo> events = new();

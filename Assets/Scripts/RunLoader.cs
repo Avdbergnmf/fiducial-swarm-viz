@@ -82,6 +82,14 @@ namespace SwarmViewer
             return runData;
         }
 
+        /// <summary>True when both the meta JSON and trajectory bin exist for this stem.</summary>
+        public static bool Exists(string prefix)
+        {
+            if (string.IsNullOrEmpty(prefix)) return false;
+            string resolved = Resolve(prefix);
+            return File.Exists(resolved + ".meta.json") && File.Exists(resolved + ".bin");
+        }
+
         /// <summary>Resolves path stem. Checks StreamingAssets first, then project-relative or absolute path.</summary>
         public static string Resolve(string prefix)
         {

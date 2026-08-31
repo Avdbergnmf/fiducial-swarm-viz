@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="RunPicker" src="project://database/Assets/Scripts/UI/RunPicker/RunPickerView.uxml?fileID=9197481963319205126&amp;guid=9b008acec54777243b646306bce242dc&amp;type=3#RunPickerView"/>
+    <ui:Template name="Timeline" src="project://database/Assets/Scripts/UI/Timeline/TimelineView.uxml?fileID=9197481963319205126&amp;guid=7abf47447fe8d5449b641403b67f185d&amp;type=3#TimelineView"/>
+    <Style src="project://database/Assets/UI/MainUI.uss?fileID=7433441132597879392&amp;guid=98e2338bc91864847b2a69925e32154a&amp;type=3#MainUI"/>
+    <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
+    <ui:Instance template="RunPicker" name="runPickerInstance" picking-mode="Ignore" class="screen-overlay"/>
+</ui:UXML>

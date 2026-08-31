@@ -1,0 +1,9 @@
+/* Full-screen template wrappers. picking-mode ignore so empty panel space
+   falls through to the 3D view; children that need clicks keep Position. */
+.screen-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}

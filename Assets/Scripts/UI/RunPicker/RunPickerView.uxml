@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="RunPickerView.uss" />
+    <ui:VisualElement name="runPickerRoot" class="run-picker-root" picking-mode="Ignore">
+        <ui:Button name="openPickerBtn" text="Load Run" class="run-picker-toggle-btn" />
+        <ui:VisualElement name="modalBackdrop" class="modal-backdrop">
+            <ui:VisualElement name="pickerDialog" class="picker-dialog">
+                <ui:Label text="Select Simulation Run" class="dialog-title" />
+                <ui:ScrollView name="runListScroll" class="run-list-scroll" />
+                <ui:VisualElement class="path-input-row">
+                    <ui:TextField name="pathInputField" placeholder-text="Extra run folder (absolute path)..." class="path-input-field" />
+                    <ui:Button name="browseFolderBtn" text="Browse" class="browse-folder-btn" />
+                </ui:VisualElement>
+                <ui:Label name="errorLabel" text="" class="error-label" />
+                <ui:VisualElement class="dialog-button-row">
+                    <ui:Button name="cancelBtn" text="Cancel" class="dialog-btn btn-cancel" />
+                    <ui:Button name="loadBtn" text="Load" class="dialog-btn btn-load" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

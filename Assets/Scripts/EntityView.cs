@@ -1,5 +1,6 @@
 // Visual representation of a single entity airframe in the scene.
-// Manages position, rotation, renderer material properties, and flight trail.
+// Manages position, rotation, class material, trail, outline, and kill-radius marker.
+// Selection never touches the entity's own material — only the outline child.
 
 using UnityEngine;
 
@@ -19,26 +20,60 @@ namespace SwarmViewer
         public EntityInfo Info { get; private set; }
         public EntitySnapshot Current { get; private set; }
 
-        [SerializeField] Renderer[] renderers;
+        [SerializeField] Renderer mainRenderer;
         [SerializeField] TrailRenderer trail;
+        [SerializeField] GameObject outlineObject;
+        [SerializeField] Renderer outlineRenderer;
 
-        MaterialPropertyBlock _block;
-        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        static readonly int ColorId = Shader.PropertyToID("_Color");
-        Color _color = Color.clear;
+        [Header("Outline materials (authored — not created at runtime)")]
+        [SerializeField] Material selectedOutlineMaterial;
+        [SerializeField] Material hoverOutlineMaterial;
+
+        Material _currentMaterial;
+        bool _selected;
+        bool _hovered;
+        GameObject _killRadiusGo;
+
+        public bool IsSelected => _selected;
+        public bool IsHovered => _hovered;
 
         public void Init(int slot, EntityInfo info)
         {
             Slot = slot;
             Info = info;
             name = $"{slot:D2} {info.Label}";
-            if (renderers == null || renderers.Length == 0)
-                renderers = GetComponentsInChildren<Renderer>();
 
+            if (mainRenderer == null)
+                mainRenderer = GetComponent<MeshRenderer>();
             if (trail == null)
                 trail = GetComponentInChildren<TrailRenderer>();
+            if (outlineObject == null)
+            {
+                var outlineT = transform.Find("Outline");
+                if (outlineT != null) outlineObject = outlineT.gameObject;
+            }
+            if (outlineRenderer == null && outlineObject != null)
+                outlineRenderer = outlineObject.GetComponent<Renderer>();
 
-            _block = new MaterialPropertyBlock();
+            ApplyOutline();
+        }
+
+        /// <summary>
+        /// Parents a pre-instantiated kill-radius sphere. Prefab is assumed 1 m in
+        /// diameter (Unity default sphere); we scale to 2 * radius.
+        /// </summary>
+        public void AttachKillRadius(GameObject instance, float radiusMetres)
+        {
+            _killRadiusGo = instance;
+            if (_killRadiusGo == null) return;
+            var t = _killRadiusGo.transform;
+            t.SetParent(transform, false);
+            t.localPosition = Vector3.zero;
+            t.localRotation = Quaternion.identity;
+            t.localScale = Vector3.one * (radiusMetres * 2f);
+            foreach (var col in _killRadiusGo.GetComponentsInChildren<Collider>())
+                col.enabled = false;
+            _killRadiusGo.SetActive(false);
         }
 
         public void Apply(in EntitySnapshot snap)
@@ -63,26 +98,73 @@ namespace SwarmViewer
             }
 
             transform.SetPositionAndRotation(snap.Position, snap.Rotation);
+            UpdateKillRadiusVisibility();
         }
 
-        public void SetColor(Color c)
+        /// <summary>Class / belief colour only. Never used for selection.</summary>
+        public void SetMaterial(Material mat)
         {
-            if (_color == c) return;
-            _color = c;
-            _block.SetColor(BaseColorId, c);
-            _block.SetColor(ColorId, c);
-            if (renderers != null)
+            if (_currentMaterial == mat || mat == null) return;
+            _currentMaterial = mat;
+
+            if (mainRenderer != null)
+                mainRenderer.sharedMaterial = mat;
+
+            if (trail != null && mat.HasProperty("_BaseColor"))
             {
-                foreach (var r in renderers)
-                {
-                    if (r != null) r.SetPropertyBlock(_block);
-                }
-            }
-            if (trail != null)
-            {
+                Color c = mat.GetColor("_BaseColor");
                 trail.startColor = new Color(c.r, c.g, c.b, 0.85f);
                 trail.endColor = new Color(c.r, c.g, c.b, 0f);
             }
+        }
+
+        public void SetOutlineMaterials(Material selected, Material hover)
+        {
+            if (selected != null) selectedOutlineMaterial = selected;
+            if (hover != null) hoverOutlineMaterial = hover;
+            ApplyOutline();
+        }
+
+        public void SetSelected(bool selected)
+        {
+            _selected = selected;
+            ApplyOutline();
+            UpdateKillRadiusVisibility();
+        }
+
+        public void SetHovered(bool hovered)
+        {
+            _hovered = hovered;
+            ApplyOutline();
+        }
+
+        void UpdateKillRadiusVisibility()
+        {
+            if (_killRadiusGo == null) return;
+            _killRadiusGo.SetActive(_selected && Current.Alive);
+        }
+
+        /// <summary>
+        /// Selected material wins over hover. Neither: outline renderer off.
+        /// Hover is independent of selection — both flags can be true at once.
+        /// </summary>
+        void ApplyOutline()
+        {
+            if (outlineRenderer == null && outlineObject != null)
+                outlineRenderer = outlineObject.GetComponent<Renderer>();
+
+            bool show = _selected || _hovered;
+            if (outlineObject != null && outlineObject.activeSelf != show)
+                outlineObject.SetActive(show);
+
+            if (outlineRenderer == null) return;
+            outlineRenderer.enabled = show;
+            if (!show) return;
+
+            if (_selected && selectedOutlineMaterial != null)
+                outlineRenderer.sharedMaterial = selectedOutlineMaterial;
+            else if (_hovered && hoverOutlineMaterial != null)
+                outlineRenderer.sharedMaterial = hoverOutlineMaterial;
         }
 
         /// <summary>Handy while debugging the coordinate conversion: if the blue ray
@@ -98,4 +180,3 @@ namespace SwarmViewer
         }
     }
 }
-
