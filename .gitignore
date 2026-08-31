@@ -112,5 +112,10 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
-Assets/StreamingAssets/*.meta.json
-Assets/StreamingAssets/*.bin
+
+# Run fixtures in StreamingAssets (large binaries; last.* is overwritten by playback).
+# Unity .meta sidecars must be ignored too or they still show as changes.
+/[Aa]ssets/StreamingAssets/*.meta.json
+/[Aa]ssets/StreamingAssets/*.meta.json.meta
+/[Aa]ssets/StreamingAssets/*.bin
+/[Aa]ssets/StreamingAssets/*.bin.meta
