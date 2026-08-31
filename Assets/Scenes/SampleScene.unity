@@ -287,6 +287,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   doubleClickThreshold: 0.35
+  orbitCamera: {fileID: 0}
+  uiDocument: {fileID: 0}
 --- !u!114 &330585550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1020,7 +1022,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f384fcaa8c483242b76ac3cc771d59d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.RunPickerView
-  uiDocument: {fileID: 0}
+  uiDocument: {fileID: 1441780140}
+  rootCoordinator: {fileID: 1441780136}
 --- !u!114 &1441780139
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1033,7 +1036,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 912ccfa4c2e2ab04593a33d84a50cbcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.TimelineView
-  uiDocument: {fileID: 0}
+  uiDocument: {fileID: 1441780140}
 --- !u!114 &1441780140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1069,6 +1072,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d29802121f3beb4888f5066fe16c7f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.PlaybackInput
+  uiDocument: {fileID: 1441780140}
 --- !u!114 &1441780142
 MonoBehaviour:
   m_ObjectHideFlags: 0

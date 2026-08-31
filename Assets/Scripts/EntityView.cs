@@ -25,7 +25,7 @@ namespace SwarmViewer
         [SerializeField] GameObject outlineObject;
         [SerializeField] Renderer outlineRenderer;
 
-        [Header("Outline materials (authored — not created at runtime)")]
+        [Header("Outline materials")]
         [SerializeField] Material selectedOutlineMaterial;
         [SerializeField] Material hoverOutlineMaterial;
 
@@ -168,7 +168,7 @@ namespace SwarmViewer
         }
 
         /// <summary>Handy while debugging the coordinate conversion: if the blue ray
-        /// does not point along the direction of travel in a straight transit, the
+        /// does not point along the direction of travel (green line) in a straight transit, the
         /// quaternion conversion in the sidecar is wrong.</summary>
         void OnDrawGizmosSelected()
         {

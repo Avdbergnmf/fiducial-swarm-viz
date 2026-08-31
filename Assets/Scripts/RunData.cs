@@ -17,7 +17,7 @@ namespace SwarmViewer
         public readonly EntityEventIndex EventsBySlot;
         public readonly DroneLogIndex LogsByDrone;
 
-        readonly float[] _geo;      // frame-major: [(frame * slots + slot) * stride]
+        readonly float[] _geometry;      // frame-major: [(frame * slots + slot) * stride]
         readonly int _slots, _stride;
 
         public int FrameCount => Meta.frame_count;
@@ -34,7 +34,7 @@ namespace SwarmViewer
         public RunData(RunMeta meta, float[] geometry)
         {
             Meta = meta;
-            _geo = geometry;
+            _geometry = geometry;
             _slots = meta.slot_count;
             _stride = meta.stride;
 
@@ -73,7 +73,7 @@ namespace SwarmViewer
 
         int Offset(int frame, int slot) => ((frame * _slots) + slot) * _stride;
 
-        public bool IsAlive(int frame, int slot) => _geo[Offset(frame, slot) + 10] > 0.5f;
+        public bool IsAlive(int frame, int slot) => _geometry[Offset(frame, slot) + 10] > 0.5f;
 
         /// <summary>Interpolated sample. False when the entity does not exist then.</summary>
         public bool Sample(float frameF, int slot, out Vector3 pos, out Quaternion rot, out Vector3 vel)
@@ -99,7 +99,7 @@ namespace SwarmViewer
             return true;
         }
 
-        Vector3 V3(int o) => new(_geo[o], _geo[o + 1], _geo[o + 2]);
-        Quaternion Q(int o) => new(_geo[o], _geo[o + 1], _geo[o + 2], _geo[o + 3]);
+        Vector3 V3(int o) => new(_geometry[o], _geometry[o + 1], _geometry[o + 2]);
+        Quaternion Q(int o) => new(_geometry[o], _geometry[o + 1], _geometry[o + 2], _geometry[o + 3]);
     }
 }
