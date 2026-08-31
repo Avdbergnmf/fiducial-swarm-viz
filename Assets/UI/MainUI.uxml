@@ -4,4 +4,9 @@
     <Style src="project://database/Assets/UI/MainUI.uss?fileID=7433441132597879392&amp;guid=98e2338bc91864847b2a69925e32154a&amp;type=3#MainUI"/>
     <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="RunPicker" name="runPickerInstance" picking-mode="Ignore" class="screen-overlay"/>
+    <ui:VisualElement name="uiScaleBar" picking-mode="Position" class="ui-scale-bar">
+        <ui:Button name="uiScaleDownBtn" text="-" picking-mode="Position" class="ui-scale-btn" />
+        <ui:Label name="uiScaleLabel" text="125%" picking-mode="Ignore" class="ui-scale-label" />
+        <ui:Button name="uiScaleUpBtn" text="+" picking-mode="Position" class="ui-scale-btn" />
+    </ui:VisualElement>
 </ui:UXML>

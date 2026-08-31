@@ -12,6 +12,18 @@ namespace SwarmViewer
     {
         public string extraRunFolder = "";
         public string lastRunStem = "";
+        public float uiScale; // 0 = unset (older files); ResolvedUiScale() supplies the default
+
+        public const float UiScaleMin = 0.8f;
+        public const float UiScaleMax = 2.0f;
+        public const float UiScaleDefault = 1.25f;
+        public const float UiScaleStep = 0.1f;
+
+        public float ResolvedUiScale()
+        {
+            float s = uiScale > 0.01f ? uiScale : UiScaleDefault;
+            return Mathf.Clamp(s, UiScaleMin, UiScaleMax);
+        }
 
         const string FileName = "viewer.settings.json";
 

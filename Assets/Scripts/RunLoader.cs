@@ -20,7 +20,10 @@ namespace SwarmViewer
         public static RunData Load(string prefix) =>
             Load(prefix, default, out _);
 
-        public static RunData Load(string prefix, RunExpectations expectations, out ValidationResult validation)
+        public static RunData Load(string prefix, RunExpectations expectations, out ValidationResult validation) =>
+            Load(prefix, expectations, out validation, log: true);
+
+        public static RunData Load(string prefix, RunExpectations expectations, out ValidationResult validation, bool log)
         {
             string metaPath = prefix + ".meta.json";
             string binPath = prefix + ".bin";
@@ -48,12 +51,16 @@ namespace SwarmViewer
             // instantiate RunData with meta and geometry
             var runData = new RunData(meta, geometry);
 
-            string generated = meta.provenance != null ? meta.provenance.generated_at : "(no provenance)";
-            Debug.Log($"[viewer] loaded {prefix}: {meta.frame_count} frames, {meta.slot_count} slots, " +
-                      $"{meta.duration:F1}s, bin {raw.Length} bytes, generated {generated}");
+            if (log)
+            {
+                string generated = meta.provenance != null ? meta.provenance.generated_at : "(no provenance)";
+                Debug.Log($"[viewer] loaded {prefix}: {meta.frame_count} frames, {meta.slot_count} slots, " +
+                          $"{meta.duration:F1}s, bin {raw.Length} bytes, generated {generated}");
+            }
 
             validation = RunValidator.Validate(runData, expectations);
-            RunValidator.Log(validation);
+            if (log)
+                RunValidator.Log(validation);
             return runData;
         }
 

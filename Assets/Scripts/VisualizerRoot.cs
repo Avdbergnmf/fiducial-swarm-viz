@@ -28,6 +28,9 @@ namespace SwarmViewer
 
         public ViewerContext Context { get; private set; }
 
+        /// <summary>Opt-in behaviour checks used on load and by the picker Validate button.</summary>
+        public RunExpectations Expectations => runExpectations;
+
         void Start()
         {
             var settings = ViewerSettings.Load();
@@ -105,7 +108,7 @@ namespace SwarmViewer
             };
 
             // 4. Bind all IRunView components in scene
-            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include);
             foreach (var comp in allComponents)
             {
                 if (comp is IRunView view)
@@ -136,7 +139,7 @@ namespace SwarmViewer
 
             int slot = Context.Selection.Primary;
             EntityView view = null;
-            var views = FindObjectsByType<EntityView>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var views = FindObjectsByType<EntityView>(FindObjectsInactive.Exclude);
             if (slot >= 0)
             {
                 for (int i = 0; i < views.Length; i++)

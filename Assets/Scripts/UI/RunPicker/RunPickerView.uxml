@@ -5,15 +5,31 @@
         <ui:VisualElement name="modalBackdrop" class="modal-backdrop">
             <ui:VisualElement name="pickerDialog" class="picker-dialog">
                 <ui:Label text="Select Simulation Run" class="dialog-title" />
-                <ui:ScrollView name="runListScroll" class="run-list-scroll" />
-                <ui:VisualElement class="path-input-row">
+                <ui:VisualElement name="pickerBody" class="picker-body">
+                    <ui:ScrollView name="runListScroll" class="run-list-scroll" />
+                    <ui:VisualElement name="runPreview" class="run-preview">
+                        <ui:Label name="previewTitle" text="No run selected" class="preview-title" />
+                        <ui:ScrollView name="previewScroll" class="preview-scroll" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="path-input-row" picking-mode="Ignore">
                     <ui:TextField name="pathInputField" placeholder-text="Extra run folder (absolute path)..." class="path-input-field" />
                     <ui:Button name="browseFolderBtn" text="Browse" class="browse-folder-btn" />
                 </ui:VisualElement>
-                <ui:Label name="errorLabel" text="" class="error-label" />
+                <ui:Label name="errorLabel" text="" picking-mode="Ignore" class="error-label" />
                 <ui:VisualElement class="dialog-button-row">
+                    <ui:Button name="validateBtn" text="Validate" class="dialog-btn btn-validate" />
+                    <ui:VisualElement class="dialog-button-spacer" />
                     <ui:Button name="cancelBtn" text="Cancel" class="dialog-btn btn-cancel" />
                     <ui:Button name="loadBtn" text="Load" class="dialog-btn btn-load" />
+                </ui:VisualElement>
+                <ui:VisualElement name="reportOverlay" class="report-overlay">
+                    <ui:VisualElement class="report-header">
+                        <ui:Label name="reportTitle" text="Validation report" class="dialog-title report-title" />
+                        <ui:Button name="reportCloseBtn" text="Back" class="dialog-btn btn-cancel" />
+                    </ui:VisualElement>
+                    <ui:Label name="reportSummary" text="" class="report-summary" />
+                    <ui:ScrollView name="reportScroll" class="report-scroll" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
