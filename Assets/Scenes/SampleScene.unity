@@ -972,7 +972,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.SceneBuilder
   entityPrefab: {fileID: 6425260717984280029, guid: 52f5656ab2aaa7e4fa0666f222b6ec77, type: 3}
   container: {fileID: 1212397412}
-  scale: 5
+  scale: 1
   selectedOutlineMaterial: {fileID: 2100000, guid: 46586a69ce3092744a2716e295381c89, type: 2}
   hoverOutlineMaterial: {fileID: 2100000, guid: ba516624c70ec014f834f31b5958a387, type: 2}
   killRadiusPrefab: {fileID: 7360011015616698995, guid: c50ae5a5188ce8f4880ef360aba222ec, type: 3}

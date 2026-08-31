@@ -112,3 +112,5 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+Assets/StreamingAssets/*.meta.json
+Assets/StreamingAssets/*.bin
