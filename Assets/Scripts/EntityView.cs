@@ -3,6 +3,7 @@
 // Selection never touches the entity's own material — only the outline child.
 
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace SwarmViewer
 {
@@ -33,6 +34,7 @@ namespace SwarmViewer
         bool _selected;
         bool _hovered;
         GameObject _killRadiusGo;
+        GameObject _pickVolumeGo;
 
         public bool IsSelected => _selected;
         public bool IsHovered => _hovered;
@@ -56,6 +58,63 @@ namespace SwarmViewer
                 outlineRenderer = outlineObject.GetComponent<Renderer>();
 
             ApplyOutline();
+        }
+
+        /// <summary>
+        /// World-space trail width is independent of transform scale, so the
+        /// airframe scale has to be multiplied in here. Time is seconds of history.
+        /// </summary>
+        public void ConfigureTrail(float widthMultiplier, float time)
+        {
+            if (trail == null)
+                trail = GetComponentInChildren<TrailRenderer>();
+            if (trail == null) return;
+            trail.widthMultiplier = Mathf.Max(0.01f, widthMultiplier);
+            trail.time = Mathf.Max(0.05f, time);
+        }
+
+        /// <summary>
+        /// Pick volume in local metres. Larger than the mesh so a click near the
+        /// craft still hits; EntityPicker breaks ties by origin, not first hit.
+        /// Optional ghost mesh is the same size, shown on hover only.
+        /// </summary>
+        public void ConfigurePickCollider(float localRadius, Material volumeMat)
+        {
+            var box = GetComponent<BoxCollider>();
+            if (box != null)
+                box.enabled = false;
+
+            var sphere = GetComponent<SphereCollider>();
+            if (sphere == null)
+                sphere = gameObject.AddComponent<SphereCollider>();
+            sphere.enabled = true;
+            sphere.center = Vector3.zero;
+            float r = Mathf.Max(0.05f, localRadius);
+            sphere.radius = r;
+
+            if (_pickVolumeGo != null)
+                Destroy(_pickVolumeGo);
+            if (volumeMat == null)
+                return;
+
+            _pickVolumeGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            _pickVolumeGo.name = "PickVolume";
+            var volumeCol = _pickVolumeGo.GetComponent<Collider>();
+            if (volumeCol != null)
+            {
+                volumeCol.enabled = false;
+                Object.Destroy(volumeCol);
+            }
+            var t = _pickVolumeGo.transform;
+            t.SetParent(transform, false);
+            t.localPosition = Vector3.zero;
+            t.localRotation = Quaternion.identity;
+            t.localScale = Vector3.one * (r * 2f);
+            var rend = _pickVolumeGo.GetComponent<MeshRenderer>();
+            rend.sharedMaterial = volumeMat;
+            rend.shadowCastingMode = ShadowCastingMode.Off;
+            rend.receiveShadows = false;
+            _pickVolumeGo.SetActive(false);
         }
 
         /// <summary>
@@ -99,6 +158,7 @@ namespace SwarmViewer
 
             transform.SetPositionAndRotation(snap.Position, snap.Rotation);
             UpdateKillRadiusVisibility();
+            UpdatePickVolumeVisibility();
         }
 
         /// <summary>Class / belief colour only. Never used for selection.</summary>
@@ -136,12 +196,19 @@ namespace SwarmViewer
         {
             _hovered = hovered;
             ApplyOutline();
+            UpdatePickVolumeVisibility();
         }
 
         void UpdateKillRadiusVisibility()
         {
             if (_killRadiusGo == null) return;
             _killRadiusGo.SetActive(_selected && Current.Alive);
+        }
+
+        void UpdatePickVolumeVisibility()
+        {
+            if (_pickVolumeGo == null) return;
+            _pickVolumeGo.SetActive(_hovered && Current.Alive);
         }
 
         /// <summary>

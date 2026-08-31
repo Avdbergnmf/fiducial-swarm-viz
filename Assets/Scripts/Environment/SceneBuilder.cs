@@ -12,6 +12,17 @@ namespace SwarmViewer
         [SerializeField] Transform container;
         [SerializeField] float scale = 5f;
 
+        [Tooltip("World-metre pick sphere, independent of airframe scale. Fat click target.")]
+        [SerializeField] float pickColliderRadius = 5f;
+        [Tooltip("Ghost sphere shown on hover, sized to the pick collider. Leave empty to hide it.")]
+        [SerializeField] Material pickVolumeMaterial;
+
+        [Header("Trails")]
+        [Tooltip("Width multiplier times airframe scale. 5 at scale=1 matches the old scale=5 look.")]
+        [SerializeField] float trailWidth = 5f;
+        [Tooltip("Seconds of path kept. Prefab default was 8.")]
+        [SerializeField] float trailTime = 4f;
+
         [Header("Outline (selection / hover — not the entity body)")]
         [SerializeField] Material selectedOutlineMaterial;
         [SerializeField] Material hoverOutlineMaterial;
@@ -58,9 +69,12 @@ namespace SwarmViewer
             for (int s = 0; s < meta.slot_count; s++)
             {
                 var view = Instantiate(entityPrefab, container);
-                view.transform.localScale = Vector3.one * scale;
+                float sAbs = Mathf.Max(0.01f, scale);
+                view.transform.localScale = Vector3.one * sAbs;
                 view.Init(s, meta.entities[s]);
                 view.SetOutlineMaterials(selectedOutlineMaterial, hoverOutlineMaterial);
+                view.ConfigureTrail(trailWidth * sAbs, trailTime);
+                view.ConfigurePickCollider(pickColliderRadius / sAbs, pickVolumeMaterial);
 
                 if (killRadiusPrefab != null)
                 {

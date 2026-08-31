@@ -1,5 +1,7 @@
 // Raycasts against the entity picking layer to handle hover highlights, click
 // selection (plain / Shift multi-select), and double-click camera resets.
+// Pick volume is a fat sphere (SceneBuilder.pickColliderRadius). Overlaps go
+// to the origin closest to the ray; a miss still selects within pickPixelSlack.
 //
 // Pointer routing (explain this out loud):
 //   1. UI Toolkit owns a panel that covers the whole Game view. panel.Pick()
@@ -23,6 +25,8 @@ namespace SwarmViewer
     {
         [SerializeField] LayerMask pickingLayer;
         [SerializeField] float doubleClickThreshold = 0.35f;
+        [Tooltip("If the click misses every collider, still select the nearest origin within this many pixels.")]
+        [SerializeField] float pickPixelSlack = 48f;
         [SerializeField] OrbitCameraController orbitCamera;
         [SerializeField] UIDocument uiDocument;
 
@@ -68,11 +72,7 @@ namespace SwarmViewer
                 return;
             }
 
-            Ray ray = _cam.ScreenPointToRay(mousePos);
-            EntityView hitEntity = null;
-
-            if (Physics.Raycast(ray, out RaycastHit hit, 5000f, pickingLayer))
-                hitEntity = hit.collider.GetComponentInParent<EntityView>();
+            EntityView hitEntity = PickEntity(mousePos);
 
             UpdateHover(hitEntity);
 
@@ -159,5 +159,63 @@ namespace SwarmViewer
             var picked = root.panel.Pick(panelPos);
             return picked != null && picked != root;
         }
+
+        /// <summary>
+        /// Fat collider hit, then screen-space slack. Overlaps resolve to the
+        /// origin closest to the click ray (AoE-style: nearest unit, not first mesh).
+        /// </summary>
+        EntityView PickEntity(Vector2 mousePos)
+        {
+            Ray ray = _cam.ScreenPointToRay(mousePos);
+            var hits = Physics.RaycastAll(ray, 5000f, pickingLayer);
+            EntityView best = null;
+            float bestDist = float.MaxValue;
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                var view = hits[i].collider.GetComponentInParent<EntityView>();
+                if (!IsPickable(view)) continue;
+                float d = DistanceRayToPoint(ray, view.transform.position);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = view;
+                }
+            }
+
+            if (best != null)
+                return best;
+
+            return NearestOnScreen(mousePos, pickPixelSlack);
+        }
+
+        EntityView NearestOnScreen(Vector2 mousePos, float maxPixels)
+        {
+            var views = FindObjectsByType<EntityView>(FindObjectsInactive.Exclude);
+            EntityView best = null;
+            float bestDist = maxPixels;
+
+            for (int i = 0; i < views.Length; i++)
+            {
+                var view = views[i];
+                if (!IsPickable(view)) continue;
+                Vector3 sp = _cam.WorldToScreenPoint(view.transform.position);
+                if (sp.z < 0.1f) continue;
+                float d = Vector2.Distance(mousePos, new Vector2(sp.x, sp.y));
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = view;
+                }
+            }
+
+            return best;
+        }
+
+        static bool IsPickable(EntityView view) =>
+            view != null && view.gameObject.activeInHierarchy && view.Current.Alive;
+
+        static float DistanceRayToPoint(Ray ray, Vector3 point) =>
+            Vector3.Cross(ray.direction, point - ray.origin).magnitude;
     }
 }

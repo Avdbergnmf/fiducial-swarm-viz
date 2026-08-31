@@ -1,6 +1,6 @@
 // RuneScape-style orbit camera: smooth tracking of the selection centroid,
 // WASD pan (only with an empty selection; Shift sprints pan), MMB / arrows orbit,
-// scroll zoom. Orbit and zoom speeds are never multiplied by Shift.
+// scroll zoom (Shift sprints zoom the same way, without raising the base speed).
 
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -14,6 +14,8 @@ namespace SwarmViewer
         [SerializeField] float pitchSpeed = 0.2f;
         [SerializeField] float keyOrbitSpeed = 90f;
         [SerializeField] float zoomSensitivity = 0.05f;
+        [Tooltip("Hold Shift while scrolling to multiply zoom speed. Same idea as pan sprint.")]
+        [SerializeField] float zoomSprintMultiplier = 3f;
         [SerializeField] float panSpeed = 60f;
         [SerializeField] float panSprintMultiplier = 3f;
         [SerializeField] float followSmoothRate = 8f;
@@ -144,7 +146,10 @@ namespace SwarmViewer
                 float scroll = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(scroll) > 0.01f)
                 {
-                    _distance -= scroll * zoomSensitivity;
+                    bool zoomSprint = keyboard != null &&
+                        (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+                    float zoom = zoomSensitivity * (zoomSprint ? zoomSprintMultiplier : 1f);
+                    _distance -= scroll * zoom;
                     _distance = Mathf.Clamp(_distance, _minDistance, _maxDistance);
                 }
             }
