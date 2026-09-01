@@ -1,0 +1,1140 @@
+// Aircraft, Events, and Logs each get their own floating window. Open from the
+// matching button in the scale bar. Aircraft list supports click / Ctrl-toggle /
+// Shift-range. Categorical filters are multi-select chips (none on = no restriction).
+
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace SwarmViewer
+{
+    public sealed class SceneStateView : MonoBehaviour, IRunView
+    {
+        enum EventSort { Time, Kind, Severity, Involved, Text }
+        enum AircraftSort { Name, Kind, Slot, Speed, Status }
+        enum LogSort { Time, Drone, Text }
+
+        struct AircraftRow
+        {
+            public int Slot;
+            public VisualElement Root;
+            public Label Speed;
+            public Label Status;
+        }
+
+        [SerializeField] UIDocument uiDocument;
+        [SerializeField] EntityInspectorView inspector;
+        [Tooltip("Seconds before an event or log line to land when its row is clicked.")]
+        [SerializeField] float eventLeadIn = 2f;
+
+        ViewerContext _ctx;
+        VisualElement _root;
+        bool _uiWired;
+
+        Button _aircraftOpenBtn;
+        Button _eventsOpenBtn;
+        Button _logsOpenBtn;
+
+        FloatingPanel _aircraftFloat;
+        FloatingPanel _eventsFloat;
+        FloatingPanel _logsFloat;
+        bool _aircraftVisible;
+        bool _eventsVisible;
+        bool _logsVisible;
+
+        Label _aircraftHeader;
+        Label _aircraftMix;
+        TextField _aircraftFilter;
+        FilterChips _aircraftKindChips;
+        FilterChips _aircraftStatusChips;
+        Button _aircraftColName;
+        Button _aircraftColKind;
+        Button _aircraftColSlot;
+        Button _aircraftColSpeed;
+        Button _aircraftColStatus;
+        ScrollView _aircraftScroll;
+
+        Label _eventsHeader;
+        TextField _eventsFilter;
+        FilterChips _eventKindChips;
+        Button _eventsColTime;
+        Button _eventsColKind;
+        Button _eventsColSev;
+        Button _eventsColWho;
+        Button _eventsColText;
+        ScrollView _eventsScroll;
+
+        Label _logsHeader;
+        TextField _logsFilter;
+        FilterChips _logDroneChips;
+        Button _logsColTime;
+        Button _logsColDrone;
+        Button _logsColText;
+        ScrollView _logsScroll;
+
+        readonly List<AircraftRow> _aircraftRows = new();
+        readonly List<int> _displayedAircraft = new();
+        readonly List<EventInfo> _filteredEvents = new();
+        readonly List<VisualElement> _eventRows = new();
+        readonly List<LogLine> _filteredLogs = new();
+        readonly List<VisualElement> _logRows = new();
+        readonly Dictionary<int, int> _droneToSlot = new();
+
+        AircraftSort _aircraftSort = AircraftSort.Kind;
+        bool _aircraftSortAsc = true;
+        int _aircraftAnchorSlot = -1;
+        int _lastAircraftClickSlot = -1;
+        float _lastAircraftClickTime;
+
+        EventSort _eventSort = EventSort.Time;
+        bool _eventSortAsc = true;
+        EventInfo _nowEvent;
+        bool _eventHighlightDirty;
+
+        LogSort _logSort = LogSort.Time;
+        bool _logSortAsc = true;
+        LogLine _nowLog;
+        bool _logHighlightDirty;
+        int _aliveFingerprint = int.MinValue;
+
+        void OnEnable() => TryWireUi();
+        void Start() => TryWireUi();
+
+        public void Bind(ViewerContext ctx)
+        {
+            Unhook();
+            _ctx = ctx;
+            _aircraftAnchorSlot = -1;
+            _lastAircraftClickSlot = -1;
+            _aliveFingerprint = int.MinValue;
+            TryWireUi();
+            Hook();
+            RebuildDroneMap();
+            RebuildFilterChoices();
+            if (_aircraftVisible) RebuildAircraft();
+            if (_eventsVisible) RebuildEvents();
+            if (_logsVisible) RebuildLogs();
+        }
+
+        void TryWireUi()
+        {
+            if (uiDocument == null)
+                uiDocument = GetComponent<UIDocument>();
+            if (inspector == null)
+            {
+                inspector = GetComponent<EntityInspectorView>();
+                if (inspector == null)
+                {
+                    var found = FindObjectsByType<EntityInspectorView>(FindObjectsInactive.Include);
+                    if (found.Length > 0) inspector = found[0];
+                }
+            }
+            if (uiDocument == null)
+            {
+                Debug.LogWarning("[viewer] SceneStateView: no UIDocument.");
+                return;
+            }
+
+            var root = uiDocument.rootVisualElement;
+            if (root == null)
+            {
+                Debug.LogWarning("[viewer] SceneStateView: rootVisualElement is null — UIDocument not ready yet.");
+                return;
+            }
+
+            if (_uiWired && _root == root) return;
+
+            _root = root;
+            _aircraftOpenBtn = UiQuery.Named<Button>(_root, "aircraftOpenBtn");
+            _eventsOpenBtn = UiQuery.Named<Button>(_root, "sceneStateOpenBtn");
+            _logsOpenBtn = UiQuery.Named<Button>(_root, "logsOpenBtn");
+
+            var aircraftPanel = UiQuery.Named<VisualElement>(_root, "aircraftPanel");
+            var eventsPanel = UiQuery.Named<VisualElement>(_root, "eventsPanel");
+            var logsPanel = UiQuery.Named<VisualElement>(_root, "logsPanel");
+
+            _aircraftHeader = UiQuery.Named<Label>(_root, "aircraftHeader");
+            _aircraftMix = UiQuery.Named<Label>(_root, "aircraftMix");
+            _aircraftFilter = UiQuery.Named<TextField>(_root, "aircraftFilter");
+            _aircraftKindChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "aircraftKindChips"));
+            _aircraftStatusChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "aircraftStatusChips"));
+            _aircraftColName = UiQuery.Named<Button>(_root, "aircraftColName");
+            _aircraftColKind = UiQuery.Named<Button>(_root, "aircraftColKind");
+            _aircraftColSlot = UiQuery.Named<Button>(_root, "aircraftColSlot");
+            _aircraftColSpeed = UiQuery.Named<Button>(_root, "aircraftColSpeed");
+            _aircraftColStatus = UiQuery.Named<Button>(_root, "aircraftColStatus");
+            _aircraftScroll = UiQuery.Named<ScrollView>(_root, "aircraftScroll");
+
+            _eventsHeader = UiQuery.Named<Label>(_root, "eventsHeader");
+            _eventsFilter = UiQuery.Named<TextField>(_root, "eventsFilter");
+            _eventKindChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "eventKindChips"));
+            _eventsColTime = UiQuery.Named<Button>(_root, "eventsColTime");
+            _eventsColKind = UiQuery.Named<Button>(_root, "eventsColKind");
+            _eventsColSev = UiQuery.Named<Button>(_root, "eventsColSev");
+            _eventsColWho = UiQuery.Named<Button>(_root, "eventsColWho");
+            _eventsColText = UiQuery.Named<Button>(_root, "eventsColText");
+            _eventsScroll = UiQuery.Named<ScrollView>(_root, "eventsScroll");
+
+            _logsHeader = UiQuery.Named<Label>(_root, "logsHeader");
+            _logsFilter = UiQuery.Named<TextField>(_root, "logsFilter");
+            _logDroneChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "logDroneChips"));
+            _logsColTime = UiQuery.Named<Button>(_root, "logsColTime");
+            _logsColDrone = UiQuery.Named<Button>(_root, "logsColDrone");
+            _logsColText = UiQuery.Named<Button>(_root, "logsColText");
+            _logsScroll = UiQuery.Named<ScrollView>(_root, "logsScroll");
+
+            _aircraftFloat = AttachWindow(aircraftPanel, "aircraftDragHandle", "aircraftCloseBtn",
+                () => { _aircraftVisible = false; SetOpen(_aircraftOpenBtn, false); });
+            _eventsFloat = AttachWindow(eventsPanel, "eventsDragHandle", "eventsCloseBtn",
+                () => { _eventsVisible = false; SetOpen(_eventsOpenBtn, false); });
+            _logsFloat = AttachWindow(logsPanel, "logsDragHandle", "logsCloseBtn",
+                () => { _logsVisible = false; SetOpen(_logsOpenBtn, false); });
+
+            RegisterCallbacks();
+            _uiWired = true;
+        }
+
+        FloatingPanel AttachWindow(VisualElement panel, string dragName, string closeName, Action onHidden)
+        {
+            if (panel == null) return null;
+            var handle = UiQuery.Named<VisualElement>(_root, dragName);
+            var close = UiQuery.Named<Button>(_root, closeName);
+            var window = new FloatingPanel();
+            window.Attach(panel, handle, close);
+            window.Hidden += onHidden;
+            return window;
+        }
+
+        void RegisterCallbacks()
+        {
+            if (_aircraftOpenBtn != null) _aircraftOpenBtn.clicked += ToggleAircraft;
+            if (_eventsOpenBtn != null) _eventsOpenBtn.clicked += ToggleEvents;
+            if (_logsOpenBtn != null) _logsOpenBtn.clicked += ToggleLogs;
+
+            if (_aircraftFilter != null)
+                _aircraftFilter.RegisterValueChangedCallback(_ => { if (_aircraftVisible) RebuildAircraft(); });
+            if (_aircraftKindChips != null)
+                _aircraftKindChips.Changed += () => { if (_aircraftVisible) RebuildAircraft(); };
+            if (_aircraftStatusChips != null)
+                _aircraftStatusChips.Changed += () => { if (_aircraftVisible) RebuildAircraft(); };
+            if (_aircraftColName != null) _aircraftColName.clicked += () => SortAircraft(AircraftSort.Name);
+            if (_aircraftColKind != null) _aircraftColKind.clicked += () => SortAircraft(AircraftSort.Kind);
+            if (_aircraftColSlot != null) _aircraftColSlot.clicked += () => SortAircraft(AircraftSort.Slot);
+            if (_aircraftColSpeed != null) _aircraftColSpeed.clicked += () => SortAircraft(AircraftSort.Speed);
+            if (_aircraftColStatus != null) _aircraftColStatus.clicked += () => SortAircraft(AircraftSort.Status);
+
+            if (_eventsFilter != null)
+                _eventsFilter.RegisterValueChangedCallback(_ => { if (_eventsVisible) RebuildEvents(); });
+            if (_eventKindChips != null)
+                _eventKindChips.Changed += () => { if (_eventsVisible) RebuildEvents(); };
+            if (_eventsColTime != null) _eventsColTime.clicked += () => SortEvents(EventSort.Time);
+            if (_eventsColKind != null) _eventsColKind.clicked += () => SortEvents(EventSort.Kind);
+            if (_eventsColSev != null) _eventsColSev.clicked += () => SortEvents(EventSort.Severity);
+            if (_eventsColWho != null) _eventsColWho.clicked += () => SortEvents(EventSort.Involved);
+            if (_eventsColText != null) _eventsColText.clicked += () => SortEvents(EventSort.Text);
+
+            if (_logsFilter != null)
+                _logsFilter.RegisterValueChangedCallback(_ => { if (_logsVisible) RebuildLogs(); });
+            if (_logDroneChips != null)
+                _logDroneChips.Changed += () => { if (_logsVisible) RebuildLogs(); };
+            if (_logsColTime != null) _logsColTime.clicked += () => SortLogs(LogSort.Time);
+            if (_logsColDrone != null) _logsColDrone.clicked += () => SortLogs(LogSort.Drone);
+            if (_logsColText != null) _logsColText.clicked += () => SortLogs(LogSort.Text);
+        }
+
+        void Hook()
+        {
+            if (_ctx == null) return;
+            if (_ctx.State != null)
+                _ctx.State.Changed += OnStateChanged;
+            if (_ctx.Selection != null)
+                _ctx.Selection.OnSelectionChanged += OnSelectionChanged;
+        }
+
+        void Unhook()
+        {
+            if (_ctx == null) return;
+            if (_ctx.State != null)
+                _ctx.State.Changed -= OnStateChanged;
+            if (_ctx.Selection != null)
+                _ctx.Selection.OnSelectionChanged -= OnSelectionChanged;
+        }
+
+        void OnDestroy() => Unhook();
+
+        void ToggleAircraft()
+        {
+            if (_aircraftVisible) _aircraftFloat?.Hide();
+            else OpenAircraft();
+        }
+
+        void ToggleEvents()
+        {
+            if (_eventsVisible) _eventsFloat?.Hide();
+            else OpenEvents();
+        }
+
+        void ToggleLogs()
+        {
+            if (_logsVisible) _logsFloat?.Hide();
+            else OpenLogs();
+        }
+
+        void OpenAircraft()
+        {
+            _aircraftVisible = true;
+            _aircraftFloat?.Show();
+            SetOpen(_aircraftOpenBtn, true);
+            RebuildAircraft();
+        }
+
+        void OpenEvents()
+        {
+            _eventsVisible = true;
+            _eventsFloat?.Show();
+            SetOpen(_eventsOpenBtn, true);
+            RebuildEvents();
+        }
+
+        void OpenLogs()
+        {
+            _logsVisible = true;
+            _logsFloat?.Show();
+            SetOpen(_logsOpenBtn, true);
+            RebuildLogs();
+        }
+
+        static void SetOpen(Button btn, bool on) =>
+            btn?.EnableInClassList("scene-state-toggle--open", on);
+
+        void OnStateChanged()
+        {
+            if (_aircraftVisible)
+            {
+                int fp = AliveFingerprint();
+                if (fp != _aliveFingerprint)
+                    RebuildAircraft();
+                else
+                    RefreshAircraftLive();
+            }
+            if (_eventsVisible)
+                UpdateEventHighlights();
+            if (_logsVisible)
+                UpdateLogHighlights();
+        }
+
+        void OnSelectionChanged(int _)
+        {
+            if (_aircraftVisible)
+                UpdateAircraftHighlights();
+        }
+
+        int AliveFingerprint()
+        {
+            if (_ctx?.State == null) return 0;
+            unchecked
+            {
+                int h = 17;
+                var ents = _ctx.State.Entities;
+                for (int i = 0; i < ents.Count; i++)
+                    if (ents[i].Alive)
+                        h = h * 31 + i;
+                return h;
+            }
+        }
+
+        void RebuildDroneMap()
+        {
+            _droneToSlot.Clear();
+            if (_ctx?.Run == null) return;
+            int n = _ctx.Run.SlotCount;
+            for (int i = 0; i < n; i++)
+            {
+                int drone = _ctx.Run.Info(i).drone_id;
+                if (drone >= 0 && !_droneToSlot.ContainsKey(drone))
+                    _droneToSlot[drone] = i;
+            }
+        }
+
+        void RebuildFilterChoices()
+        {
+            var kinds = new List<string>();
+            var seenKind = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (_ctx?.Run != null)
+            {
+                int n = _ctx.Run.SlotCount;
+                for (int i = 0; i < n; i++)
+                {
+                    string name = KindName(_ctx.Run.Info(i).Kind);
+                    if (seenKind.Add(name))
+                        kinds.Add(name);
+                }
+                kinds.Sort(StringComparer.OrdinalIgnoreCase);
+            }
+            _aircraftKindChips?.SetChoices(kinds);
+            _aircraftStatusChips?.SetChoices(new[] { "Alive", "Gone" });
+
+            var eventKinds = new List<string>();
+            var seenEvent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var events = _ctx?.Run?.Meta?.events;
+            if (events != null)
+            {
+                for (int i = 0; i < events.Count; i++)
+                {
+                    string kind = events[i]?.kind;
+                    if (string.IsNullOrEmpty(kind) || !seenEvent.Add(kind)) continue;
+                    eventKinds.Add(kind);
+                }
+                eventKinds.Sort(StringComparer.OrdinalIgnoreCase);
+            }
+            _eventKindChips?.SetChoices(eventKinds);
+
+            var drones = new List<string>();
+            var seenDrone = new HashSet<int>();
+            var logs = _ctx?.Run?.Meta?.logs;
+            if (logs != null)
+            {
+                for (int i = 0; i < logs.Count; i++)
+                {
+                    int id = logs[i].drone;
+                    if (!seenDrone.Add(id)) continue;
+                    drones.Add(DroneChip(id));
+                }
+                drones.Sort(StringComparer.OrdinalIgnoreCase);
+            }
+            _logDroneChips?.SetChoices(drones);
+        }
+
+        void SortAircraft(AircraftSort col)
+        {
+            if (_aircraftSort == col)
+                _aircraftSortAsc = !_aircraftSortAsc;
+            else
+            {
+                _aircraftSort = col;
+                _aircraftSortAsc = true;
+            }
+            if (_aircraftVisible)
+                RebuildAircraft();
+        }
+
+        void SortEvents(EventSort col)
+        {
+            if (_eventSort == col)
+                _eventSortAsc = !_eventSortAsc;
+            else
+            {
+                _eventSort = col;
+                _eventSortAsc = col != EventSort.Severity;
+            }
+            if (_eventsVisible)
+                RebuildEvents();
+        }
+
+        void SortLogs(LogSort col)
+        {
+            if (_logSort == col)
+                _logSortAsc = !_logSortAsc;
+            else
+            {
+                _logSort = col;
+                _logSortAsc = true;
+            }
+            if (_logsVisible)
+                RebuildLogs();
+        }
+
+        void RebuildAircraft()
+        {
+            _aliveFingerprint = AliveFingerprint();
+            _aircraftRows.Clear();
+            _displayedAircraft.Clear();
+            if (_aircraftScroll == null) return;
+            _aircraftScroll.contentContainer.Clear();
+            RefreshAircraftHeaders();
+
+            if (_ctx?.Run == null)
+            {
+                SetAircraftHeader(0, 0, 0, 0, 0, 0);
+                AddEmpty(_aircraftScroll, "No run loaded.");
+                return;
+            }
+
+            string query = _aircraftFilter != null ? (_aircraftFilter.value ?? "").Trim() : "";
+            int n = _ctx.Run.SlotCount;
+            var ents = _ctx.State != null ? _ctx.State.Entities : null;
+            var slots = new List<int>(n);
+            for (int i = 0; i < n; i++)
+            {
+                bool alive = ents != null && i < ents.Count && ents[i].Alive;
+                if (!AircraftPasses(i, alive, query)) continue;
+                slots.Add(i);
+            }
+
+            slots.Sort(CompareAircraft);
+            _displayedAircraft.AddRange(slots);
+
+            int friendly = 0, hostile = 0, civilian = 0, wreckage = 0;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                switch (_ctx.Run.Info(slots[i]).Kind)
+                {
+                    case EntityKind.Friendly: friendly++; break;
+                    case EntityKind.Hostile: hostile++; break;
+                    case EntityKind.Civilian: civilian++; break;
+                    case EntityKind.Wreckage: wreckage++; break;
+                }
+            }
+            SetAircraftHeader(slots.Count, n, friendly, hostile, civilian, wreckage);
+
+            if (slots.Count == 0)
+            {
+                AddEmpty(_aircraftScroll, n == 0 ? "No aircraft in this run." : "No aircraft match this filter.");
+                return;
+            }
+
+            for (int i = 0; i < slots.Count; i++)
+            {
+                int slot = slots[i];
+                var info = _ctx.Run.Info(slot);
+                bool alive = ents != null && slot < ents.Count && ents[slot].Alive;
+
+                var row = new VisualElement();
+                row.AddToClassList("scene-state-drone");
+                row.EnableInClassList("scene-state-drone--gone", !alive);
+                row.userData = slot;
+
+                var dot = new VisualElement();
+                dot.AddToClassList("scene-state-dot");
+                dot.AddToClassList(DotClass(info.Kind));
+                dot.pickingMode = PickingMode.Ignore;
+
+                var name = new Label(info.Label);
+                name.AddToClassList("scene-state-drone-name");
+                name.pickingMode = PickingMode.Ignore;
+
+                var kind = new Label(KindName(info.Kind));
+                kind.AddToClassList("scene-state-drone-kind");
+                kind.pickingMode = PickingMode.Ignore;
+
+                var slotLabel = new Label(info.slot.ToString());
+                slotLabel.AddToClassList("scene-state-drone-slot");
+                slotLabel.pickingMode = PickingMode.Ignore;
+
+                var speed = new Label();
+                speed.AddToClassList("scene-state-drone-speed");
+                speed.pickingMode = PickingMode.Ignore;
+                speed.text = alive ? FormatSpeed(ents[slot].Velocity.magnitude) : "—";
+
+                var status = new Label(alive ? "Alive" : "Gone");
+                status.AddToClassList("scene-state-drone-status");
+                status.pickingMode = PickingMode.Ignore;
+
+                row.Add(dot);
+                row.Add(name);
+                row.Add(kind);
+                row.Add(slotLabel);
+                row.Add(speed);
+                row.Add(status);
+                row.RegisterCallback<ClickEvent>(OnAircraftClicked);
+                _aircraftScroll.Add(row);
+                _aircraftRows.Add(new AircraftRow { Slot = slot, Root = row, Speed = speed, Status = status });
+            }
+
+            UpdateAircraftHighlights();
+        }
+
+        bool AircraftPasses(int slot, bool alive, string query)
+        {
+            var info = _ctx.Run.Info(slot);
+            string kind = KindName(info.Kind);
+            string status = alive ? "Alive" : "Gone";
+            if (_aircraftKindChips != null && !_aircraftKindChips.Allows(kind)) return false;
+            if (_aircraftStatusChips != null && !_aircraftStatusChips.Allows(status)) return false;
+            if (string.IsNullOrEmpty(query)) return true;
+            if (Contains(info.Label, query) || Contains(kind, query) || Contains(status, query)) return true;
+            if ($"{info.slot}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (info.drone_id >= 0 && $"{info.drone_id}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            return false;
+        }
+
+        void SetAircraftHeader(int shown, int total, int friendly, int hostile, int civilian, int wreckage)
+        {
+            if (_aircraftHeader != null)
+            {
+                _aircraftHeader.text = total <= 0
+                    ? "Aircraft"
+                    : shown == total
+                        ? $"Aircraft · {shown}"
+                        : $"Aircraft · {shown}/{total}";
+            }
+
+            if (_aircraftMix == null) return;
+            if (shown == 0)
+            {
+                _aircraftMix.text = "";
+                return;
+            }
+
+            var parts = new List<string>(4);
+            if (friendly > 0) parts.Add($"{friendly} friendly");
+            if (hostile > 0) parts.Add($"{hostile} hostile");
+            if (civilian > 0) parts.Add($"{civilian} civilian");
+            if (wreckage > 0) parts.Add($"{wreckage} wreckage");
+            _aircraftMix.text = string.Join(" · ", parts);
+        }
+
+        int CompareAircraft(int a, int b)
+        {
+            var ia = _ctx.Run.Info(a);
+            var ib = _ctx.Run.Info(b);
+            var ents = _ctx.State != null ? _ctx.State.Entities : null;
+            bool aliveA = ents != null && a < ents.Count && ents[a].Alive;
+            bool aliveB = ents != null && b < ents.Count && ents[b].Alive;
+            float speedA = aliveA ? ents[a].Velocity.magnitude : -1f;
+            float speedB = aliveB ? ents[b].Velocity.magnitude : -1f;
+
+            int c = _aircraftSort switch
+            {
+                AircraftSort.Name => string.Compare(ia.Label, ib.Label, StringComparison.OrdinalIgnoreCase),
+                AircraftSort.Slot => ia.slot.CompareTo(ib.slot),
+                AircraftSort.Speed => speedA.CompareTo(speedB),
+                AircraftSort.Status => aliveA.CompareTo(aliveB),
+                _ => KindOrder(ia.Kind).CompareTo(KindOrder(ib.Kind)),
+            };
+            if (c == 0)
+                c = KindOrder(ia.Kind).CompareTo(KindOrder(ib.Kind));
+            if (c == 0)
+            {
+                int idA = ia.drone_id >= 0 ? ia.drone_id : ia.trace_id;
+                int idB = ib.drone_id >= 0 ? ib.drone_id : ib.trace_id;
+                c = idA.CompareTo(idB);
+            }
+            if (c == 0)
+                c = a.CompareTo(b);
+            return _aircraftSortAsc ? c : -c;
+        }
+
+        void RefreshAircraftLive()
+        {
+            if (_ctx?.State == null) return;
+            var ents = _ctx.State.Entities;
+            for (int i = 0; i < _aircraftRows.Count; i++)
+            {
+                var row = _aircraftRows[i];
+                if ((uint)row.Slot >= (uint)ents.Count) continue;
+                bool alive = ents[row.Slot].Alive;
+                row.Root.EnableInClassList("scene-state-drone--gone", !alive);
+                row.Speed.text = alive ? FormatSpeed(ents[row.Slot].Velocity.magnitude) : "—";
+                row.Status.text = alive ? "Alive" : "Gone";
+            }
+        }
+
+        void UpdateAircraftHighlights()
+        {
+            var sel = _ctx?.Selection;
+            for (int i = 0; i < _aircraftRows.Count; i++)
+            {
+                bool on = sel != null && sel.IsSelected(_aircraftRows[i].Slot);
+                _aircraftRows[i].Root.EnableInClassList("scene-state-drone--selected", on);
+            }
+        }
+
+        void OnAircraftClicked(ClickEvent evt)
+        {
+            if (evt.currentTarget is VisualElement row && row.userData is int slot)
+            {
+                float now = Time.unscaledTime;
+                bool isDouble = evt.clickCount >= 2 ||
+                    (slot == _lastAircraftClickSlot && now - _lastAircraftClickTime < 0.35f);
+
+                if (isDouble)
+                {
+                    _lastAircraftClickSlot = -1;
+                    _lastAircraftClickTime = 0f;
+                    _ctx?.Selection?.SelectOnly(slot);
+                    _aircraftAnchorSlot = slot;
+                    inspector?.Open();
+                }
+                else
+                {
+                    _lastAircraftClickSlot = slot;
+                    _lastAircraftClickTime = now;
+                    ApplyAircraftClick(evt, slot);
+                }
+            }
+            evt.StopPropagation();
+        }
+
+        void ApplyAircraftClick(ClickEvent evt, int slot)
+        {
+            var sel = _ctx?.Selection;
+            if (sel == null) return;
+
+            bool range = evt.shiftKey;
+            bool toggle = evt.actionKey;
+
+            if (range && _aircraftAnchorSlot >= 0)
+            {
+                int a = _displayedAircraft.IndexOf(_aircraftAnchorSlot);
+                int b = _displayedAircraft.IndexOf(slot);
+                if (a >= 0 && b >= 0)
+                {
+                    if (a > b)
+                    {
+                        int tmp = a;
+                        a = b;
+                        b = tmp;
+                    }
+                    var rangeSlots = new List<int>(b - a + 1);
+                    for (int i = a; i <= b; i++)
+                        rangeSlots.Add(_displayedAircraft[i]);
+                    sel.Replace(rangeSlots);
+                    return;
+                }
+            }
+
+            if (toggle)
+                sel.Toggle(slot);
+            else
+                sel.SelectOnly(slot);
+
+            _aircraftAnchorSlot = slot;
+        }
+
+        void RefreshAircraftHeaders()
+        {
+            SetHeader(_aircraftColName, _aircraftSort == AircraftSort.Name, _aircraftSortAsc, "Name");
+            SetHeader(_aircraftColKind, _aircraftSort == AircraftSort.Kind, _aircraftSortAsc, "Kind");
+            SetHeader(_aircraftColSlot, _aircraftSort == AircraftSort.Slot, _aircraftSortAsc, "Slot");
+            SetHeader(_aircraftColSpeed, _aircraftSort == AircraftSort.Speed, _aircraftSortAsc, "Speed");
+            SetHeader(_aircraftColStatus, _aircraftSort == AircraftSort.Status, _aircraftSortAsc, "Status");
+        }
+
+        void RebuildEvents()
+        {
+            _eventRows.Clear();
+            _eventHighlightDirty = true;
+            if (_eventsScroll == null) return;
+            _eventsScroll.contentContainer.Clear();
+            RefreshEventHeaders();
+
+            if (_ctx?.Run?.Meta?.events == null)
+            {
+                if (_eventsHeader != null) _eventsHeader.text = "Events";
+                AddEmpty(_eventsScroll, "No run loaded.");
+                return;
+            }
+
+            var events = _ctx.Run.Meta.events;
+            string query = _eventsFilter != null ? (_eventsFilter.value ?? "").Trim() : "";
+
+            _filteredEvents.Clear();
+            for (int i = 0; i < events.Count; i++)
+            {
+                var e = events[i];
+                if (e == null) continue;
+                string kind = string.IsNullOrEmpty(e.kind) ? "event" : e.kind;
+                if (_eventKindChips != null && !_eventKindChips.Allows(kind))
+                    continue;
+                if (!MatchesEventFilter(e, query))
+                    continue;
+                _filteredEvents.Add(e);
+            }
+
+            _filteredEvents.Sort(CompareEvents);
+
+            int total = events.Count;
+            int shown = _filteredEvents.Count;
+            if (_eventsHeader != null)
+            {
+                _eventsHeader.text = shown == total
+                    ? $"Events · {shown}"
+                    : $"Events · {shown}/{total}";
+            }
+
+            if (shown == 0)
+            {
+                AddEmpty(_eventsScroll, total == 0 ? "No events in this run." : "No events match this filter.");
+                return;
+            }
+
+            for (int i = 0; i < _filteredEvents.Count; i++)
+            {
+                var e = _filteredEvents[i];
+                var row = new VisualElement();
+                row.AddToClassList("scene-state-event");
+                row.userData = e;
+
+                row.Add(Cell($"{e.t:F1}s", "scene-state-cell-time"));
+                row.Add(Cell(string.IsNullOrEmpty(e.kind) ? "event" : e.kind, "scene-state-cell-kind"));
+
+                var sev = new Label(SeverityLabel(e.severity));
+                sev.AddToClassList("scene-state-cell");
+                sev.AddToClassList("scene-state-cell-sev");
+                sev.AddToClassList("scene-state-sev");
+                sev.AddToClassList("scene-state-sev--" + Mathf.Clamp(e.severity, 0, 3));
+                sev.pickingMode = PickingMode.Ignore;
+                row.Add(sev);
+
+                row.Add(Cell(FormatInvolved(e), "scene-state-cell-who"));
+
+                var text = Cell(e.text ?? "", "scene-state-cell-text");
+                text.AddToClassList("scene-state-cell--wrap");
+                row.Add(text);
+
+                row.RegisterCallback<ClickEvent>(OnEventClicked);
+                _eventsScroll.Add(row);
+                _eventRows.Add(row);
+            }
+
+            UpdateEventHighlights();
+        }
+
+        void RefreshEventHeaders()
+        {
+            SetHeader(_eventsColTime, _eventSort == EventSort.Time, _eventSortAsc, "Time");
+            SetHeader(_eventsColKind, _eventSort == EventSort.Kind, _eventSortAsc, "Kind");
+            SetHeader(_eventsColSev, _eventSort == EventSort.Severity, _eventSortAsc, "Sev");
+            SetHeader(_eventsColWho, _eventSort == EventSort.Involved, _eventSortAsc, "Involved");
+            SetHeader(_eventsColText, _eventSort == EventSort.Text, _eventSortAsc, "Text");
+        }
+
+        int CompareEvents(EventInfo a, EventInfo b)
+        {
+            int c = _eventSort switch
+            {
+                EventSort.Kind => string.Compare(a.kind, b.kind, StringComparison.OrdinalIgnoreCase),
+                EventSort.Severity => a.severity.CompareTo(b.severity),
+                EventSort.Involved => string.Compare(FormatInvolved(a), FormatInvolved(b), StringComparison.OrdinalIgnoreCase),
+                EventSort.Text => string.Compare(a.text, b.text, StringComparison.OrdinalIgnoreCase),
+                _ => a.t.CompareTo(b.t),
+            };
+            if (c == 0)
+                c = a.t.CompareTo(b.t);
+            if (c == 0)
+                c = a.frame.CompareTo(b.frame);
+            return _eventSortAsc ? c : -c;
+        }
+
+        bool MatchesEventFilter(EventInfo e, string query)
+        {
+            if (string.IsNullOrEmpty(query)) return true;
+            if (Contains(e.kind, query) || Contains(e.text, query)) return true;
+            if (Contains(SeverityLabel(e.severity), query)) return true;
+            if ($"{e.t:F1}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (Contains(FormatInvolved(e), query)) return true;
+            if (e.slots == null) return false;
+            for (int i = 0; i < e.slots.Length; i++)
+            {
+                int slot = e.slots[i];
+                if ($"{slot}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+                if ((uint)slot < (uint)_ctx.Run.SlotCount && Contains(_ctx.Run.Info(slot).Label, query))
+                    return true;
+            }
+            return false;
+        }
+
+        string FormatInvolved(EventInfo e)
+        {
+            if (e.slots == null || e.slots.Length == 0 || _ctx?.Run == null)
+                return "—";
+
+            int n = e.slots.Length;
+            int show = Mathf.Min(n, 3);
+            var parts = new List<string>(show + 1);
+            for (int i = 0; i < show; i++)
+            {
+                int slot = e.slots[i];
+                if ((uint)slot >= (uint)_ctx.Run.SlotCount)
+                    parts.Add($"#{slot}");
+                else
+                    parts.Add(_ctx.Run.Info(slot).Label);
+            }
+            if (n > show)
+                parts.Add($"+{n - show}");
+            return string.Join(", ", parts);
+        }
+
+        void OnEventClicked(ClickEvent evt)
+        {
+            if (evt.currentTarget is VisualElement row && row.userData is EventInfo e)
+                JumpToEvent(e);
+            evt.StopPropagation();
+        }
+
+        void JumpToEvent(EventInfo e)
+        {
+            if (_ctx == null || e == null) return;
+            _ctx.Clock.SeekBefore(e.t, eventLeadIn);
+
+            if (e.slots == null || e.slots.Length == 0) return;
+            int first = -1;
+            for (int i = 0; i < e.slots.Length; i++)
+            {
+                int slot = e.slots[i];
+                if ((uint)slot >= (uint)_ctx.Run.SlotCount) continue;
+                if (first < 0)
+                {
+                    first = slot;
+                    _ctx.Selection.SelectOnly(slot);
+                }
+                else
+                {
+                    _ctx.Selection.Add(slot);
+                }
+            }
+        }
+
+        void UpdateEventHighlights()
+        {
+            if (_ctx == null || _eventRows.Count == 0) return;
+            float t = _ctx.Clock.Time;
+            EventInfo now = LatestAtOrBefore(_ctx.Run?.Meta?.events, t, e => e.t);
+
+            if (!_eventHighlightDirty && ReferenceEquals(now, _nowEvent)) return;
+            _eventHighlightDirty = false;
+            _nowEvent = now;
+
+            for (int i = 0; i < _eventRows.Count; i++)
+            {
+                var row = _eventRows[i];
+                if (row.userData is not EventInfo e) continue;
+                bool isNow = ReferenceEquals(e, now);
+                bool future = e.t > t + 0.001f;
+                row.EnableInClassList("scene-state-event--now", isNow);
+                row.EnableInClassList("scene-state-event--past", !isNow && !future);
+                row.EnableInClassList("scene-state-event--future", !isNow && future);
+            }
+        }
+
+        void RebuildLogs()
+        {
+            _logRows.Clear();
+            _logHighlightDirty = true;
+            if (_logsScroll == null) return;
+            _logsScroll.contentContainer.Clear();
+            RefreshLogHeaders();
+
+            if (_ctx?.Run?.Meta?.logs == null)
+            {
+                if (_logsHeader != null) _logsHeader.text = "Logs";
+                AddEmpty(_logsScroll, "No run loaded.");
+                return;
+            }
+
+            var logs = _ctx.Run.Meta.logs;
+            string query = _logsFilter != null ? (_logsFilter.value ?? "").Trim() : "";
+
+            _filteredLogs.Clear();
+            for (int i = 0; i < logs.Count; i++)
+            {
+                var line = logs[i];
+                if (line == null) continue;
+                if (_logDroneChips != null && !_logDroneChips.Allows(DroneChip(line.drone)))
+                    continue;
+                if (!MatchesLogFilter(line, query))
+                    continue;
+                _filteredLogs.Add(line);
+            }
+
+            _filteredLogs.Sort(CompareLogs);
+
+            int total = logs.Count;
+            int shown = _filteredLogs.Count;
+            if (_logsHeader != null)
+            {
+                _logsHeader.text = shown == total
+                    ? $"Logs · {shown}"
+                    : $"Logs · {shown}/{total}";
+            }
+
+            if (shown == 0)
+            {
+                AddEmpty(_logsScroll, total == 0 ? "No log lines in this run." : "No log lines match this filter.");
+                return;
+            }
+
+            for (int i = 0; i < _filteredLogs.Count; i++)
+            {
+                var line = _filteredLogs[i];
+                var row = new VisualElement();
+                row.AddToClassList("scene-state-event");
+                row.userData = line;
+
+                row.Add(Cell($"{line.t:F1}s", "scene-state-cell-time"));
+                row.Add(Cell(DroneChip(line.drone), "scene-state-cell-log-drone"));
+
+                var text = Cell(line.text ?? "", "scene-state-cell-text");
+                text.AddToClassList("scene-state-cell--wrap");
+                row.Add(text);
+
+                row.RegisterCallback<ClickEvent>(OnLogClicked);
+                _logsScroll.Add(row);
+                _logRows.Add(row);
+            }
+
+            UpdateLogHighlights();
+        }
+
+        void RefreshLogHeaders()
+        {
+            SetHeader(_logsColTime, _logSort == LogSort.Time, _logSortAsc, "Time");
+            SetHeader(_logsColDrone, _logSort == LogSort.Drone, _logSortAsc, "Drone");
+            SetHeader(_logsColText, _logSort == LogSort.Text, _logSortAsc, "Text");
+        }
+
+        int CompareLogs(LogLine a, LogLine b)
+        {
+            int c = _logSort switch
+            {
+                LogSort.Drone => a.drone.CompareTo(b.drone),
+                LogSort.Text => string.Compare(a.text, b.text, StringComparison.OrdinalIgnoreCase),
+                _ => a.t.CompareTo(b.t),
+            };
+            if (c == 0)
+                c = a.t.CompareTo(b.t);
+            if (c == 0)
+                c = a.drone.CompareTo(b.drone);
+            return _logSortAsc ? c : -c;
+        }
+
+        bool MatchesLogFilter(LogLine line, string query)
+        {
+            if (string.IsNullOrEmpty(query)) return true;
+            if (Contains(line.text, query)) return true;
+            if (Contains(DroneChip(line.drone), query)) return true;
+            if ($"{line.drone}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if ($"{line.t:F1}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (_droneToSlot.TryGetValue(line.drone, out int slot) &&
+                (uint)slot < (uint)_ctx.Run.SlotCount &&
+                Contains(_ctx.Run.Info(slot).Label, query))
+                return true;
+            return false;
+        }
+
+        void OnLogClicked(ClickEvent evt)
+        {
+            if (evt.currentTarget is VisualElement row && row.userData is LogLine line)
+                JumpToLog(line);
+            evt.StopPropagation();
+        }
+
+        void JumpToLog(LogLine line)
+        {
+            if (_ctx == null || line == null) return;
+            _ctx.Clock.SeekBefore(line.t, eventLeadIn);
+            if (_droneToSlot.TryGetValue(line.drone, out int slot))
+                _ctx.Selection.SelectOnly(slot);
+        }
+
+        void UpdateLogHighlights()
+        {
+            if (_ctx == null || _logRows.Count == 0) return;
+            float t = _ctx.Clock.Time;
+            LogLine now = LatestAtOrBefore(_ctx.Run?.Meta?.logs, t, l => l.t);
+
+            if (!_logHighlightDirty && ReferenceEquals(now, _nowLog)) return;
+            _logHighlightDirty = false;
+            _nowLog = now;
+
+            for (int i = 0; i < _logRows.Count; i++)
+            {
+                var row = _logRows[i];
+                if (row.userData is not LogLine line) continue;
+                bool isNow = ReferenceEquals(line, now);
+                bool future = line.t > t + 0.001f;
+                row.EnableInClassList("scene-state-event--now", isNow);
+                row.EnableInClassList("scene-state-event--past", !isNow && !future);
+                row.EnableInClassList("scene-state-event--future", !isNow && future);
+            }
+        }
+
+        static T LatestAtOrBefore<T>(IReadOnlyList<T> items, float t, Func<T, float> timeOf) where T : class
+        {
+            if (items == null) return null;
+            T now = null;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (item == null) continue;
+                float at = timeOf(item);
+                if (at <= t + 0.001f)
+                    now = item;
+                else
+                    break;
+            }
+            return now;
+        }
+
+        static void SetHeader(Button btn, bool active, bool asc, string name)
+        {
+            if (btn == null) return;
+            btn.text = active ? name + (asc ? " ▲" : " ▼") : name;
+            btn.EnableInClassList("scene-state-col--active", active);
+        }
+
+        static Label Cell(string text, string extraClass)
+        {
+            var label = new Label(text ?? "");
+            label.AddToClassList("scene-state-cell");
+            label.AddToClassList(extraClass);
+            label.pickingMode = PickingMode.Ignore;
+            return label;
+        }
+
+        static void AddEmpty(ScrollView scroll, string text)
+        {
+            var empty = new Label(text);
+            empty.AddToClassList("scene-state-empty");
+            empty.pickingMode = PickingMode.Ignore;
+            scroll.Add(empty);
+        }
+
+        static string FormatSpeed(float speed) => $"{speed:F0} m/s";
+
+        static string DroneChip(int droneId) => $"Drone {droneId}";
+
+        static bool Contains(string hay, string needle) =>
+            !string.IsNullOrEmpty(hay) && hay.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        static int KindOrder(EntityKind kind) => kind switch
+        {
+            EntityKind.Friendly => 0,
+            EntityKind.Hostile => 1,
+            EntityKind.Civilian => 2,
+            EntityKind.Wreckage => 3,
+            _ => 4,
+        };
+
+        static string KindName(EntityKind kind) => kind switch
+        {
+            EntityKind.Friendly => "Friendly",
+            EntityKind.Hostile => "Hostile",
+            EntityKind.Civilian => "Civilian",
+            EntityKind.Wreckage => "Wreckage",
+            _ => "Unknown",
+        };
+
+        static string DotClass(EntityKind kind) => kind switch
+        {
+            EntityKind.Friendly => "scene-state-dot--friendly",
+            EntityKind.Hostile => "scene-state-dot--hostile",
+            EntityKind.Civilian => "scene-state-dot--civilian",
+            EntityKind.Wreckage => "scene-state-dot--wreckage",
+            _ => "scene-state-dot",
+        };
+
+        static string SeverityLabel(int severity) => severity switch
+        {
+            0 => "info",
+            1 => "loss",
+            2 => "bad",
+            3 => "worst",
+            _ => severity.ToString(),
+        };
+    }
+}

@@ -33,7 +33,8 @@ namespace SwarmViewer.Editor
             Material arenaBoundsMat = CreateOrUpdateMaterial("Assets/Materials/ArenaBounds.mat", litShader, new Color(0.35f, 0.40f, 0.45f), 0.1f);
             Material assetMat = CreateOrUpdateMaterial("Assets/Materials/Asset.mat", litShader, new Color(1.00f, 0.65f, 0.10f), 0.2f);
             
-            Material trailMat = CreateOrUpdateMaterial("Assets/Materials/Trail.mat", unlitShader, new Color(1f, 1f, 1f, 0.8f), 0f);
+            Material trailMat = CreateOrUpdateMaterial("Assets/Materials/Trail.mat", unlitShader, new Color(1f, 1f, 1f, 0.85f), 0f);
+            MakeTransparent(trailMat);
 
             // Outline material: bright unlit yellow/cyan with Cull Front if possible
             Material outlineMat = CreateOrUpdateMaterial("Assets/Materials/Outline.mat", unlitShader, new Color(1.00f, 0.90f, 0.20f, 1f), 0f);
@@ -79,6 +80,21 @@ namespace SwarmViewer.Editor
 
             EditorUtility.SetDirty(mat);
             return mat;
+        }
+
+        static void MakeTransparent(Material mat)
+        {
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = 3000;
+            EditorUtility.SetDirty(mat);
         }
     }
 }

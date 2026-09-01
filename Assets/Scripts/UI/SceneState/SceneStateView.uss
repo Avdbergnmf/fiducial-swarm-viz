@@ -1,0 +1,590 @@
+.scene-state-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.scene-state-panel {
+    position: absolute;
+    display: none;
+    flex-direction: column;
+    background-color: rgba(16, 18, 22, 0.94);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.14);
+    border-right-color: rgba(255, 255, 255, 0.14);
+    border-top-color: rgba(255, 255, 255, 0.14);
+    border-bottom-color: rgba(255, 255, 255, 0.14);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    overflow: hidden;
+}
+
+.scene-state-panel--aircraft {
+    left: 14px;
+    top: 52px;
+    width: 440px;
+    height: 400px;
+}
+
+.scene-state-panel--events {
+    left: 468px;
+    top: 52px;
+    width: 580px;
+    height: 420px;
+}
+
+.scene-state-panel--logs {
+    left: 200px;
+    top: 120px;
+    width: 560px;
+    height: 360px;
+}
+
+.scene-state-header {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+}
+
+.scene-state-drag {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.scene-state-title {
+    color: rgb(245, 245, 245);
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.scene-state-close {
+    width: 24px;
+    height: 24px;
+    margin-left: 8px;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(230, 230, 230);
+    font-size: 16px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.scene-state-close:hover {
+    background-color: rgba(232, 93, 93, 0.55);
+    color: rgb(255, 255, 255);
+}
+
+.scene-state-section-head {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    flex-shrink: 0;
+}
+
+.scene-state-section-title {
+    color: rgb(130, 138, 148);
+    font-size: 10px;
+    -unity-font-style: bold;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.scene-state-section-hint {
+    color: rgb(110, 116, 124);
+    font-size: 10px;
+    -unity-font-style: italic;
+}
+
+.scene-state-filters {
+    flex-direction: column;
+    align-items: stretch;
+    flex-shrink: 0;
+    margin-bottom: 4px;
+}
+
+.scene-state-filter {
+    flex-grow: 0;
+    flex-shrink: 0;
+    min-width: 80px;
+    margin-right: 0;
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.filter-chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.filter-chip {
+    height: 18px;
+    margin-left: 0;
+    margin-right: 4px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    padding-left: 7px;
+    padding-right: 7px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(190, 196, 204);
+    font-size: 10px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 9px;
+    border-top-right-radius: 9px;
+    border-bottom-left-radius: 9px;
+    border-bottom-right-radius: 9px;
+}
+
+.filter-chip:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.filter-chip--on {
+    background-color: rgba(65, 140, 245, 0.42);
+    color: rgb(235, 240, 248);
+}
+
+.scene-state-cols {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+.scene-state-col {
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(140, 146, 154);
+    font-size: 10px;
+    -unity-font-style: bold;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    -unity-text-align: middle-left;
+}
+
+.scene-state-col:hover {
+    color: rgb(230, 230, 230);
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.scene-state-col--active {
+    color: rgb(220, 226, 235);
+}
+
+.scene-state-col-time {
+    width: 52px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-kind {
+    width: 128px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-sev {
+    width: 52px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-who {
+    width: 150px;
+    flex-grow: 0;
+    flex-shrink: 1;
+}
+
+.scene-state-col-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 80px;
+}
+
+.scene-state-col-name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 72px;
+}
+
+.scene-state-col-ac-kind {
+    width: 72px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-slot {
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-speed {
+    width: 64px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-status {
+    width: 52px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-log-time {
+    width: 52px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-log-drone {
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.scene-state-col-log-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 80px;
+}
+
+.scene-state-table-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 80px;
+    background-color: rgba(0, 0, 0, 0.28);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.08);
+    border-right-color: rgba(255, 255, 255, 0.08);
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.scene-state-empty {
+    color: rgb(110, 116, 124);
+    font-size: 11px;
+    -unity-font-style: italic;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    white-space: normal;
+}
+
+.scene-state-drone {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.scene-state-drone:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.scene-state-drone--selected {
+    background-color: rgba(65, 140, 245, 0.22);
+}
+
+.scene-state-drone--gone {
+    opacity: 0.55;
+}
+
+.scene-state-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    margin-right: 8px;
+    background-color: rgb(160, 160, 160);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.scene-state-dot--friendly {
+    background-color: rgb(74, 158, 255);
+}
+
+.scene-state-dot--hostile {
+    background-color: rgb(232, 93, 93);
+}
+
+.scene-state-dot--civilian {
+    background-color: rgb(232, 197, 71);
+}
+
+.scene-state-dot--wreckage {
+    background-color: rgb(154, 160, 168);
+}
+
+.scene-state-drone-name {
+    color: rgb(235, 235, 235);
+    font-size: 12px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 56px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.scene-state-drone-kind {
+    color: rgb(140, 146, 154);
+    font-size: 10px;
+    width: 72px;
+    flex-shrink: 0;
+    -unity-text-align: middle-left;
+}
+
+.scene-state-drone-slot {
+    color: rgb(170, 178, 188);
+    font-size: 10px;
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.scene-state-drone-speed {
+    color: rgb(190, 196, 204);
+    font-size: 11px;
+    width: 64px;
+    flex-shrink: 0;
+    -unity-text-align: middle-right;
+}
+
+.scene-state-drone-status {
+    color: rgb(190, 196, 204);
+    font-size: 10px;
+    width: 52px;
+    flex-shrink: 0;
+    -unity-text-align: middle-left;
+}
+
+.scene-state-event {
+    flex-direction: row;
+    align-items: flex-start;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+    border-left-width: 2px;
+    border-left-color: rgba(0, 0, 0, 0);
+}
+
+.scene-state-event:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.scene-state-event--past {
+    opacity: 0.72;
+}
+
+.scene-state-event--future {
+    opacity: 0.42;
+}
+
+.scene-state-event--now {
+    opacity: 1;
+    background-color: rgba(65, 140, 245, 0.18);
+    border-left-color: rgb(65, 140, 245);
+}
+
+.scene-state-cell {
+    font-size: 11px;
+    color: rgb(220, 220, 220);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.scene-state-cell--wrap {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.scene-state-cell-time {
+    width: 52px;
+    flex-shrink: 0;
+    color: rgb(170, 178, 188);
+    font-size: 10px;
+}
+
+.scene-state-cell-kind {
+    width: 128px;
+    flex-shrink: 0;
+    -unity-font-style: bold;
+}
+
+.scene-state-cell-sev {
+    width: 52px;
+    flex-shrink: 0;
+}
+
+.scene-state-cell-who {
+    width: 150px;
+    flex-shrink: 1;
+    color: rgb(190, 196, 204);
+}
+
+.scene-state-cell-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 80px;
+    color: rgb(190, 196, 204);
+}
+
+.scene-state-cell-log-drone {
+    width: 80px;
+    flex-shrink: 0;
+    color: rgb(190, 196, 204);
+}
+
+.scene-state-sev {
+    font-size: 9px;
+    -unity-font-style: bold;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+.scene-state-sev--0 {
+    color: rgb(180, 186, 194);
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.scene-state-sev--1 {
+    color: rgb(240, 210, 130);
+    background-color: rgba(200, 160, 40, 0.28);
+}
+
+.scene-state-sev--2 {
+    color: rgb(255, 180, 120);
+    background-color: rgba(220, 100, 40, 0.32);
+}
+
+.scene-state-sev--3 {
+    color: rgb(255, 190, 190);
+    background-color: rgba(200, 50, 50, 0.42);
+}
+
+.float-grip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.float-grip--n {
+    left: 8px;
+    right: 8px;
+    top: 0;
+    height: 7px;
+}
+
+.float-grip--s {
+    left: 8px;
+    right: 8px;
+    bottom: 0;
+    height: 7px;
+}
+
+.float-grip--e {
+    top: 8px;
+    bottom: 8px;
+    right: 0;
+    width: 7px;
+}
+
+.float-grip--w {
+    top: 8px;
+    bottom: 8px;
+    left: 0;
+    width: 7px;
+}
+
+.float-grip--ne {
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+}
+
+.float-grip--nw {
+    top: 0;
+    left: 0;
+    width: 10px;
+    height: 10px;
+}
+
+.float-grip--se {
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+}
+
+.float-grip--sw {
+    bottom: 0;
+    left: 0;
+    width: 10px;
+    height: 10px;
+}

@@ -290,6 +290,7 @@ MonoBehaviour:
   pickPixelSlack: 10
   orbitCamera: {fileID: 330585550}
   uiDocument: {fileID: 1441780140}
+  inspector: {fileID: 1441780144}
 --- !u!114 &330585550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -306,9 +307,9 @@ MonoBehaviour:
   pitchSpeed: 0.2
   keyOrbitSpeed: 90
   zoomSensitivity: 1
-  zoomSprintMultiplier: 3
+  zoomSprintMultiplier: 10
   panSpeed: 60
-  panSprintMultiplier: 3
+  panSprintMultiplier: 5
   followSmoothRate: 8
   minPitch: 5
   maxPitch: 85
@@ -953,6 +954,8 @@ GameObject:
   - component: {fileID: 1441780139}
   - component: {fileID: 1441780138}
   - component: {fileID: 1441780143}
+  - component: {fileID: 1441780144}
+  - component: {fileID: 1441780145}
   m_Layer: 0
   m_Name: Visualizer
   m_TagString: Untagged
@@ -1122,6 +1125,35 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.UiScaleView
   uiDocument: {fileID: 1441780140}
+--- !u!114 &1441780144
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1441780134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1e4a7c0b8f34e2a9c6d5b1e0f3a8294, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.EntityInspectorView
+  uiDocument: {fileID: 1441780140}
+  eventLeadIn: 0
+--- !u!114 &1441780145
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1441780134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 765937877f3ab5d46a2e17bc092f873e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SwarmViewer.SceneStateView
+  uiDocument: {fileID: 1441780140}
+  inspector: {fileID: 1441780144}
+  eventLeadIn: 2
 --- !u!1 &1533930113
 GameObject:
   m_ObjectHideFlags: 0

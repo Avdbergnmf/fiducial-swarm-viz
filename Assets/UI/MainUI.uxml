@@ -1,10 +1,17 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <ui:Template name="RunPicker" src="project://database/Assets/Scripts/UI/RunPicker/RunPickerView.uxml?fileID=9197481963319205126&amp;guid=9b008acec54777243b646306bce242dc&amp;type=3#RunPickerView"/>
     <ui:Template name="Timeline" src="project://database/Assets/Scripts/UI/Timeline/TimelineView.uxml?fileID=9197481963319205126&amp;guid=7abf47447fe8d5449b641403b67f185d&amp;type=3#TimelineView"/>
+    <ui:Template name="EntityInspector" src="project://database/Assets/Scripts/UI/EntityInspector/EntityInspectorView.uxml?fileID=9197481963319205126&amp;guid=a7c2e9f14b5d4830ae6c1d8f2b4e7093&amp;type=3#EntityInspectorView"/>
+    <ui:Template name="SceneState" src="project://database/Assets/Scripts/UI/SceneState/SceneStateView.uxml?fileID=9197481963319205126&amp;guid=c4010a8ec38487342b739e898b54ad35&amp;type=3#SceneStateView"/>
     <Style src="project://database/Assets/UI/MainUI.uss?fileID=7433441132597879392&amp;guid=98e2338bc91864847b2a69925e32154a&amp;type=3#MainUI"/>
     <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
+    <ui:Instance template="SceneState" name="sceneStateInstance" picking-mode="Ignore" class="screen-overlay"/>
+    <ui:Instance template="EntityInspector" name="entityInspectorInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="RunPicker" name="runPickerInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:VisualElement name="uiScaleBar" picking-mode="Position" class="ui-scale-bar">
+        <ui:Button name="aircraftOpenBtn" text="Aircraft" picking-mode="Position" class="ui-scene-btn" />
+        <ui:Button name="sceneStateOpenBtn" text="Events" picking-mode="Position" class="ui-scene-btn" />
+        <ui:Button name="logsOpenBtn" text="Logs" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="uiScaleDownBtn" text="-" picking-mode="Position" class="ui-scale-btn" />
         <ui:Label name="uiScaleLabel" text="125%" picking-mode="Ignore" class="ui-scale-label" />
         <ui:Button name="uiScaleUpBtn" text="+" picking-mode="Position" class="ui-scale-btn" />

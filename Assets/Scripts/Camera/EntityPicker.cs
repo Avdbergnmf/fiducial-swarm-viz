@@ -1,5 +1,6 @@
 // Raycasts against the entity picking layer to handle hover highlights, click
-// selection (plain / Shift multi-select), and double-click camera resets.
+// selection (plain / Shift multi-select), double-click inspector, and empty
+// double-click camera resets.
 // Pick volume is a fat sphere (SceneBuilder.pickColliderRadius). Overlaps go
 // to the origin closest to the ray; a miss still selects within pickPixelSlack.
 //
@@ -29,12 +30,15 @@ namespace SwarmViewer
         [SerializeField] float pickPixelSlack = 48f;
         [SerializeField] OrbitCameraController orbitCamera;
         [SerializeField] UIDocument uiDocument;
+        [SerializeField] EntityInspectorView inspector;
 
         ViewerContext _ctx;
         Camera _cam;
 
         EntityView _hoveredEntity;
         float _lastEmptyClickTime;
+        float _lastEntityClickTime;
+        int _lastEntityClickSlot = -1;
 
         public EntityView HoveredEntity => _hoveredEntity;
 
@@ -47,8 +51,11 @@ namespace SwarmViewer
                 orbitCamera = GetComponent<OrbitCameraController>();
             if (uiDocument == null)
                 uiDocument = GetComponent<UIDocument>();
-            //if (uiDocument == null)
-            //    uiDocument = FindFirstObjectByType<UIDocument>(FindObjectsInactive.Exclude);
+            if (inspector == null)
+            {
+                var found = FindObjectsByType<EntityInspectorView>(FindObjectsInactive.Include);
+                if (found.Length > 0) inspector = found[0];
+            }
 
             if (pickingLayer.value == 0)
             {
@@ -110,22 +117,34 @@ namespace SwarmViewer
             var keyboard = Keyboard.current;
             bool shift = keyboard != null &&
                          (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+            bool ctrl = keyboard != null &&
+                        (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+                         || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed);
 
-            if (shift)
+            if (shift || ctrl)
             {
                 sel.Toggle(slot);
                 return;
             }
 
-            // Plain click on the only selected entity: deselect. Otherwise replace.
-            if (sel.Count == 1 && sel.Primary == slot)
-                sel.Clear();
-            else
+            float now = Time.unscaledTime;
+            bool isDouble = slot == _lastEntityClickSlot &&
+                            now - _lastEntityClickTime < doubleClickThreshold;
+            _lastEntityClickTime = now;
+            _lastEntityClickSlot = slot;
+            _lastEmptyClickTime = 0f;
+
+            // Click-again-to-deselect fights double-click. Empty click / Esc clears.
+            if (sel.Count != 1 || sel.Primary != slot)
                 sel.SelectOnly(slot);
+
+            if (isDouble)
+                inspector?.Open();
         }
 
         void HandleEmptyClick()
         {
+            _lastEntityClickSlot = -1;
             float now = Time.unscaledTime;
             if (now - _lastEmptyClickTime < doubleClickThreshold)
             {

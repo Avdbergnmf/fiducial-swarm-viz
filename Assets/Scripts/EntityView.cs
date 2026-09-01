@@ -31,6 +31,7 @@ namespace SwarmViewer
         [SerializeField] Material hoverOutlineMaterial;
 
         Material _currentMaterial;
+        MaterialPropertyBlock _trailBlock; 
         bool _selected;
         bool _hovered;
         GameObject _killRadiusGo;
@@ -164,18 +165,47 @@ namespace SwarmViewer
         /// <summary>Class / belief colour only. Never used for selection.</summary>
         public void SetMaterial(Material mat)
         {
-            if (_currentMaterial == mat || mat == null) return;
+            if (mat == null || _currentMaterial == mat) return;
             _currentMaterial = mat;
 
             if (mainRenderer != null)
                 mainRenderer.sharedMaterial = mat;
 
-            if (trail != null && mat.HasProperty("_BaseColor"))
-            {
-                Color c = mat.GetColor("_BaseColor");
-                trail.startColor = new Color(c.r, c.g, c.b, 0.85f);
-                trail.endColor = new Color(c.r, c.g, c.b, 0f);
-            }
+            ApplyTrailColor(mat);
+        }
+
+        /// <summary>
+        /// Trail.mat is URP Unlit, which ignores vertex colour, so the ribbon
+        /// is tinted via a property block on <c>_BaseColor</c>. The gradient is
+        /// still set so a vertex-colour shader would fade too.
+        /// </summary>
+        void ApplyTrailColor(Material source)
+        {
+            if (trail == null)
+                trail = GetComponentInChildren<TrailRenderer>();
+            if (trail == null) return;
+
+            Color c = ReadBaseColor(source);
+
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(c, 0f), new GradientColorKey(c, 1f) },
+                new[] { new GradientAlphaKey(0.85f, 0f), new GradientAlphaKey(0f, 1f) });
+            trail.colorGradient = gradient;
+
+            _trailBlock ??= new MaterialPropertyBlock();
+            trail.GetPropertyBlock(_trailBlock);
+            var tint = new Color(c.r, c.g, c.b, 0.85f);
+            _trailBlock.SetColor("_BaseColor", tint);
+            _trailBlock.SetColor("_Color", tint);
+            trail.SetPropertyBlock(_trailBlock);
+        }
+
+        static Color ReadBaseColor(Material mat)
+        {
+            if (mat.HasProperty("_BaseColor")) return mat.GetColor("_BaseColor");
+            if (mat.HasProperty("_Color")) return mat.GetColor("_Color");
+            return Color.white;
         }
 
         public void SetOutlineMaterials(Material selected, Material hover)

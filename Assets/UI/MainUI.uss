@@ -33,6 +33,36 @@
     padding-bottom: 2px;
 }
 
+.ui-scene-btn {
+    height: 22px;
+    margin-left: 0;
+    margin-right: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(230, 230, 230);
+    font-size: 11px;
+    white-space: nowrap;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+}
+
+.ui-scene-btn:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.ui-scene-btn.scene-state-toggle--open {
+    background-color: rgba(65, 140, 245, 0.4);
+}
+
 .ui-scale-btn {
     width: 22px;
     height: 22px;
@@ -64,4 +94,65 @@
     font-size: 11px;
     width: 40px;
     -unity-text-align: middle-center;
+}
+
+.float-grip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.float-grip--n {
+    left: 8px;
+    right: 8px;
+    top: 0;
+    height: 7px;
+}
+
+.float-grip--s {
+    left: 8px;
+    right: 8px;
+    bottom: 0;
+    height: 7px;
+}
+
+.float-grip--e {
+    top: 8px;
+    bottom: 8px;
+    right: 0;
+    width: 7px;
+}
+
+.float-grip--w {
+    top: 8px;
+    bottom: 8px;
+    left: 0;
+    width: 7px;
+}
+
+.float-grip--ne {
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+}
+
+.float-grip--nw {
+    top: 0;
+    left: 0;
+    width: 10px;
+    height: 10px;
+}
+
+.float-grip--se {
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+}
+
+.float-grip--sw {
+    bottom: 0;
+    left: 0;
+    width: 10px;
+    height: 10px;
 }

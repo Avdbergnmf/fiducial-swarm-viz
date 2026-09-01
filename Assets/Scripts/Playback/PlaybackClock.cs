@@ -110,7 +110,9 @@ namespace SwarmViewer
         }
 
         /// <summary>Land before an event, not on it: you want the approach.</summary>
-        public void SeekToEvent(EventInfo e, float leadIn = 2f) { Pause(); Seek(e.t - leadIn); }
+        public void SeekBefore(float t, float leadIn = 2f) { Pause(); Seek(t - leadIn); }
+
+        public void SeekToEvent(EventInfo e, float leadIn = 2f) => SeekBefore(e.t, leadIn);
 
         /// <summary>Pumped once per frame by VisualizerRoot.</summary>
         public void Tick(float deltaTime)

@@ -1,0 +1,80 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="SceneStateView.uss" />
+    <ui:VisualElement name="sceneStateRoot" class="scene-state-root" picking-mode="Ignore">
+
+        <ui:VisualElement name="aircraftPanel" picking-mode="Position" class="scene-state-panel scene-state-panel--aircraft">
+            <ui:VisualElement name="aircraftHeaderBar" class="scene-state-header">
+                <ui:VisualElement name="aircraftDragHandle" class="scene-state-drag">
+                    <ui:Label text="Aircraft" picking-mode="Ignore" class="scene-state-title" />
+                </ui:VisualElement>
+                <ui:Button name="aircraftCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
+                <ui:Label name="aircraftHeader" text="Aircraft" picking-mode="Ignore" class="scene-state-section-title" />
+                <ui:Label name="aircraftMix" text="" picking-mode="Ignore" class="scene-state-section-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
+                <ui:TextField name="aircraftFilter" placeholder-text="Filter…  Ctrl-click toggle, Shift-click range" class="scene-state-filter" />
+                <ui:VisualElement name="aircraftKindChips" class="filter-chips" picking-mode="Ignore" />
+                <ui:VisualElement name="aircraftStatusChips" class="filter-chips" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-cols">
+                <ui:Button name="aircraftColName" text="Name" class="scene-state-col scene-state-col-name" />
+                <ui:Button name="aircraftColKind" text="Kind" class="scene-state-col scene-state-col-ac-kind" />
+                <ui:Button name="aircraftColSlot" text="Slot" class="scene-state-col scene-state-col-slot" />
+                <ui:Button name="aircraftColSpeed" text="Speed" class="scene-state-col scene-state-col-speed" />
+                <ui:Button name="aircraftColStatus" text="Status" class="scene-state-col scene-state-col-status" />
+            </ui:VisualElement>
+            <ui:ScrollView name="aircraftScroll" class="scene-state-table-scroll" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="eventsPanel" picking-mode="Position" class="scene-state-panel scene-state-panel--events">
+            <ui:VisualElement name="eventsHeaderBar" class="scene-state-header">
+                <ui:VisualElement name="eventsDragHandle" class="scene-state-drag">
+                    <ui:Label text="Events" picking-mode="Ignore" class="scene-state-title" />
+                </ui:VisualElement>
+                <ui:Button name="eventsCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
+                <ui:Label name="eventsHeader" text="Events" picking-mode="Ignore" class="scene-state-section-title" />
+                <ui:Label text="click a row to jump" picking-mode="Ignore" class="scene-state-section-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
+                <ui:TextField name="eventsFilter" placeholder-text="Filter kind, text, drone…" class="scene-state-filter" />
+                <ui:VisualElement name="eventKindChips" class="filter-chips" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-cols">
+                <ui:Button name="eventsColTime" text="Time" class="scene-state-col scene-state-col-time" />
+                <ui:Button name="eventsColKind" text="Kind" class="scene-state-col scene-state-col-kind" />
+                <ui:Button name="eventsColSev" text="Sev" class="scene-state-col scene-state-col-sev" />
+                <ui:Button name="eventsColWho" text="Involved" class="scene-state-col scene-state-col-who" />
+                <ui:Button name="eventsColText" text="Text" class="scene-state-col scene-state-col-text" />
+            </ui:VisualElement>
+            <ui:ScrollView name="eventsScroll" class="scene-state-table-scroll" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="logsPanel" picking-mode="Position" class="scene-state-panel scene-state-panel--logs">
+            <ui:VisualElement name="logsHeaderBar" class="scene-state-header">
+                <ui:VisualElement name="logsDragHandle" class="scene-state-drag">
+                    <ui:Label text="Logs" picking-mode="Ignore" class="scene-state-title" />
+                </ui:VisualElement>
+                <ui:Button name="logsCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
+                <ui:Label name="logsHeader" text="Logs" picking-mode="Ignore" class="scene-state-section-title" />
+                <ui:Label text="click a line to jump" picking-mode="Ignore" class="scene-state-section-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
+                <ui:TextField name="logsFilter" placeholder-text="Filter time, drone, text…" class="scene-state-filter" />
+                <ui:VisualElement name="logDroneChips" class="filter-chips" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-cols">
+                <ui:Button name="logsColTime" text="Time" class="scene-state-col scene-state-col-log-time" />
+                <ui:Button name="logsColDrone" text="Drone" class="scene-state-col scene-state-col-log-drone" />
+                <ui:Button name="logsColText" text="Text" class="scene-state-col scene-state-col-log-text" />
+            </ui:VisualElement>
+            <ui:ScrollView name="logsScroll" class="scene-state-table-scroll" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

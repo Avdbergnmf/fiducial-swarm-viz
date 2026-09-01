@@ -110,6 +110,40 @@ namespace SwarmViewer
             else Add(slot);
         }
 
+        /// <summary>Replace the set. Primary becomes the first slot. Empty clears.</summary>
+        public void Replace(IReadOnlyList<int> slots)
+        {
+            if (slots == null || slots.Count == 0)
+            {
+                Clear();
+                return;
+            }
+
+            if (slots.Count == _slots.Count)
+            {
+                bool same = true;
+                for (int i = 0; i < slots.Count; i++)
+                {
+                    if (_slots[i] != slots[i])
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same) return;
+            }
+
+            _slots.Clear();
+            _set.Clear();
+            for (int i = 0; i < slots.Count; i++)
+            {
+                int slot = slots[i];
+                if (_set.Add(slot))
+                    _slots.Add(slot);
+            }
+            Fire();
+        }
+
         public void Clear()
         {
             if (_slots.Count == 0) return;
