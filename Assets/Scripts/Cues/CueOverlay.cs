@@ -56,8 +56,8 @@ namespace SwarmViewer
                 "params comm= when the brain logged it. Otherwise measured — the longest distance any recorded link actually spanned — which is a floor on the true range, not the range itself. The footer marks that case."),
 
             new(CueMask.Separate, "Separation",
-                "A ring at the spacing the brain tries to keep from other craft. Selected friendlies only.",
-                "params sep=, the brain's own margin rather than a rule of the world. Four times the kill radius as the brain stands today."),
+                "A ring at the spacing the brain tries to keep from unknown traffic. Selected friendlies only. Known mates use a larger keep-out (fsep=) that this cue does not draw.",
+                "params sep=, the unknown/civilian blend — four times the kill radius. Mates use fsep=, sized to arrest cruise with the lateral bound (D8)."),
 
             new(CueMask.Velocity, "Velocity",
                 "An arrow along where the craft is actually going, 0.45 m of arrow per m/s. Selected and hovered craft.",

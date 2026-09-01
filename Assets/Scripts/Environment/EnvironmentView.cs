@@ -103,9 +103,19 @@ namespace SwarmViewer
 
             if (_assetInstance != null)
             {
-                // Prefab authored at 1 m diameter on XZ, 1 m height (same as the old cylinder).
-                _assetInstance.transform.position = new Vector3(assetPos.x, 1f, assetPos.z);
-                _assetInstance.transform.localScale = new Vector3(assetRadius * 2f, 1f, assetRadius * 2f);
+                // Prefab: Unity cylinder (2 m tall, 1 m diameter, pivot in the
+                // middle) plus a disabled sphere. The sim volume is a vertical
+                // cylinder of radius asset_radius from the ground to the arena
+                // ceiling (D10) — not a sphere, and not the 2 m disc we used
+                // to plant at y=1, which made 7 m breaches look like they hit
+                // a hat. Scale Y so the mesh spans floor → ceiling.
+                float floorY = 0f;
+                float ceilingY = 120f;
+                if (hasArena && meta.arena.max.Length >= 2 && meta.arena.max[1] > 1f)
+                    ceilingY = meta.arena.max[1];
+                float height = ceilingY - floorY;
+                _assetInstance.transform.position = new Vector3(assetPos.x, floorY + height * 0.5f, assetPos.z);
+                _assetInstance.transform.localScale = new Vector3(assetRadius * 2f, height * 0.5f, assetRadius * 2f);
             }
 
             // scale and position border markers

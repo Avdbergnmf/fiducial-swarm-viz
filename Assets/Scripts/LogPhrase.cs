@@ -96,14 +96,15 @@ namespace SwarmViewer
         static string Legend(string verb) => verb switch
         {
             "call" or "drop" or "wreck" =>
-                "miss   closest approach to the asset on its current course\n" +
+                "miss   3D closest approach to the asset origin (classification).\n" +
+                "       Breach is a vertical cylinder of radius asset_radius, any altitude.\n" +
                 "first  the same figure when it was first classified\n" +
                 "score  integrated approach evidence; commit needs 1.5\n" +
-                "align  heading vs bearing to the asset, 1 = straight at it\n" +
-                "close  closing speed on the asset",
+                "align  heading vs bearing to the asset in the horizontal plane, 1 = straight at it\n" +
+                "close  horizontal closing speed on the asset",
             "commit" =>
                 "score  integrated approach evidence\n" +
-                "miss   where it passes the asset on its current course\n" +
+                "miss   3D closest approach to the asset on its current course\n" +
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
                 "ttg    time until it reaches the asset",
@@ -199,7 +200,7 @@ namespace SwarmViewer
                 Closing(Num(raw, "close="), "us"));
         }
 
-        // "params sense=… comm=… maxv=… maxa=… tilt=… lat=… sep=… ring=… alt=…"
+        // "params sense=… comm=… maxv=… maxa=… tilt=… lat=… sep=… fsep=… ring=… alt=…"
         static string Params(string raw) => Join("Boot parameters",
             Field(raw, "sense=", "sense", "m"),
             Field(raw, "comm=", "radio", "m"),
@@ -207,6 +208,7 @@ namespace SwarmViewer
             Field(raw, "maxa=", "max accel", "m/s\u00b2"),
             Field(raw, "lat=", "lateral limit", "m/s\u00b2"),
             Field(raw, "sep=", "separation", "m"),
+            Field(raw, "fsep=", "friendly keep-out", "m"),
             Field(raw, "ring=", "picket ring", "m"),
             Field(raw, "alt=", "ring altitude", "m"));
 
