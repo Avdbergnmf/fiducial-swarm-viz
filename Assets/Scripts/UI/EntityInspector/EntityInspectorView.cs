@@ -66,11 +66,13 @@ namespace SwarmViewer
         VisualElement _logSection;
         Label _logHeader;
         ScrollView _logScroll;
+        LogList _logList;
 
         VisualElement _beliefsPanel;
         VisualElement _beliefsDragHandle;
         VisualElement _beliefsKindDot;
         Button _beliefsCloseBtn;
+        Button _beliefsSelectBtn;
         Label _beliefsTitle;
         Label _beliefsSubtitle;
         Button _beliefsVizBtn;
@@ -92,7 +94,6 @@ namespace SwarmViewer
         readonly List<VisualElement> _eventRows = new();
         IReadOnlyList<EntityEventRecord> _events;
         IReadOnlyList<LogLine> _logs;
-        int _logShown;
         int _nowEventIndex = -1;
 
         FloatingPanel _window;
@@ -105,6 +106,11 @@ namespace SwarmViewer
             Unhook();
             _ctx = ctx;
             TryWireUi();
+            if (_logList != null)
+            {
+                _logList.Bind(_ctx);
+                _logList.LeadIn = eventLeadIn;
+            }
             Hook();
             Close();
             HideBeliefs();
@@ -135,7 +141,6 @@ namespace SwarmViewer
             _boundSlot = -1;
             _events = null;
             _logs = null;
-            _logShown = 0;
             _nowEventIndex = -1;
             _callsFingerprint = int.MinValue;
             _seesFingerprint = int.MinValue;
@@ -208,11 +213,27 @@ namespace SwarmViewer
             _logSection = UiQuery.Named<VisualElement>(_root, "inspectorLogSection");
             _logHeader = UiQuery.Named<Label>(_root, "inspectorLogHeader");
             _logScroll = UiQuery.Named<ScrollView>(_root, "inspectorLogScroll");
+            _logList = new LogList(
+                _logScroll,
+                _logHeader,
+                null,
+                UiQuery.Named<VisualElement>(_root, "inspectorLogVerbs"),
+                UiQuery.Named<Button>(_root, "inspectorLogRawBtn"))
+            {
+                ShowDrone = false,
+                SelectOnJump = false,
+                FollowNow = true,
+                Title = "Log",
+                LeadIn = eventLeadIn,
+            };
+            if (_ctx != null)
+                _logList.Bind(_ctx);
 
             _beliefsPanel = UiQuery.Named<VisualElement>(_root, "beliefsPanel");
             _beliefsDragHandle = UiQuery.Named<VisualElement>(_root, "beliefsDragHandle");
             _beliefsKindDot = UiQuery.Named<VisualElement>(_root, "beliefsKindDot");
             _beliefsCloseBtn = UiQuery.Named<Button>(_root, "beliefsCloseBtn");
+            _beliefsSelectBtn = UiQuery.Named<Button>(_root, "beliefsSelectBtn");
             _beliefsTitle = UiQuery.Named<Label>(_root, "beliefsTitle");
             _beliefsSubtitle = UiQuery.Named<Label>(_root, "beliefsSubtitle");
             _beliefsVizBtn = UiQuery.Named<Button>(_root, "beliefsVizBtn");
@@ -251,6 +272,8 @@ namespace SwarmViewer
             }
             if (_beliefsVizBtn != null)
                 _beliefsVizBtn.clicked += TogglePinnedViz;
+            if (_beliefsSelectBtn != null)
+                _beliefsSelectBtn.clicked += SelectPinnedDrone;
         }
 
         void Hook()
@@ -285,7 +308,7 @@ namespace SwarmViewer
         {
             if (!_visible || _boundSlot < 0) return;
             RefreshLive();
-            RefreshLog(force: false);
+            _logList?.Highlight();
             UpdateEventHighlights();
             if (_beliefsVisible)
                 RefreshPinnedBeliefs(force: false);
@@ -353,7 +376,7 @@ namespace SwarmViewer
             _events = _ctx.Run.EventsFor(slot);
             _logs = info.drone_id >= 0 ? _ctx.Run.LogsForDrone(info.drone_id) : null;
             RebuildEvents();
-            RefreshLog(force: true);
+            RefreshLog();
             RefreshLive();
             RefreshBeliefsOpenBtn(info);
         }
@@ -579,95 +602,25 @@ namespace SwarmViewer
             }
         }
 
-        void RefreshLog(bool force)
+        void RefreshLog()
         {
-            if (_logScroll == null) return;
-
             int total = _logs != null ? _logs.Count : 0;
-            int visible = 0;
-            if (_logs != null && _ctx != null)
-            {
-                float t = _ctx.Clock.Time;
-                while (visible < total && _logs[visible].t <= t + 0.001f)
-                    visible++;
-            }
-
             // Only friendlies write a brain log. On everything else the section goes
             // away rather than showing an empty box that says so.
             if (_logSection != null)
                 _logSection.style.display = total > 0 ? DisplayStyle.Flex : DisplayStyle.None;
-
-            if (total == 0)
-            {
-                if (_logShown != 0 || _logScroll.contentContainer.childCount > 0)
-                {
-                    _logScroll.contentContainer.Clear();
-                    _logShown = 0;
-                }
-                return;
-            }
-
-            if (_logHeader != null)
-                _logHeader.text = $"Log · {visible}/{total}";
-
-            if (!force && visible == _logShown) return;
-
-            if (force || visible < _logShown)
-            {
-                _logScroll.contentContainer.Clear();
-                _logShown = 0;
-            }
-
-            if (visible == 0 && _logShown == 0 && _logScroll.contentContainer.childCount == 0)
-            {
-                var waiting = new Label("Nothing logged yet at this time.");
-                waiting.AddToClassList("inspector-empty");
-                waiting.name = "inspectorLogWaiting";
-                waiting.pickingMode = PickingMode.Ignore;
-                _logScroll.Add(waiting);
-                return;
-            }
-
-            if (_logShown == 0 && _logScroll.contentContainer.childCount > 0)
-                _logScroll.contentContainer.Clear();
-
-            bool appended = false;
-            for (int i = _logShown; i < visible; i++)
-            {
-                AppendLogLine(_logs[i]);
-                appended = true;
-            }
-            _logShown = visible;
-
-            if (appended)
-            {
-                var last = _logScroll.contentContainer.childCount > 0
-                    ? _logScroll.contentContainer[_logScroll.contentContainer.childCount - 1]
-                    : null;
-                if (last != null)
-                    _logScroll.schedule.Execute(() => _logScroll.ScrollTo(last));
-            }
+            _logList?.SetSource(_logs);
         }
 
-        void AppendLogLine(LogLine line)
+        /// <summary>
+        /// Put the pinned drone back in the selection (and reopen the inspector).
+        /// The panel stays open if you click away; this is how you find it again.
+        /// </summary>
+        void SelectPinnedDrone()
         {
-            var row = new VisualElement();
-            row.AddToClassList("inspector-log-line");
-            // Pickable so hovering can show the raw line and the field key.
-            row.pickingMode = PickingMode.Position;
-            row.tooltip = LogPhrase.Tooltip(line.text);
-
-            var time = new Label($"{line.t:F1}s");
-            time.AddToClassList("inspector-log-time");
-            time.pickingMode = PickingMode.Ignore;
-
-            var text = new Label(line.Pretty);
-            text.AddToClassList("inspector-log-text");
-            text.pickingMode = PickingMode.Ignore;
-
-            row.Add(time);
-            row.Add(text);
-            _logScroll.Add(row);
+            if (_beliefsSlot < 0 || _ctx?.Selection == null) return;
+            _ctx.Selection.SelectOnly(_beliefsSlot);
+            Open();
         }
 
         void RefreshBeliefsOpenBtn(EntityInfo info)
@@ -870,7 +823,7 @@ namespace SwarmViewer
             }
 
             if (_beliefsSeesHeader != null)
-                _beliefsSeesHeader.text = shown == 0 ? "This drone sees" : $"This drone sees · {shown}";
+                _beliefsSeesHeader.text = shown == 0 ? "What it has declared" : $"What it has declared · {shown}";
 
             if (shown == 0)
                 AddInspectorEmpty(_beliefsSeesScroll, "No current declarations. Unknown is silent.");

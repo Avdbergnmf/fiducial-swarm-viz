@@ -115,7 +115,7 @@ namespace SwarmViewer
         public bool IsBeliefViewOf(int droneId) =>
             _mode == ViewMode.FleetBelief && _observer == droneId && droneId >= 0;
 
-        /// <summary>Paint the scene as <paramref name="observerDrone"/> sees it.
+        /// <summary>Paint the scene as <paramref name="observerDrone"/> declared it.
         /// Pass -1 to keep the current observer.</summary>
         public void SetBeliefView(bool on, int observerDrone = -1)
         {

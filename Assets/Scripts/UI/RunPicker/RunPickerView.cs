@@ -40,6 +40,7 @@ namespace SwarmViewer
             public int Friendly, Hostile, Civilian, Wreckage;
             public int Events, Beliefs, Links, Breaches;
             public long BinBytes;
+            public SimReport Report;
         }
 
         struct RunEntry
@@ -495,6 +496,7 @@ namespace SwarmViewer
                 Beliefs = meta.beliefs?.Count ?? 0,
                 Links = meta.links?.Count ?? 0,
                 BinBytes = -1,
+                Report = meta.report,
             };
 
             if (!string.IsNullOrEmpty(p.BrainPath))
@@ -575,7 +577,16 @@ namespace SwarmViewer
             AddRow("Links", p.Links.ToString());
             AddRow("Beliefs", p.Beliefs > 0 ? p.Beliefs.ToString() : "0 (none declared)");
             AddRow("Bin", p.BinBytes >= 0 ? $"{p.BinBytes:N0} bytes" : "missing");
+            RenderScore(p.Report);
             RenderValidation();
+        }
+
+        void RenderScore(SimReport report)
+        {
+            AddSection("Score");
+            var rows = ScoreBreakdown.Rows(report);
+            for (int i = 0; i < rows.Count; i++)
+                AddRow(rows[i].Key, rows[i].Value, tooltip: rows[i].Detail);
         }
 
         static string MixSummary(RunPreview p)
@@ -711,7 +722,7 @@ namespace SwarmViewer
                 }
             }
             ShowPreview(preview);
-            ShowReport(runName);
+            ShowReport(runName, preview?.Report);
         }
 
         void RenderValidation()
@@ -746,7 +757,7 @@ namespace SwarmViewer
                 _reportOverlay.style.display = DisplayStyle.None;
         }
 
-        void ShowReport(string runName)
+        void ShowReport(string runName, SimReport score)
         {
             if (_reportOverlay == null) return;
 
@@ -771,11 +782,26 @@ namespace SwarmViewer
             {
                 if (_reportSummary != null)
                     _reportSummary.text = _validation.Summary();
+                AppendScoreReport(score);
                 for (int i = 0; i < _validation.Issues.Count; i++)
                     AddReportRow(_validation.Issues[i]);
             }
 
             _reportOverlay.style.display = DisplayStyle.Flex;
+        }
+
+        void AppendScoreReport(SimReport report)
+        {
+            var rows = ScoreBreakdown.Rows(report);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                string kind = row.Value != null && row.Value.StartsWith("-") ? "warning"
+                    : row.Key == "Total" ? "pass"
+                    : "info";
+                string status = row.Key == "Total" ? "SCORE" : "INFO";
+                AddReportBlock(status, row.Key, row.Value, row.Detail, kind);
+            }
         }
 
         void AddReportRow(Issue issue)

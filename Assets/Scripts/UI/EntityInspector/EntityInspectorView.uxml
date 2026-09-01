@@ -1,5 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Style src="EntityInspectorView.uss" />
+    <ui:Style src="../SceneState/SceneStateView.uss" />
     <ui:VisualElement name="inspectorRoot" class="inspector-root" picking-mode="Ignore">
         <ui:VisualElement name="inspectorPanel" picking-mode="Position" class="inspector-panel">
             <ui:VisualElement name="inspectorHeader" class="inspector-header">
@@ -94,8 +95,13 @@
 
             <ui:VisualElement name="inspectorLogSection" class="inspector-section" picking-mode="Ignore">
                 <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
-                    <ui:Label name="inspectorLogHeader" text="Log" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                    <ui:VisualElement class="inspector-section-head-lead" picking-mode="Ignore">
+                        <ui:Label name="inspectorLogHeader" text="Log" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                        <ui:Label text="click to jump" picking-mode="Ignore" class="inspector-section-hint" />
+                    </ui:VisualElement>
+                    <ui:Button name="inspectorLogRawBtn" text="Raw" picking-mode="Position" class="inspector-header-btn" tooltip="Show exactly what the brain wrote instead of the plain-English reading." />
                 </ui:VisualElement>
+                <ui:VisualElement name="inspectorLogVerbs" class="filter-chips" picking-mode="Ignore" />
                 <ui:ScrollView name="inspectorLogScroll" class="inspector-scroll inspector-scroll--log" />
             </ui:VisualElement>
             </ui:ScrollView>
@@ -107,10 +113,11 @@
                     <ui:VisualElement name="beliefsKindDot" picking-mode="Ignore" class="inspector-kind-dot" />
                     <ui:Label name="beliefsTitle" text="Beliefs" picking-mode="Ignore" class="inspector-title" />
                 </ui:VisualElement>
+                <ui:Button name="beliefsSelectBtn" text="Select" picking-mode="Position" class="inspector-header-btn" tooltip="Select this drone in the scene. Recovers it if you clicked away." />
                 <ui:Button name="beliefsCloseBtn" text="×" picking-mode="Position" class="inspector-close" />
             </ui:VisualElement>
             <ui:Label name="beliefsSubtitle" text="" picking-mode="Ignore" class="inspector-subtitle" />
-            <ui:Button name="beliefsVizBtn" text="Color scene" picking-mode="Position" class="inspector-toggle" tooltip="Paint every craft as this drone declared it. Grey is undeclared. B also toggles." />
+            <ui:Button name="beliefsVizBtn" text="Color scene" picking-mode="Position" class="inspector-toggle" tooltip="Paint every craft as this drone declared it. Grey is undeclared. Declarations are a scoring hook, not radio contact. B also toggles." />
             <ui:ScrollView name="beliefsBody" class="inspector-body">
                 <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
                     <ui:Label text="Stance" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
@@ -123,6 +130,7 @@
                         <ui:Label name="beliefsCallsHeader" text="Calls on this craft" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
                         <ui:Label name="beliefsCallsHint" text="who called it / actual" picking-mode="Ignore" class="inspector-section-hint" />
                     </ui:VisualElement>
+                    <ui:Label text="Other drones' scoring calls about this craft. Each row is another brain's declare_track — a note to the simulator, not a radio message. Unknown is omitted. Click a caller to select them." picking-mode="Ignore" class="inspector-blurb" />
                     <ui:VisualElement class="inspector-belief-cols" picking-mode="Ignore">
                         <ui:Label text="Who" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--name" />
                         <ui:Label text="Called" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--called" />
@@ -133,9 +141,10 @@
 
                 <ui:VisualElement class="inspector-section" picking-mode="Ignore">
                     <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
-                        <ui:Label name="beliefsSeesHeader" text="This drone sees" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                        <ui:Label name="beliefsSeesHeader" text="What it has declared" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
                         <ui:Label text="click a row to select" picking-mode="Ignore" class="inspector-section-hint" />
                     </ui:VisualElement>
+                    <ui:Label text="This brain's current scoring calls. Color scene paints the world from this list. Not who is on the radio (that is the Radio links cue) and not every track it can sense — unknown stays off the list. This brain only declares hostiles, so silence is 'not yet called', not 'friendly'." picking-mode="Ignore" class="inspector-blurb" />
                     <ui:VisualElement class="inspector-belief-cols" picking-mode="Ignore">
                         <ui:Label text="Craft" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--name" />
                         <ui:Label text="Called" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--called" />

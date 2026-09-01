@@ -72,8 +72,8 @@ namespace SwarmViewer
                 "The attitude quaternion in the trace. Its disagreeing with Velocity during straight flight is how a wrong quaternion conversion gives itself away."),
 
             new(CueMask.Links, "Radio links",
-                "A line for every radio link open at the current instant. With a selection, only that craft's links.",
-                "Link records in the trace, each carrying a start and end time. These are recorded edges, not links guessed from distance."),
+                "A line between two friendlies who can hear each other right now. The radio is a broadcast: anyone in range may get the frame. These lines are that reachability, not a transcript of what crossed, and not a relay graph — this brain does not forward. With a selection, only that craft's links.",
+                "links[] in the trace: drone ids a, b and a closed interval [t_start, t_end], from the simulator's add/remove deltas. Recorded edges, not distance inferred from comm_radius. Payloads are not in the recording; heartbeats, hostile reports and claims stay inside the brains."),
 
             new(CueMask.Picket, "Picket ring",
                 "The ring the brain holds around the asset.",

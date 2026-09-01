@@ -7,7 +7,7 @@
                 <ui:VisualElement name="aircraftDragHandle" class="scene-state-drag">
                     <ui:Label text="Aircraft" picking-mode="Ignore" class="scene-state-title" />
                 </ui:VisualElement>
-                <ui:Button name="aircraftBeliefBtn" text="Color" picking-mode="Position" class="scene-state-header-btn" tooltip="Paint the scene as the current observer sees it. Grey is undeclared. B also toggles." />
+                <ui:Button name="aircraftBeliefBtn" text="Color" picking-mode="Position" class="scene-state-header-btn" tooltip="Paint every craft as the selected observer declared it. Grey is undeclared. Scoring declarations, not radio contact. B also toggles." />
                 <ui:Button name="aircraftCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">

@@ -75,12 +75,11 @@ namespace SwarmViewer
         Label _logsHeader;
         TextField _logsFilter;
         FilterChips _logDroneChips;
-        FilterChips _logVerbChips;
         Button _logsColTime;
         Button _logsColDrone;
         Button _logsColText;
-        Button _logsRawBtn;
         ScrollView _logsScroll;
+        LogList _logList;
 
         VisualElement _cuesChipRow;
         Label _cuesFooter;
@@ -95,8 +94,6 @@ namespace SwarmViewer
         readonly List<int> _displayedAircraft = new();
         readonly List<EventInfo> _filteredEvents = new();
         readonly List<VisualElement> _eventRows = new();
-        readonly List<LogLine> _filteredLogs = new();
-        readonly List<VisualElement> _logRows = new();
         readonly Dictionary<int, int> _droneToSlot = new();
 
         AircraftSort _aircraftSort = AircraftSort.Kind;
@@ -112,9 +109,6 @@ namespace SwarmViewer
 
         LogSort _logSort = LogSort.Time;
         bool _logSortAsc = true;
-        bool _logsRaw;
-        LogLine _nowLog;
-        bool _logHighlightDirty;
         int _aliveFingerprint = int.MinValue;
 
         void OnEnable() => TryWireUi();
@@ -131,9 +125,16 @@ namespace SwarmViewer
             Hook();
             RebuildDroneMap();
             RebuildFilterChoices();
+            if (_logList != null)
+            {
+                _logList.Bind(_ctx);
+                _logList.LeadIn = eventLeadIn;
+                _logList.SlotOfDrone = id => _droneToSlot.TryGetValue(id, out int s) ? s : -1;
+                _logList.SetSource(_ctx?.Run?.Meta?.logs);
+            }
             if (_aircraftVisible) RebuildAircraft();
             if (_eventsVisible) RebuildEvents();
-            if (_logsVisible) RebuildLogs();
+            if (_logsVisible) RefreshLogHeaders();
             RefreshAircraftBeliefBtn();
             RefreshCueChips();
         }
@@ -204,12 +205,23 @@ namespace SwarmViewer
             _logsHeader = UiQuery.Named<Label>(_root, "logsHeader");
             _logsFilter = UiQuery.Named<TextField>(_root, "logsFilter");
             _logDroneChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "logDroneChips"));
-            _logVerbChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "logVerbChips"));
             _logsColTime = UiQuery.Named<Button>(_root, "logsColTime");
             _logsColDrone = UiQuery.Named<Button>(_root, "logsColDrone");
             _logsColText = UiQuery.Named<Button>(_root, "logsColText");
-            _logsRawBtn = UiQuery.Named<Button>(_root, "logsRawBtn");
             _logsScroll = UiQuery.Named<ScrollView>(_root, "logsScroll");
+            _logList = new LogList(
+                _logsScroll,
+                _logsHeader,
+                _logsFilter,
+                UiQuery.Named<VisualElement>(_root, "logVerbChips"),
+                UiQuery.Named<Button>(_root, "logsRawBtn"))
+            {
+                ShowDrone = true,
+                Title = "Logs",
+                LeadIn = eventLeadIn,
+                Allow = line => _logDroneChips == null || _logDroneChips.Allows(DroneChip(line.drone)),
+                Compare = CompareLogs,
+            };
 
             _cuesChipRow = UiQuery.Named<VisualElement>(_root, "cuesChipRow");
             _cuesFooter = UiQuery.Named<Label>(_root, "cuesFooter");
@@ -277,24 +289,11 @@ namespace SwarmViewer
             if (_eventsColWho != null) _eventsColWho.clicked += () => SortEvents(EventSort.Involved);
             if (_eventsColText != null) _eventsColText.clicked += () => SortEvents(EventSort.Text);
 
-            if (_logsFilter != null)
-                _logsFilter.RegisterValueChangedCallback(_ => { if (_logsVisible) RebuildLogs(); });
             if (_logDroneChips != null)
                 _logDroneChips.Changed += () => { if (_logsVisible) RebuildLogs(); };
-            if (_logVerbChips != null)
-                _logVerbChips.Changed += () => { if (_logsVisible) RebuildLogs(); };
             if (_logsColTime != null) _logsColTime.clicked += () => SortLogs(LogSort.Time);
             if (_logsColDrone != null) _logsColDrone.clicked += () => SortLogs(LogSort.Drone);
             if (_logsColText != null) _logsColText.clicked += () => SortLogs(LogSort.Text);
-            if (_logsRawBtn != null) _logsRawBtn.clicked += ToggleLogsRaw;
-        }
-
-        /// <summary>Swap the English rendering for exactly what the brain wrote.</summary>
-        void ToggleLogsRaw()
-        {
-            _logsRaw = !_logsRaw;
-            _logsRawBtn?.EnableInClassList("scene-state-toggle--open", _logsRaw);
-            if (_logsVisible) RebuildLogs();
         }
 
         void Hook()
@@ -379,8 +378,8 @@ namespace SwarmViewer
             int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
             _aircraftBeliefBtn.text = on && observer >= 0 ? $"Color {observer}" : "Color";
             _aircraftBeliefBtn.tooltip = on && observer >= 0
-                ? $"Scene is painted as drone {observer} sees it. Click to restore ground truth. B also toggles."
-                : "Paint the scene as the current observer sees it. Grey is undeclared. B also toggles.";
+                ? $"Scene is painted as drone {observer} declared it. Grey is undeclared. Click to restore ground truth. B also toggles."
+                : "Paint every craft as the selected observer declared it. Grey is undeclared. Scoring declarations, not radio contact. B also toggles.";
         }
 
         void OnViewModeChanged(ViewMode _)
@@ -533,7 +532,7 @@ namespace SwarmViewer
             if (_eventsVisible)
                 UpdateEventHighlights();
             if (_logsVisible)
-                UpdateLogHighlights();
+                _logList?.Highlight();
         }
 
         void OnSelectionChanged(int _)
@@ -616,20 +615,6 @@ namespace SwarmViewer
                 drones.Sort(StringComparer.OrdinalIgnoreCase);
             }
             _logDroneChips?.SetChoices(drones);
-
-            var verbs = new List<string>();
-            var seenVerb = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (logs != null)
-            {
-                for (int i = 0; i < logs.Count; i++)
-                {
-                    string verb = LogVerb(logs[i]?.text);
-                    if (!seenVerb.Add(verb)) continue;
-                    verbs.Add(verb);
-                }
-                verbs.Sort(StringComparer.OrdinalIgnoreCase);
-            }
-            _logVerbChips?.SetChoices(verbs);
         }
 
         void SortAircraft(AircraftSort col)
@@ -1180,75 +1165,8 @@ namespace SwarmViewer
 
         void RebuildLogs()
         {
-            _logRows.Clear();
-            _logHighlightDirty = true;
-            if (_logsScroll == null) return;
-            _logsScroll.contentContainer.Clear();
             RefreshLogHeaders();
-
-            if (_ctx?.Run?.Meta?.logs == null)
-            {
-                if (_logsHeader != null) _logsHeader.text = "Logs";
-                AddEmpty(_logsScroll, "No run loaded.");
-                return;
-            }
-
-            var logs = _ctx.Run.Meta.logs;
-            string query = _logsFilter != null ? (_logsFilter.value ?? "").Trim() : "";
-
-            _filteredLogs.Clear();
-            for (int i = 0; i < logs.Count; i++)
-            {
-                var line = logs[i];
-                if (line == null) continue;
-                if (_logDroneChips != null && !_logDroneChips.Allows(DroneChip(line.drone)))
-                    continue;
-                if (_logVerbChips != null && !_logVerbChips.Allows(LogVerb(line.text)))
-                    continue;
-                if (!MatchesLogFilter(line, query))
-                    continue;
-                _filteredLogs.Add(line);
-            }
-
-            _filteredLogs.Sort(CompareLogs);
-
-            int total = logs.Count;
-            int shown = _filteredLogs.Count;
-            if (_logsHeader != null)
-            {
-                _logsHeader.text = shown == total
-                    ? $"Logs · {shown}"
-                    : $"Logs · {shown}/{total}";
-            }
-
-            if (shown == 0)
-            {
-                AddEmpty(_logsScroll, total == 0 ? "No log lines in this run." : "No log lines match this filter.");
-                return;
-            }
-
-            for (int i = 0; i < _filteredLogs.Count; i++)
-            {
-                var line = _filteredLogs[i];
-                var row = new VisualElement();
-                row.AddToClassList("scene-state-event");
-                row.userData = line;
-
-                row.Add(Cell($"{line.t:F1}s", "scene-state-cell-time"));
-                row.Add(Cell(DroneChip(line.drone), "scene-state-cell-log-drone"));
-
-                var text = Cell(_logsRaw ? (line.text ?? "") : line.Pretty, "scene-state-cell-text");
-                text.AddToClassList("scene-state-cell--wrap");
-                text.AddToClassList("scene-state-log--" + LogVerb(line.text));
-                row.Add(text);
-                row.tooltip = LogPhrase.Tooltip(line.text);
-
-                row.RegisterCallback<ClickEvent>(OnLogClicked);
-                _logsScroll.Add(row);
-                _logRows.Add(row);
-            }
-
-            UpdateLogHighlights();
+            _logList?.Rebuild();
         }
 
         void RefreshLogHeaders()
@@ -1271,58 +1189,6 @@ namespace SwarmViewer
             if (c == 0)
                 c = a.drone.CompareTo(b.drone);
             return _logSortAsc ? c : -c;
-        }
-
-        bool MatchesLogFilter(LogLine line, string query)
-        {
-            if (string.IsNullOrEmpty(query)) return true;
-            if (Contains(line.text, query)) return true;
-            if (Contains(line.Pretty, query)) return true;
-            if (Contains(DroneChip(line.drone), query)) return true;
-            if ($"{line.drone}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if ($"{line.t:F1}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            if (_droneToSlot.TryGetValue(line.drone, out int slot) &&
-                (uint)slot < (uint)_ctx.Run.SlotCount &&
-                Contains(_ctx.Run.Info(slot).Label, query))
-                return true;
-            return false;
-        }
-
-        void OnLogClicked(ClickEvent evt)
-        {
-            if (evt.currentTarget is VisualElement row && row.userData is LogLine line)
-                JumpToLog(line);
-            evt.StopPropagation();
-        }
-
-        void JumpToLog(LogLine line)
-        {
-            if (_ctx == null || line == null) return;
-            _ctx.Clock.SeekBefore(line.t, eventLeadIn);
-            if (_droneToSlot.TryGetValue(line.drone, out int slot))
-                _ctx.Selection.SelectOnly(slot);
-        }
-
-        void UpdateLogHighlights()
-        {
-            if (_ctx == null || _logRows.Count == 0) return;
-            float t = _ctx.Clock.Time;
-            LogLine now = LatestAtOrBefore(_ctx.Run?.Meta?.logs, t, l => l.t);
-
-            if (!_logHighlightDirty && ReferenceEquals(now, _nowLog)) return;
-            _logHighlightDirty = false;
-            _nowLog = now;
-
-            for (int i = 0; i < _logRows.Count; i++)
-            {
-                var row = _logRows[i];
-                if (row.userData is not LogLine line) continue;
-                bool isNow = ReferenceEquals(line, now);
-                bool future = line.t > t + 0.001f;
-                row.EnableInClassList("scene-state-event--now", isNow);
-                row.EnableInClassList("scene-state-event--past", !isNow && !future);
-                row.EnableInClassList("scene-state-event--future", !isNow && future);
-            }
         }
 
         static T LatestAtOrBefore<T>(IReadOnlyList<T> items, float t, Func<T, float> timeOf) where T : class
@@ -1369,13 +1235,6 @@ namespace SwarmViewer
         static string FormatSpeed(float speed) => $"{speed:F0} m/s";
 
         static string DroneChip(int droneId) => $"Drone {droneId}";
-
-        static string LogVerb(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return "other";
-            int end = text.IndexOf(' ');
-            return end < 0 ? text : text.Substring(0, end);
-        }
 
         static bool Contains(string hay, string needle) =>
             !string.IsNullOrEmpty(hay) && hay.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
