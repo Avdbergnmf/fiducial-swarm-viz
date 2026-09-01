@@ -164,6 +164,32 @@ namespace SwarmViewer
             else Add(slot);
         }
 
+        /// <summary>Add any not already selected. Primary stays the current first.
+        /// Empty input is a no-op. One history entry for the whole set.</summary>
+        public void Union(IReadOnlyList<int> slots)
+        {
+            if (slots == null || slots.Count == 0) return;
+            bool any = false;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                if (!_set.Contains(slots[i]))
+                {
+                    any = true;
+                    break;
+                }
+            }
+            if (!any) return;
+
+            RecordBeforeChange();
+            for (int i = 0; i < slots.Count; i++)
+            {
+                int slot = slots[i];
+                if (_set.Add(slot))
+                    _slots.Add(slot);
+            }
+            Fire();
+        }
+
         /// <summary>Replace the set. Primary becomes the first slot. Empty clears.</summary>
         public void Replace(IReadOnlyList<int> slots)
         {

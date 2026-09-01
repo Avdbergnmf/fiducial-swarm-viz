@@ -21,4 +21,5 @@
         <ui:Label name="uiScaleLabel" text="125%" picking-mode="Ignore" class="ui-scale-label" />
         <ui:Button name="uiScaleUpBtn" text="+" picking-mode="Position" class="ui-scale-btn" />
     </ui:VisualElement>
+    <ui:VisualElement name="marqueeBox" picking-mode="Ignore" class="marquee-box" />
 </ui:UXML>

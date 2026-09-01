@@ -168,7 +168,7 @@ namespace SwarmViewer
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
                 CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 },
-                CueMask.Intercept => _ctx.Run.Commits is { Spans.Count: > 0 },
+                CueMask.Intercept => _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0,
                 _ => true,
             };
         }
@@ -190,10 +190,17 @@ namespace SwarmViewer
                 CueMask.Separate => p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G4} m" : "",
                 CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
                 CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 } l ? $"{l.Count} link records" : "",
-                CueMask.Intercept => _ctx.Run.Commits is { Spans.Count: > 0 } c
-                    ? $"{c.Spans.Count} intercept{(c.Spans.Count == 1 ? "" : "s")}" : "",
+                CueMask.Intercept => InterceptValue(_ctx.Run.Commits),
                 _ => "",
             };
+        }
+
+        static string InterceptValue(CommitIndex commits)
+        {
+            if (commits == null) return "";
+            int n = commits.Spans.Count;
+            if (n <= 0) return "";
+            return n == 1 ? "1 intercept" : n + " intercepts";
         }
 
         /// <summary>This run's cue distances, for the panel footer.</summary>
@@ -251,6 +258,7 @@ namespace SwarmViewer
                 DrawEntity(snaps, _ctx.Selection.Slots[i], p, selected: true);
             if (hover >= 0 && !_ctx.Selection.IsSelected(hover))
                 DrawEntity(snaps, hover, p, selected: false);
+            DrawMarqueeHovers(snaps, p, hover);
 
             if (On(CueMask.Links))
                 DrawLinks(snaps, t);
@@ -268,6 +276,22 @@ namespace SwarmViewer
                 _picker = FindAnyObjectByType<EntityPicker>();
             var view = _picker != null ? _picker.HoveredEntity : null;
             return view != null ? view.Slot : -1;
+        }
+
+        void DrawMarqueeHovers(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, RunParams p, int already)
+        {
+            if (_picker == null) return;
+            var boxed = _picker.MarqueeHovered;
+            if (boxed == null) return;
+            for (int i = 0; i < boxed.Count; i++)
+            {
+                var view = boxed[i];
+                if (view == null) continue;
+                int slot = view.Slot;
+                if (slot == already) continue;
+                if (_ctx.Selection.IsSelected(slot)) continue;
+                DrawEntity(snaps, slot, p, selected: false);
+            }
         }
 
         void DrawEntity(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, int slot, RunParams p, bool selected)

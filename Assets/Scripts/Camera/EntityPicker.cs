@@ -1,6 +1,6 @@
 // Raycasts against the entity picking layer to handle hover highlights, click
-// selection (plain / Shift multi-select), double-click inspector, and empty
-// double-click camera resets.
+// selection (plain / Shift multi-select), drag-box selection (origins inside
+// the rectangle), double-click inspector, and empty double-click camera resets.
 // Pick volume is a fat sphere (SceneBuilder.pickColliderRadius). Overlaps go
 // to the origin closest to the ray; a miss still selects within pickPixelSlack.
 //
@@ -14,7 +14,12 @@
 //      would both press Play and select a drone behind the button.
 //   4. Entity hover is a flag on EntityView, independent of selection. Clearing
 //      hover never clears selection; selecting never blocks hover.
+//   5. Left press is not a click until release. Past marqueeSlop pixels it is a
+//      box: every live origin whose screen point sits in the rectangle is
+//      selected (AoE / Scene view). Shift or Ctrl unions with the current set.
+//      Origins inside the live rectangle are hovered until release.
 
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -28,22 +33,38 @@ namespace SwarmViewer
         [SerializeField] float doubleClickThreshold = 0.35f;
         [Tooltip("If the click misses every collider, still select the nearest origin within this many pixels.")]
         [SerializeField] float pickPixelSlack = 48f;
+        [Tooltip("Pixels of movement before a press becomes a selection box instead of a click.")]
+        [SerializeField] float marqueeSlop = 6f;
         [SerializeField] OrbitCameraController orbitCamera;
         [SerializeField] UIDocument uiDocument;
         [SerializeField] EntityInspectorView inspector;
 
         ViewerContext _ctx;
         Camera _cam;
+        VisualElement _marqueeBox;
 
         EntityView _hoveredEntity;
         float _lastEmptyClickTime;
         float _lastEntityClickTime;
         int _lastEntityClickSlot = -1;
 
+        bool _pressing;
+        bool _marquee;
+        Vector2 _pressStart;
+        Vector2 _pressNow;
+        EntityView _pressHit;
+        readonly List<int> _boxHits = new();
+        readonly List<EntityView> _boxViews = new();
+        readonly List<EntityView> _marqueeHovered = new();
+
+        /// <summary>Live origins inside the drag box. Empty when not dragging.</summary>
+        public IReadOnlyList<EntityView> MarqueeHovered => _marqueeHovered;
+
         public EntityView HoveredEntity => _hoveredEntity;
 
         public void Bind(ViewerContext ctx)
         {
+            CancelPress();
             ClearHover();
             _ctx = ctx;
             if (_cam == null) _cam = GetComponent<Camera>() ?? Camera.main;
@@ -57,12 +78,18 @@ namespace SwarmViewer
                 if (found.Length > 0) inspector = found[0];
             }
 
+            EnsureMarqueeBox();
+
             if (pickingLayer.value == 0)
             {
                 int layer = LayerMask.NameToLayer("Picking");
                 pickingLayer = layer >= 0 ? (1 << layer) : ~0;
             }
         }
+
+        void OnEnable() => EnsureMarqueeBox();
+
+        void OnDisable() => CancelPress();
 
         void Update()
         {
@@ -72,6 +99,32 @@ namespace SwarmViewer
             if (mouse == null) return;
 
             Vector2 mousePos = mouse.position.ReadValue();
+            var keyboard = Keyboard.current;
+            bool escape = keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
+
+            if (_pressing)
+            {
+                _pressNow = mousePos;
+                float slop = Mathf.Max(1f, marqueeSlop);
+                if (!_marquee && (mousePos - _pressStart).sqrMagnitude >= slop * slop)
+                {
+                    _marquee = true;
+                    ClearHover();
+                }
+
+                SyncMarqueeVisual();
+                SyncMarqueeHover();
+
+                if (escape)
+                {
+                    CancelPress();
+                    return;
+                }
+
+                if (!mouse.leftButton.isPressed)
+                    FinishPress();
+                return;
+            }
 
             if (IsPointerOverUI(mousePos))
             {
@@ -80,14 +133,199 @@ namespace SwarmViewer
             }
 
             EntityView hitEntity = PickEntity(mousePos);
-
             UpdateHover(hitEntity);
 
             if (mouse.leftButton.wasPressedThisFrame)
             {
-                if (hitEntity != null) HandleEntityClick(hitEntity);
-                else HandleEmptyClick();
+                _pressing = true;
+                _marquee = false;
+                _pressStart = mousePos;
+                _pressNow = mousePos;
+                _pressHit = hitEntity;
             }
+        }
+
+        void FinishPress()
+        {
+            bool box = _marquee;
+            EntityView hit = _pressHit;
+            Vector2 a = _pressStart;
+            Vector2 b = _pressNow;
+            CancelPress();
+
+            if (box)
+            {
+                CollectOriginsInBox(a, b, _boxHits);
+                var keyboard = Keyboard.current;
+                bool additive = keyboard != null &&
+                    (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed
+                     || keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+                     || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed);
+                if (additive)
+                    _ctx.Selection.Union(_boxHits);
+                else
+                    _ctx.Selection.Replace(_boxHits);
+                _lastEntityClickSlot = -1;
+                return;
+            }
+
+            if (hit != null) HandleEntityClick(hit);
+            else HandleEmptyClick();
+        }
+
+        void CancelPress()
+        {
+            _pressing = false;
+            _marquee = false;
+            _pressHit = null;
+            ClearMarqueeHover();
+            SyncMarqueeVisual();
+        }
+
+        void EnsureMarqueeBox()
+        {
+            if (uiDocument == null)
+                uiDocument = GetComponent<UIDocument>();
+            if (uiDocument == null) return;
+            var root = uiDocument.rootVisualElement;
+            if (root == null) return;
+
+            if (_marqueeBox != null && _marqueeBox.panel != null) return;
+
+            _marqueeBox = root.Q<VisualElement>("marqueeBox");
+            if (_marqueeBox == null)
+            {
+                _marqueeBox = new VisualElement { name = "marqueeBox", pickingMode = PickingMode.Ignore };
+                _marqueeBox.AddToClassList("marquee-box");
+                root.Add(_marqueeBox);
+            }
+
+            _marqueeBox.pickingMode = PickingMode.Ignore;
+            SyncMarqueeVisual();
+        }
+
+        void SyncMarqueeVisual()
+        {
+            if (_marqueeBox == null) return;
+
+            if (!_marquee || uiDocument == null || uiDocument.rootVisualElement == null
+                || uiDocument.rootVisualElement.panel == null)
+            {
+                _marqueeBox.style.display = DisplayStyle.None;
+                return;
+            }
+
+            Vector2 a = ScreenToLayout(_pressStart);
+            Vector2 b = ScreenToLayout(_pressNow);
+            float xMin = Mathf.Min(a.x, b.x);
+            float yMin = Mathf.Min(a.y, b.y);
+            float w = Mathf.Abs(a.x - b.x);
+            float h = Mathf.Abs(a.y - b.y);
+            if (w < 1f && h < 1f)
+            {
+                _marqueeBox.style.display = DisplayStyle.None;
+                return;
+            }
+
+            _marqueeBox.style.display = DisplayStyle.Flex;
+            _marqueeBox.style.left = xMin;
+            _marqueeBox.style.top = yMin;
+            _marqueeBox.style.right = StyleKeyword.Auto;
+            _marqueeBox.style.bottom = StyleKeyword.Auto;
+            _marqueeBox.style.width = w;
+            _marqueeBox.style.height = h;
+        }
+
+        /// <summary>
+        /// Mouse / WorldToScreenPoint are origin-bottom, Y up. UITK style.top is
+        /// origin-top, Y down. Map through the parent's worldBound so UI scale
+        /// is included and Y is flipped once, on purpose.
+        /// </summary>
+        Vector2 ScreenToLayout(Vector2 screen)
+        {
+            var parent = _marqueeBox != null && _marqueeBox.parent != null
+                ? _marqueeBox.parent
+                : uiDocument.rootVisualElement;
+            Rect wb = parent.worldBound;
+            float nx = Screen.width > 1f ? screen.x / Screen.width : 0f;
+            float ny = Screen.height > 1f ? 1f - screen.y / Screen.height : 0f;
+            var world = new Vector2(wb.xMin + nx * wb.width, wb.yMin + ny * wb.height);
+            return parent.WorldToLocal(world);
+        }
+
+        void CollectViewsInBox(Vector2 a, Vector2 b, List<EntityView> dst)
+        {
+            dst.Clear();
+            float xMin = Mathf.Min(a.x, b.x);
+            float xMax = Mathf.Max(a.x, b.x);
+            float yMin = Mathf.Min(a.y, b.y);
+            float yMax = Mathf.Max(a.y, b.y);
+
+            var views = FindObjectsByType<EntityView>(FindObjectsInactive.Exclude);
+            for (int i = 0; i < views.Length; i++)
+            {
+                var view = views[i];
+                if (!IsPickable(view)) continue;
+                Vector3 sp = _cam.WorldToScreenPoint(view.transform.position);
+                if (sp.z < 0.1f) continue;
+                if (sp.x < xMin || sp.x > xMax || sp.y < yMin || sp.y > yMax) continue;
+                dst.Add(view);
+            }
+        }
+
+        void CollectOriginsInBox(Vector2 a, Vector2 b, List<int> dst)
+        {
+            CollectViewsInBox(a, b, _boxViews);
+            dst.Clear();
+            for (int i = 0; i < _boxViews.Count; i++)
+                dst.Add(_boxViews[i].Slot);
+            dst.Sort();
+        }
+
+        void SyncMarqueeHover()
+        {
+            if (!_marquee)
+            {
+                ClearMarqueeHover();
+                return;
+            }
+
+            CollectViewsInBox(_pressStart, _pressNow, _boxViews);
+
+            for (int i = 0; i < _marqueeHovered.Count; i++)
+            {
+                var prev = _marqueeHovered[i];
+                if (prev == null) continue;
+                bool still = false;
+                for (int j = 0; j < _boxViews.Count; j++)
+                {
+                    if (_boxViews[j] == prev)
+                    {
+                        still = true;
+                        break;
+                    }
+                }
+                if (!still)
+                    prev.SetHovered(false);
+            }
+
+            _marqueeHovered.Clear();
+            for (int i = 0; i < _boxViews.Count; i++)
+            {
+                var view = _boxViews[i];
+                view.SetHovered(true);
+                _marqueeHovered.Add(view);
+            }
+        }
+
+        void ClearMarqueeHover()
+        {
+            for (int i = 0; i < _marqueeHovered.Count; i++)
+            {
+                if (_marqueeHovered[i] != null)
+                    _marqueeHovered[i].SetHovered(false);
+            }
+            _marqueeHovered.Clear();
         }
 
         void UpdateHover(EntityView entity)

@@ -170,3 +170,19 @@
     width: 10px;
     height: 10px;
 }
+
+/* Screen-space selection rectangle. Ignore picking so it never eats the
+   release click; EntityPicker drives left/top/width/height. */
+.marquee-box {
+    position: absolute;
+    display: none;
+    background-color: rgba(82, 158, 255, 0.05);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(160, 215, 255, 0.7);
+    border-right-color: rgba(160, 215, 255, 0.7);
+    border-top-color: rgba(160, 215, 255, 0.7);
+    border-bottom-color: rgba(160, 215, 255, 0.7);
+}

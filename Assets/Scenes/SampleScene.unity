@@ -288,6 +288,7 @@ MonoBehaviour:
     m_Bits: 0
   doubleClickThreshold: 0.35
   pickPixelSlack: 10
+  marqueeSlop: 6
   orbitCamera: {fileID: 330585550}
   uiDocument: {fileID: 1441780140}
   inspector: {fileID: 1441780144}
