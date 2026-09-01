@@ -99,15 +99,15 @@ namespace SwarmViewer
                 "miss   3D closest approach to the asset origin (classification).\n" +
                 "       Breach is a vertical cylinder of radius asset_radius, any altitude.\n" +
                 "first  the same figure when it was first classified\n" +
-                "score  integrated approach evidence; commit needs 1.5\n" +
+                "score  integrated approach evidence; commit needs a Hostile call plus catchable geometry\n" +
                 "align  heading vs bearing to the asset in the horizontal plane, 1 = straight at it\n" +
                 "close  horizontal closing speed on the asset",
             "commit" =>
                 "score  integrated approach evidence\n" +
                 "miss   3D closest approach to the asset on its current course\n" +
                 "rng    range from us to it\n" +
-                "close  closing speed between us and it\n" +
-                "ttg    time until it reaches the asset",
+                "close  relative horizontal closing speed between us and it (both velocities)\n" +
+                "ttg    time until it reaches the asset cylinder",
             "near" or "ram" =>
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
@@ -156,8 +156,8 @@ namespace SwarmViewer
             float ttg = Num(raw, "ttg=");
             float miss = Num(raw, "miss=");
             string reach = float.IsNaN(ttg) ? ""
-                : float.IsNaN(miss) ? $"reaches the asset in {ttg:F1} s"
-                : $"reaches the asset in {ttg:F1} s, passing {Metres(miss)} from it";
+                : float.IsNaN(miss) ? $"reaches the cylinder in {ttg:F1} s"
+                : $"reaches the cylinder in {ttg:F1} s, passing {Metres(miss)} from the origin";
 
             return Join($"Committed to {Track(Int(raw, "trk="), false)}",
                 Range(Num(raw, "rng=")),
