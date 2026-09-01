@@ -134,7 +134,7 @@ namespace SwarmViewer
             {
                 if (_openBtn != null)
                 {
-                    _openBtn.tooltip = "Who disagrees with whom, including hearsay   D";
+                    _openBtn.tooltip = "Who disagrees with whom, including hearsay";
                     _openBtn.clicked += Toggle;
                 }
                 if (_agreeBtn != null)

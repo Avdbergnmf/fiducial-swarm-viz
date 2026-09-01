@@ -160,28 +160,33 @@ namespace SwarmViewer
             bool tracking = _ctx != null && _ctx.Selection != null && _ctx.Selection.Count > 0;
             if (!tracking && keyboard != null)
             {
-                Vector3 move = Vector3.zero;
-                if (keyboard.wKey.isPressed) move += Vector3.forward;
-                if (keyboard.sKey.isPressed) move += Vector3.back;
-                if (keyboard.aKey.isPressed) move += Vector3.left;
-                if (keyboard.dKey.isPressed) move += Vector3.right;
-
-                if (move.sqrMagnitude > 0.001f)
+                bool chord = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+                             || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
+                if (!chord)
                 {
-                    move.Normalize();
-                    Vector3 camFwd = _cam.transform.forward;
-                    camFwd.y = 0f;
-                    camFwd.Normalize();
+                    Vector3 move = Vector3.zero;
+                    if (keyboard.wKey.isPressed) move += Vector3.forward;
+                    if (keyboard.sKey.isPressed) move += Vector3.back;
+                    if (keyboard.aKey.isPressed) move += Vector3.left;
+                    if (keyboard.dKey.isPressed) move += Vector3.right;
 
-                    Vector3 camRight = _cam.transform.right;
-                    camRight.y = 0f;
-                    camRight.Normalize();
+                    if (move.sqrMagnitude > 0.001f)
+                    {
+                        move.Normalize();
+                        Vector3 camFwd = _cam.transform.forward;
+                        camFwd.y = 0f;
+                        camFwd.Normalize();
 
-                    bool sprint = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-                    float pan = panSpeed * (sprint ? panSprintMultiplier : 1f);
+                        Vector3 camRight = _cam.transform.right;
+                        camRight.y = 0f;
+                        camRight.Normalize();
 
-                    Vector3 panDir = camFwd * move.z + camRight * move.x;
-                    _targetFocus += panDir * (pan * (_distance / 100f) * Time.unscaledDeltaTime);
+                        bool sprint = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+                        float pan = panSpeed * (sprint ? panSprintMultiplier : 1f);
+
+                        Vector3 panDir = camFwd * move.z + camRight * move.x;
+                        _targetFocus += panDir * (pan * (_distance / 100f) * Time.unscaledDeltaTime);
+                    }
                 }
             }
         }

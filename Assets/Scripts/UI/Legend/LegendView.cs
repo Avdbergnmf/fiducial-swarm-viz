@@ -240,8 +240,8 @@ namespace SwarmViewer
             Key(_keys, "J L", "±5s");
             Key(_keys, "B", "belief");
             Key(_keys, "C", "cues");
-            Key(_keys, "D", "disagree");
             Key(_keys, "Esc", "deselect");
+            Key(_keys, "Ctrl+A", "select all");
             Key(_keys, "[ ]", "prev/next");
             Key(_keys, "?", "legend");
         }

@@ -1,6 +1,7 @@
 // Handles keyboard shortcuts for playback control using the New Input System (UnityEngine.InputSystem).
 // Guards against firing shortcuts when UI text fields have focus.
 
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -15,6 +16,7 @@ namespace SwarmViewer
         Button _selBackBtn;
         Button _selFwdBtn;
         bool _wired;
+        readonly List<int> _selectAllBuf = new();
 
         public void Bind(ViewerContext ctx)
         {
@@ -163,11 +165,24 @@ namespace SwarmViewer
             if (keyboard.cKey.wasPressedThisFrame)
                 GetComponent<SceneStateView>()?.ToggleCues();
 
-            if (keyboard.dKey.wasPressedThisFrame)
-                GetComponent<DisagreeView>()?.Toggle();
+            if (ctrl && keyboard.aKey.wasPressedThisFrame && !shift)
+                SelectAllAlive();
 
             if (keyboard.slashKey.wasPressedThisFrame || keyboard.hKey.wasPressedThisFrame)
                 GetComponent<LegendView>()?.ToggleCollapsed();
+        }
+
+        void SelectAllAlive()
+        {
+            if (_ctx?.Selection == null || _ctx.State == null) return;
+            var ents = _ctx.State.Entities;
+            _selectAllBuf.Clear();
+            for (int i = 0; i < ents.Count; i++)
+            {
+                if (ents[i].Alive)
+                    _selectAllBuf.Add(i);
+            }
+            _ctx.Selection.Replace(_selectAllBuf);
         }
 
         bool IsAnyTextFieldFocused()
