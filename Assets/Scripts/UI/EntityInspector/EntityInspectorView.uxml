@@ -92,7 +92,7 @@
                 <ui:ScrollView name="inspectorEventsScroll" class="inspector-scroll" />
             </ui:VisualElement>
 
-            <ui:VisualElement class="inspector-section" picking-mode="Ignore">
+            <ui:VisualElement name="inspectorLogSection" class="inspector-section" picking-mode="Ignore">
                 <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
                     <ui:Label name="inspectorLogHeader" text="Log" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
                 </ui:VisualElement>

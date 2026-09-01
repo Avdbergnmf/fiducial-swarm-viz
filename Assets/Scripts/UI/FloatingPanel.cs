@@ -1,4 +1,6 @@
 // Title-bar drag and edge/corner resize for a position:absolute overlay panel.
+// Geometry is remembered per panel under its UXML name, so every window that
+// uses this class keeps its size and place across runs without opting in.
 
 using System;
 using UnityEngine;
@@ -29,6 +31,11 @@ namespace SwarmViewer
         bool _attached;
         bool _shown;
 
+        string _key;
+        bool _restorePending;
+        Rect _rect;
+        bool _hasRect;
+
         bool _dragging;
         bool _resizing;
         ResizeEdge _resizeEdge;
@@ -44,6 +51,8 @@ namespace SwarmViewer
             _panel = panel;
             _dragHandle = dragHandle;
             _attached = true;
+            _key = panel.name;
+            _restorePending = !string.IsNullOrEmpty(_key);
 
             _panel.RegisterCallback<PointerDownEvent>(OnPanelPointerDown, TrickleDown.TrickleDown);
 
@@ -70,6 +79,15 @@ namespace SwarmViewer
             _shown = true;
             _panel.style.display = DisplayStyle.Flex;
             _panel.BringToFront();
+
+            // Restored on first show rather than in Attach: ApplyRect clamps against
+            // the parent, and during wiring the parent has no resolved size yet.
+            if (_restorePending)
+            {
+                _restorePending = false;
+                if (ViewerSettings.Load().TryGetPanelRect(_key, out var saved))
+                    ApplyRect(saved.x, saved.y, saved.width, saved.height);
+            }
         }
 
         public void Hide()
@@ -243,6 +261,9 @@ namespace SwarmViewer
                 _pointerOwner.ReleasePointer(pointerId);
             _pointerOwner = null;
             PanelCursors.ClearHardware();
+
+            if (_hasRect)
+                ViewerSettings.Load().SetPanelRect(_key, _rect);
         }
 
         void ApplyRect(float left, float top, float width, float height)
@@ -263,6 +284,10 @@ namespace SwarmViewer
             _panel.style.top = top;
             _panel.style.width = width;
             _panel.style.height = height;
+
+            // Kept here rather than read back from resolvedStyle, which lags a layout pass.
+            _rect = new Rect(left, top, width, height);
+            _hasRect = true;
         }
 
         static float Resolved(float value, float fallback) =>

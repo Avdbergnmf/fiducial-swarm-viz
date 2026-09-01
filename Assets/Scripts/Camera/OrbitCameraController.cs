@@ -1,6 +1,7 @@
 // RuneScape-style orbit camera: smooth tracking of the selection centroid,
 // WASD pan (only with an empty selection; Shift sprints pan), MMB / arrows orbit,
 // scroll zoom (Shift sprints zoom the same way, without raising the base speed).
+// Zoom stands down while the cursor is over a widget, so panels scroll normally.
 
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -26,6 +27,7 @@ namespace SwarmViewer
 
         ViewerContext _ctx;
         Camera _cam;
+        EntityPicker _picker;
 
         Vector3 _targetFocus;
         Vector3 _currentFocus;
@@ -52,6 +54,7 @@ namespace SwarmViewer
 
             _ctx = ctx;
             if (_cam == null) _cam = GetComponent<Camera>() ?? Camera.main;
+            if (_picker == null) _picker = GetComponent<EntityPicker>();
 
             CalculateDefaultView(ctx.Run.Meta);
             ResetToDefaultView();
@@ -144,7 +147,7 @@ namespace SwarmViewer
             if (mouse != null)
             {
                 float scroll = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(scroll) > 0.01f)
+                if (Mathf.Abs(scroll) > 0.01f && !PointerOverUi(mouse))
                 {
                     bool zoomSprint = keyboard != null &&
                         (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
@@ -182,6 +185,10 @@ namespace SwarmViewer
                 }
             }
         }
+
+        /// <summary>A wheel over a panel belongs to that panel's scroll, not to zoom.</summary>
+        bool PointerOverUi(Mouse mouse) =>
+            _picker != null && _picker.IsPointerOverUI(mouse.position.ReadValue());
 
         void UpdateFocusPosition()
         {

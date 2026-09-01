@@ -22,7 +22,7 @@ namespace SwarmViewer
         Separate = 1 << 3,
         Velocity = 1 << 4,
         Accel = 1 << 5,
-        Heading = 1 << 6,
+        Attitude = 1 << 6,
         Links = 1 << 7,
         Picket = 1 << 8,
     }
@@ -33,21 +33,51 @@ namespace SwarmViewer
         const int RingVerts = 48;
         const float VelScale = 0.45f;   // metres of arrow per m/s
         const float AccelScale = 1.1f;  // metres of arrow per m/s^2
-        const float HeadingLen = 5f;
+        const float AttitudeLen = 5f;
         const float AccelNoise = 0.4f;  // hide jitter below this m/s^2
 
-        /// <summary>Chip rows in the Cues panel, in display order.</summary>
+        /// <summary>
+        /// Chip rows in the Cues panel, in display order. Every cue carries where its
+        /// number came from, because a ring you cannot trace back to a recorded field
+        /// is decoration, not evidence.
+        /// </summary>
         public static readonly CueSpec[] Specs =
         {
-            new(CueMask.Kill, "Kill", "Hard collision radius (trace header). Sphere on the selected craft."),
-            new(CueMask.Sense, "Sense", "Sensor disc from the brain's boot params. Ring at the craft's altitude."),
-            new(CueMask.Comm, "Comm", "Radio range: boot params, or the longest recorded link if those are missing."),
-            new(CueMask.Separate, "Sep", "Brain separation margin (kill × 4 today). The disc avoidance is supposed to hold."),
-            new(CueMask.Velocity, "Vel", "Recorded velocity. Length scaled; not a command."),
-            new(CueMask.Accel, "Acc", "Δv between recorded frames. Commanded accel is not in the trace."),
-            new(CueMask.Heading, "Nose", "Attitude forward. Compare to Vel if the quaternion conversion looks wrong."),
-            new(CueMask.Links, "Links", "Live radio links from the recording. With a selection, only that craft's links."),
-            new(CueMask.Picket, "Picket", "Brain ring around the asset (asset radius + comm/2)."),
+            new(CueMask.Kill, "Kill radius",
+                "A sphere at the hard collision distance around each selected craft. Two spheres touching is a hit.",
+                "The trace header field kill_radius. This is the simulator's rule, not something the brain chose."),
+
+            new(CueMask.Sense, "Sense range",
+                "A flat ring at the craft's own altitude: how far it can see. Selected friendlies only.",
+                "The brain's boot params log line, sense=. If a run never logged it the cue stays unavailable rather than drawing a radius from memory."),
+
+            new(CueMask.Comm, "Comm range",
+                "A flat ring at the craft's altitude: how far it can talk. Selected friendlies only.",
+                "params comm= when the brain logged it. Otherwise measured — the longest distance any recorded link actually spanned — which is a floor on the true range, not the range itself. The footer marks that case."),
+
+            new(CueMask.Separate, "Separation",
+                "A ring at the spacing the brain tries to keep from other craft. Selected friendlies only.",
+                "params sep=, the brain's own margin rather than a rule of the world. Four times the kill radius as the brain stands today."),
+
+            new(CueMask.Velocity, "Velocity",
+                "An arrow along where the craft is actually going, 0.45 m of arrow per m/s. Selected and hovered craft.",
+                "The velocity recorded in each trace frame. This is what the craft did, never what the brain asked for."),
+
+            new(CueMask.Accel, "Acceleration",
+                "An arrow along the change in velocity, 1.1 m per m/s². Below 0.4 m/s² it is treated as jitter and hidden.",
+                "Differenced between recorded frames here in the viewer. The trace carries no commanded-accel column, so read this as a reconstruction after the fact, not as the command."),
+
+            new(CueMask.Attitude, "Attitude",
+                "A fixed 5 m arrow straight out of the nose. Selected and hovered craft.",
+                "The attitude quaternion in the trace. Its disagreeing with Velocity during straight flight is how a wrong quaternion conversion gives itself away."),
+
+            new(CueMask.Links, "Radio links",
+                "A line for every radio link open at the current instant. With a selection, only that craft's links.",
+                "Link records in the trace, each carrying a start and end time. These are recorded edges, not links guessed from distance."),
+
+            new(CueMask.Picket, "Picket ring",
+                "The ring the brain holds around the asset.",
+                "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
         };
 
         ViewerContext _ctx;
@@ -127,13 +157,34 @@ namespace SwarmViewer
             var p = _ctx.Run.Params;
             return bit switch
             {
-                CueMask.Kill => true,
+                CueMask.Kill => p != null && p.Has(p.KillRadius),
                 CueMask.Sense => p != null && p.Has(p.SenseRadius),
                 CueMask.Comm => p != null && p.Has(p.CommDraw),
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
                 CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 },
                 _ => true,
+            };
+        }
+
+        /// <summary>
+        /// What this run actually carries for one cue, so the explanation can quote a
+        /// number instead of describing one. Empty when the run has nothing to quote.
+        /// </summary>
+        public string ValueText(CueMask bit)
+        {
+            var p = _ctx?.Run?.Params;
+            if (p == null) return "";
+            return bit switch
+            {
+                CueMask.Kill => p.Has(p.KillRadius) ? $"{p.KillRadius:G4} m" : "",
+                CueMask.Sense => p.Has(p.SenseRadius) ? $"{p.SenseRadius:G4} m" : "",
+                CueMask.Comm => !p.Has(p.CommDraw) ? ""
+                    : p.CommFromLinks ? $"{p.CommDraw:G4} m, measured from links" : $"{p.CommDraw:G4} m",
+                CueMask.Separate => p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G4} m" : "",
+                CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
+                CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 } l ? $"{l.Count} link records" : "",
+                _ => "",
             };
         }
 
@@ -233,8 +284,8 @@ namespace SwarmViewer
                 _lines.Arrow(pos, snap.Velocity * VelScale, new Color(0.55f, 0.95f, 1f, 1f), 0.18f);
             if (On(CueMask.Accel) && snap.Acceleration.sqrMagnitude > AccelNoise * AccelNoise)
                 _lines.Arrow(pos, snap.Acceleration * AccelScale, new Color(1f, 0.88f, 0.2f, 1f), 0.18f);
-            if (On(CueMask.Heading))
-                _lines.Arrow(pos, snap.Rotation * Vector3.forward * HeadingLen, new Color(0.45f, 0.55f, 1f, 1f), 0.12f);
+            if (On(CueMask.Attitude))
+                _lines.Arrow(pos, snap.Rotation * Vector3.forward * AttitudeLen, new Color(0.45f, 0.55f, 1f, 1f), 0.12f);
         }
 
         void DrawLinks(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
@@ -317,12 +368,17 @@ namespace SwarmViewer
         {
             public readonly CueMask Bit;
             public readonly string Label;
-            public readonly string Hint;
-            public CueSpec(CueMask bit, string label, string hint)
+            /// <summary>What appears in the scene.</summary>
+            public readonly string Draws;
+            /// <summary>Which field it was read from, and what that field does or does not promise.</summary>
+            public readonly string Source;
+
+            public CueSpec(CueMask bit, string label, string draws, string source)
             {
                 Bit = bit;
                 Label = label;
-                Hint = hint;
+                Draws = draws;
+                Source = source;
             }
         }
 

@@ -54,13 +54,49 @@
 .scene-state-panel--cues {
     left: 14px;
     top: 52px;
-    width: 300px;
-    height: 240px;
+    width: 340px;
+    height: 400px;
 }
 
 .scene-state-cue-footer {
     margin-top: 6px;
     white-space: normal;
+    flex-shrink: 0;
+}
+
+.cue-detail-scroll {
+    flex-grow: 1;
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.cue-detail-title {
+    color: rgb(226, 232, 240);
+    font-size: 11px;
+    -unity-font-style: bold;
+    white-space: normal;
+    margin-bottom: 3px;
+}
+
+.cue-detail-body {
+    color: rgb(186, 193, 202);
+    font-size: 10px;
+    white-space: normal;
+    margin-bottom: 4px;
+}
+
+.cue-detail-source {
+    color: rgb(138, 146, 158);
+    font-size: 10px;
+    white-space: normal;
+}
+
+/* Unavailable cues stay clickable so they can explain why they are unavailable. */
+.filter-chip--unavailable {
+    color: rgb(112, 118, 128);
+    background-color: rgba(255, 255, 255, 0.04);
 }
 
 .scene-state-header {

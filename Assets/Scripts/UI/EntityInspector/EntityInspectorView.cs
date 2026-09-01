@@ -63,6 +63,7 @@ namespace SwarmViewer
         Button _beliefsOpenBtn;
         Label _eventsHeader;
         ScrollView _eventsScroll;
+        VisualElement _logSection;
         Label _logHeader;
         ScrollView _logScroll;
 
@@ -204,6 +205,7 @@ namespace SwarmViewer
             _beliefsOpenBtn = UiQuery.Named<Button>(_root, "inspectorBeliefsBtn");
             _eventsHeader = UiQuery.Named<Label>(_root, "inspectorEventsHeader");
             _eventsScroll = UiQuery.Named<ScrollView>(_root, "inspectorEventsScroll");
+            _logSection = UiQuery.Named<VisualElement>(_root, "inspectorLogSection");
             _logHeader = UiQuery.Named<Label>(_root, "inspectorLogHeader");
             _logScroll = UiQuery.Named<ScrollView>(_root, "inspectorLogScroll");
 
@@ -590,13 +592,23 @@ namespace SwarmViewer
                     visible++;
             }
 
-            if (_logHeader != null)
+            // Only friendlies write a brain log. On everything else the section goes
+            // away rather than showing an empty box that says so.
+            if (_logSection != null)
+                _logSection.style.display = total > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+
+            if (total == 0)
             {
-                if (total == 0)
-                    _logHeader.text = "Log";
-                else
-                    _logHeader.text = $"Log · {visible}/{total}";
+                if (_logShown != 0 || _logScroll.contentContainer.childCount > 0)
+                {
+                    _logScroll.contentContainer.Clear();
+                    _logShown = 0;
+                }
+                return;
             }
+
+            if (_logHeader != null)
+                _logHeader.text = $"Log · {visible}/{total}";
 
             if (!force && visible == _logShown) return;
 
@@ -604,18 +616,6 @@ namespace SwarmViewer
             {
                 _logScroll.contentContainer.Clear();
                 _logShown = 0;
-            }
-
-            if (total == 0)
-            {
-                if (_logShown == 0 && _logScroll.contentContainer.childCount == 0)
-                {
-                    var empty = new Label("No brain log — only friendlies write one.");
-                    empty.AddToClassList("inspector-empty");
-                    empty.pickingMode = PickingMode.Ignore;
-                    _logScroll.Add(empty);
-                }
-                return;
             }
 
             if (visible == 0 && _logShown == 0 && _logScroll.contentContainer.childCount == 0)

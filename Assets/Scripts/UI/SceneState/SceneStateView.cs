@@ -84,8 +84,12 @@ namespace SwarmViewer
 
         VisualElement _cuesChipRow;
         Label _cuesFooter;
+        Label _cuesDetailTitle;
+        Label _cuesDetailDraws;
+        Label _cuesDetailSource;
         Button[] _cueChips;
         CueOverlay _cues;
+        int _cueExplained = -1;
 
         readonly List<AircraftRow> _aircraftRows = new();
         readonly List<int> _displayedAircraft = new();
@@ -209,6 +213,9 @@ namespace SwarmViewer
 
             _cuesChipRow = UiQuery.Named<VisualElement>(_root, "cuesChipRow");
             _cuesFooter = UiQuery.Named<Label>(_root, "cuesFooter");
+            _cuesDetailTitle = UiQuery.Named<Label>(_root, "cuesDetailTitle");
+            _cuesDetailDraws = UiQuery.Named<Label>(_root, "cuesDetailDraws");
+            _cuesDetailSource = UiQuery.Named<Label>(_root, "cuesDetailSource");
 
             _aircraftFloat = AttachWindow(aircraftPanel, "aircraftDragHandle", "aircraftCloseBtn",
                 () => { _aircraftVisible = false; SetOpen(_aircraftOpenBtn, false); });
@@ -449,10 +456,17 @@ namespace SwarmViewer
             _cueChips = new Button[CueOverlay.Specs.Length];
             for (int i = 0; i < CueOverlay.Specs.Length; i++)
             {
-                var spec = CueOverlay.Specs[i];
-                var btn = new Button { text = spec.Label, tooltip = spec.Hint };
+                int index = i;
+                var btn = new Button { text = CueOverlay.Specs[i].Label };
                 btn.AddToClassList("filter-chip");
-                btn.clicked += () => { Cues.Toggle(spec.Bit); RefreshCueChips(); };
+                // Unavailable cues stay clickable: the toggle no-ops, and the click
+                // still earns you the explanation of what is missing and why.
+                btn.clicked += () =>
+                {
+                    Cues.Toggle(CueOverlay.Specs[index].Bit);
+                    _cueExplained = index;
+                    RefreshCueChips();
+                };
                 _cuesChipRow.Add(btn);
                 _cueChips[i] = btn;
             }
@@ -466,11 +480,41 @@ namespace SwarmViewer
             {
                 var spec = CueOverlay.Specs[i];
                 bool avail = cues.Available(spec.Bit);
-                _cueChips[i].SetEnabled(avail);
                 _cueChips[i].EnableInClassList("filter-chip--on", avail && cues.IsOn(spec.Bit));
-                _cueChips[i].tooltip = avail ? spec.Hint : spec.Hint + " — unknown in this run";
+                _cueChips[i].EnableInClassList("filter-chip--unavailable", !avail);
             }
             if (_cuesFooter != null) _cuesFooter.text = cues.FooterText();
+            RefreshCueDetail(cues);
+        }
+
+        /// <summary>Explains the last chip clicked, and only that one.</summary>
+        void RefreshCueDetail(CueOverlay cues)
+        {
+            if (_cuesDetailTitle == null) return;
+
+            if ((uint)_cueExplained >= (uint)CueOverlay.Specs.Length)
+            {
+                _cuesDetailTitle.text = "Pick a cue";
+                if (_cuesDetailDraws != null)
+                    _cuesDetailDraws.text = "Each one says what it draws and which recorded field it came from.";
+                if (_cuesDetailSource != null) _cuesDetailSource.text = "";
+                return;
+            }
+
+            var spec = CueOverlay.Specs[_cueExplained];
+            bool avail = cues.Available(spec.Bit);
+            string state = !avail ? "unavailable in this run" : cues.IsOn(spec.Bit) ? "on" : "off";
+            _cuesDetailTitle.text = $"{spec.Label} — {state}";
+
+            if (_cuesDetailDraws != null) _cuesDetailDraws.text = spec.Draws;
+
+            if (_cuesDetailSource != null)
+            {
+                string value = cues.ValueText(spec.Bit);
+                _cuesDetailSource.text = spec.Source + (string.IsNullOrEmpty(value)
+                    ? "\nThis run: nothing recorded, so there is nothing to draw."
+                    : $"\nThis run: {value}.");
+            }
         }
 
         static void SetOpen(Button btn, bool on) =>

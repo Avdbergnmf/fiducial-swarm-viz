@@ -2,5 +2,11 @@
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\last",
   "uiScale": 1.0,
-  "cueMask": 0
+  "cueMask": 129,
+  "panelRects": {
+    "aircraftPanel": "560,203,960,473",
+    "cuesPanel": "13,52,1045,282",
+    "inspectorPanel": "1783,22,536,629",
+    "eventsPanel": "567,71,580,420"
+  }
 }

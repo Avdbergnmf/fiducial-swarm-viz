@@ -92,6 +92,11 @@
                 <ui:Label text="selected craft, unless noted" picking-mode="Ignore" class="scene-state-section-hint" />
             </ui:VisualElement>
             <ui:VisualElement name="cuesChipRow" class="filter-chips" picking-mode="Ignore" />
+            <ui:ScrollView name="cuesDetailScroll" class="cue-detail-scroll">
+                <ui:Label name="cuesDetailTitle" text="" picking-mode="Ignore" class="cue-detail-title" />
+                <ui:Label name="cuesDetailDraws" text="" picking-mode="Ignore" class="cue-detail-body" />
+                <ui:Label name="cuesDetailSource" text="" picking-mode="Ignore" class="cue-detail-source" />
+            </ui:ScrollView>
             <ui:Label name="cuesFooter" text="" picking-mode="Ignore" class="scene-state-section-hint scene-state-cue-footer" />
         </ui:VisualElement>
 

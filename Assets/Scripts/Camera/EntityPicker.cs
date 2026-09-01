@@ -160,7 +160,11 @@ namespace SwarmViewer
             }
         }
 
-        bool IsPointerOverUI(Vector2 screenPos)
+        /// <summary>
+        /// True when a real widget sits under the cursor. Also used by the orbit
+        /// camera, so a wheel over a panel scrolls the panel without zooming.
+        /// </summary>
+        public bool IsPointerOverUI(Vector2 screenPos)
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return true;
