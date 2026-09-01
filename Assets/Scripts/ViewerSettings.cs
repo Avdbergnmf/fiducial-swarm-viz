@@ -25,6 +25,10 @@ namespace SwarmViewer
         /// </summary>
         public Dictionary<string, string> panelRects = new();
         public bool legendCollapsed;
+        /// <summary>When the Ghosts cue is on, draw on every living craft rather than the selection.</summary>
+        public bool pickVolumesAll;
+        /// <summary>Legacy scale-bar master switch. Migrated into cueMask + pickVolumesAll, then cleared.</summary>
+        public bool pickVolumesOn;
 
         public const float UiScaleMin = 0.8f;
         public const float UiScaleMax = 2.0f;

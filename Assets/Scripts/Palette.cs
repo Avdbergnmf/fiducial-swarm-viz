@@ -66,6 +66,7 @@ namespace SwarmViewer
             CueMask.Intercept => Intercept,
             CueMask.Yield => Yield,
             CueMask.Pings => Rgb(255, 255, 255),
+            CueMask.Ghosts => Hover,
             _ => Color.white,
         };
 

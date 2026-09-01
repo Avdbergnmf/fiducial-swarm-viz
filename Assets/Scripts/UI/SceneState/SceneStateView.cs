@@ -541,7 +541,9 @@ namespace SwarmViewer
 
             if (_cuesDetailShape != null)
             {
-                _cuesDetailShape.text = CueLegend.DrawnAs(spec);
+                _cuesDetailShape.text = spec.Bit == CueMask.Ghosts
+                    ? $"Drawn as a sphere on {cues.GhostScope}."
+                    : CueLegend.DrawnAs(spec);
                 _cuesDetailShape.style.display = string.IsNullOrEmpty(_cuesDetailShape.text)
                     ? DisplayStyle.None
                     : DisplayStyle.Flex;
@@ -550,7 +552,9 @@ namespace SwarmViewer
             if (_cuesDetailKey != null)
             {
                 _cuesDetailKey.Clear();
-                if (spec.Bit == CueMask.Pings)
+                if (spec.Bit == CueMask.Ghosts)
+                    AddGhostsToggle(_cuesDetailKey, cues);
+                else if (spec.Bit == CueMask.Pings)
                     CueLegend.AddPingKey(_cuesDetailKey, labeled: true);
                 else if (spec.Bit == CueMask.Hops)
                     CueLegend.AddHopKey(_cuesDetailKey, labeled: true);
@@ -564,10 +568,28 @@ namespace SwarmViewer
             if (_cuesDetailSource != null)
             {
                 string value = cues.ValueText(spec.Bit);
-                _cuesDetailSource.text = spec.Source + (string.IsNullOrEmpty(value)
-                    ? "\nThis run: nothing recorded, so there is nothing to draw."
-                    : $"\nThis run: {value}.");
+                if (string.IsNullOrEmpty(value))
+                    _cuesDetailSource.text = spec.Source + "\nThis run: nothing recorded, so there is nothing to draw.";
+                else if (spec.Bit == CueMask.Ghosts)
+                    _cuesDetailSource.text = spec.Source + $"\nShowing: {value}.";
+                else
+                    _cuesDetailSource.text = spec.Source + $"\nThis run: {value}.";
             }
+        }
+
+        void AddGhostsToggle(VisualElement parent, CueOverlay cues)
+        {
+            var toggle = new Toggle("All craft");
+            toggle.AddToClassList("cue-detail-toggle");
+            toggle.pickingMode = PickingMode.Position;
+            toggle.tooltip = "On: every living craft. Off: the selection only. Hover still shows a sphere under the pointer.";
+            toggle.SetValueWithoutNotify(cues.PickVolumesAll);
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                cues.SetPickVolumesAll(evt.newValue);
+                RefreshCueDetail(cues);
+            });
+            parent.Add(toggle);
         }
 
         void HideDetailChrome()

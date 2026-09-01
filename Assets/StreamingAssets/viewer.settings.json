@@ -1,15 +1,18 @@
 {
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/ablation",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/ablation\\current_x2-a",
-  "uiScale": 1.1,
-  "cueMask": 1745,
+  "uiScale": 1.30000007,
+  "cueMask": 15953,
   "panelRects": {
     "aircraftPanel": "196,407,960,472",
-    "cuesPanel": "13,52,1045,282",
-    "inspectorPanel": "19,32,536,628",
+    "cuesPanel": "305,432,1045,282",
+    "inspectorPanel": "63,105,577,489",
     "eventsPanel": "1123,106,579,421",
-    "beliefsPanel": "223,273,400,522",
-    "logsPanel": "1581,215,680,360"
+    "beliefsPanel": "864,227,555,522",
+    "logsPanel": "1581,215,680,360",
+    "disagreePanel": "1049,148,744,460"
   },
-  "legendCollapsed": true
+  "legendCollapsed": true,
+  "pickVolumesAll": true,
+  "pickVolumesOn": false
 }

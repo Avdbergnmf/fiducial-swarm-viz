@@ -1,5 +1,5 @@
 // Diagnostic overlay: range rings, motion arrows, radio links, intercepts,
-// yield, log pings, picket ring.
+// yield, log pings, picket ring, pick-volume ghosts.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
 // Aircraft, Events and Logs, so one component owns the windows instead of two
@@ -30,6 +30,7 @@ namespace SwarmViewer
         Yield = 1 << 10,
         Pings = 1 << 11,
         Hops = 1 << 12,
+        Ghosts = 1 << 13,
     }
 
     public sealed class CueOverlay : MonoBehaviour, IRunView
@@ -51,6 +52,10 @@ namespace SwarmViewer
             new(CueMask.Kill, "Kill radius",
                 "A sphere at the hard collision distance around each selected craft. Two spheres touching is a hit.",
                 "The trace header field kill_radius. This is the simulator's rule, not something the brain chose."),
+
+            new(CueMask.Ghosts, "Ghosts",
+                "The fat pick sphere around a craft, tinted with its class / belief colour — the same mesh hover uses. The checkbox below chooses the selection or every living craft. Hover still shows a sphere under the pointer when this cue is off.",
+                "The viewer's pick volume (SceneBuilder pickColliderRadius), not a recorded field. Colour is the airframe material in the current view mode."),
 
             new(CueMask.Sense, "Sense range",
                 "A flat ring at the craft's own altitude: how far it can see. Selected friendlies only.",
@@ -127,16 +132,21 @@ namespace SwarmViewer
         LinePool _lines;
         Material _lineMat;
         CueMask _mask = DefaultMask;
+        bool _pickVolumesAll;
 
         public event Action MaskChanged;
         public CueMask Mask => _mask;
+        public bool PickVolumesAll => _pickVolumesAll;
+
+        /// <summary>Legend / detail hint: who the Ghosts cue is drawing on.</summary>
+        public string GhostScope => _pickVolumesAll ? "every living craft" : "the selection";
 
         public void Bind(ViewerContext ctx)
         {
             Unhook();
             _ctx = ctx;
             _bySlot = null;
-            _mask = LoadMask();
+            _mask = LoadMask(out _pickVolumesAll);
             Hook();
             Refresh();
             MaskChanged?.Invoke();
@@ -185,10 +195,34 @@ namespace SwarmViewer
             MaskChanged?.Invoke();
         }
 
-        static CueMask LoadMask()
+        public void SetPickVolumesAll(bool all)
         {
-            int stored = ViewerSettings.Load().cueMask;
-            return stored == 0 ? DefaultMask : (CueMask)stored;
+            if (_pickVolumesAll == all) return;
+            _pickVolumesAll = all;
+            var settings = ViewerSettings.Load();
+            settings.pickVolumesAll = all;
+            settings.Save();
+            Refresh();
+            MaskChanged?.Invoke();
+        }
+
+        static CueMask LoadMask(out bool pickAll)
+        {
+            var settings = ViewerSettings.Load();
+            CueMask mask = settings.cueMask == 0 ? DefaultMask : (CueMask)settings.cueMask;
+            pickAll = settings.pickVolumesAll;
+
+            // Old scale-bar Ghosts toggle: pickVolumesOn meant "show on every craft".
+            if (settings.pickVolumesOn)
+            {
+                mask |= CueMask.Ghosts;
+                pickAll = true;
+                settings.pickVolumesOn = false;
+                settings.pickVolumesAll = true;
+                settings.cueMask = (int)mask;
+                settings.Save();
+            }
+            return mask;
         }
 
         bool On(CueMask bit) => (_mask & bit) != 0 && Available(bit);
@@ -223,6 +257,8 @@ namespace SwarmViewer
         /// </summary>
         public string ValueText(CueMask bit)
         {
+            if (bit == CueMask.Ghosts)
+                return GhostScope;
             var p = _ctx?.Run?.Params;
             if (p == null) return "";
             return bit switch
@@ -373,10 +409,14 @@ namespace SwarmViewer
             float t = _ctx.Clock.Time;
 
             bool killOn = On(CueMask.Kill);
+            bool ghostsOn = On(CueMask.Ghosts);
             if (_bySlot != null)
             {
                 for (int i = 0; i < _bySlot.Length; i++)
+                {
                     _bySlot[i]?.SetKillCueEnabled(killOn);
+                    _bySlot[i]?.SetPickVolumeCueEnabled(ghostsOn, _pickVolumesAll);
+                }
             }
 
             _lines.Begin();
@@ -643,6 +683,7 @@ namespace SwarmViewer
             public string Shape => Bit switch
             {
                 CueMask.Kill => "sphere on the selection",
+                CueMask.Ghosts => "sphere",
                 CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
                 CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
                 CueMask.Links or CueMask.Hops or CueMask.Intercept or CueMask.Yield or CueMask.Pings => "line",

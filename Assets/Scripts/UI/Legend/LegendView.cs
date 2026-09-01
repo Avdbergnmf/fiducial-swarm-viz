@@ -214,7 +214,10 @@ namespace SwarmViewer
             {
                 var spec = CueOverlay.Specs[i];
                 if (!_cues.IsOn(spec.Bit) || !_cues.Available(spec.Bit)) continue;
-                Row(_cuesBox, spec.Color, spec.Label, spec.Shape);
+                Row(_cuesBox, spec.Color, spec.Label,
+                    spec.Bit == CueMask.Ghosts
+                        ? (_cues.PickVolumesAll ? "sphere on every craft" : "sphere on the selection")
+                        : spec.Shape);
                 shown++;
                 if (spec.Bit == CueMask.Pings)
                     CueLegend.AddPingKey(_cuesBox, labeled: false);

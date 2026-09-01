@@ -135,6 +135,37 @@
     font-size: 10px;
 }
 
+.cue-detail-toggle {
+    margin-top: 2px;
+    margin-bottom: 6px;
+    font-size: 10px;
+    color: rgb(186, 193, 202);
+    align-self: flex-start;
+}
+
+.cue-detail-toggle .unity-toggle__checkmark {
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.28);
+    border-right-color: rgba(255, 255, 255, 0.28);
+    border-top-color: rgba(255, 255, 255, 0.28);
+    border-bottom-color: rgba(255, 255, 255, 0.28);
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+.cue-detail-toggle .unity-toggle__input:checked > .unity-toggle__checkmark {
+    background-color: rgba(65, 140, 245, 0.75);
+}
+
 .cue-detail-body {
     color: rgb(186, 193, 202);
     font-size: 10px;

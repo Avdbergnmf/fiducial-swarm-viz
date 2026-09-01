@@ -98,7 +98,7 @@
                     <ui:Label name="cuesDetailTitle" text="" picking-mode="Ignore" class="cue-detail-title" />
                 </ui:VisualElement>
                 <ui:Label name="cuesDetailShape" text="" picking-mode="Ignore" class="cue-detail-body" />
-                <ui:VisualElement name="cuesDetailKey" picking-mode="Ignore" />
+                <ui:VisualElement name="cuesDetailKey" class="cue-detail-key" picking-mode="Ignore" />
                 <ui:Label name="cuesDetailDraws" text="" picking-mode="Ignore" class="cue-detail-body" />
                 <ui:Label name="cuesDetailSource" text="" picking-mode="Ignore" class="cue-detail-source" />
             </ui:ScrollView>

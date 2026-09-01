@@ -36,6 +36,8 @@ namespace SwarmViewer
         bool _selected;
         bool _hovered;
         bool _killCueOn = true;
+        bool _pickVolumeCueOn;
+        bool _pickVolumeAll;
         GameObject _killRadiusGo;
         GameObject _pickVolumeGo;
         MeshRenderer _pickVolumeRend;
@@ -84,8 +86,9 @@ namespace SwarmViewer
         /// <summary>
         /// Pick volume in local metres. Larger than the mesh so a click near the
         /// craft still hits; EntityPicker breaks ties by origin, not first hit.
-        /// Ghost mesh is the same size, shown on hover only, tinted from the
-        /// airframe material so class / belief colour carries through.
+        /// Ghost mesh is the same size, shown on hover and when the Ghosts cue is
+        /// on (selection or every craft). Tinted from the airframe material so
+        /// class / belief colour carries through.
         /// </summary>
         public void ConfigurePickCollider(float localRadius)
         {
@@ -301,6 +304,7 @@ namespace SwarmViewer
             _selected = selected;
             ApplyOutline();
             UpdateKillRadiusVisibility();
+            UpdatePickVolumeVisibility();
         }
 
         public void SetHovered(bool hovered)
@@ -317,6 +321,14 @@ namespace SwarmViewer
             UpdateKillRadiusVisibility();
         }
 
+        /// <summary>Ghosts cue. Hover still shows a sphere when this is off.</summary>
+        public void SetPickVolumeCueEnabled(bool on, bool all)
+        {
+            _pickVolumeCueOn = on;
+            _pickVolumeAll = all;
+            UpdatePickVolumeVisibility();
+        }
+
         void UpdateKillRadiusVisibility()
         {
             if (_killRadiusGo == null) return;
@@ -326,7 +338,8 @@ namespace SwarmViewer
         void UpdatePickVolumeVisibility()
         {
             if (_pickVolumeGo == null) return;
-            _pickVolumeGo.SetActive(_hovered && Current.Alive);
+            bool cue = _pickVolumeCueOn && (_pickVolumeAll || _selected);
+            _pickVolumeGo.SetActive((_hovered || cue) && Current.Alive);
         }
 
         /// <summary>
