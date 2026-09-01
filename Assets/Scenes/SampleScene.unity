@@ -980,7 +980,6 @@ MonoBehaviour:
   container: {fileID: 1212397412}
   scale: 1
   pickColliderRadius: 5
-  pickVolumeMaterial: {fileID: 2100000, guid: 198f0fe35ba74e140ab858ae8b9276ba, type: 2}
   trailWidth: 0.2
   trailTime: 4
   selectedOutlineMaterial: {fileID: 2100000, guid: 46586a69ce3092744a2716e295381c89, type: 2}

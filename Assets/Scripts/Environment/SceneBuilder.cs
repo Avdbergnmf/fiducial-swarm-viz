@@ -14,8 +14,6 @@ namespace SwarmViewer
 
         [Tooltip("World-metre pick sphere, independent of airframe scale. Fat click target.")]
         [SerializeField] float pickColliderRadius = 5f;
-        [Tooltip("Ghost sphere shown on hover, sized to the pick collider. Leave empty to hide it.")]
-        [SerializeField] Material pickVolumeMaterial;
 
         [Header("Trails")]
         [Tooltip("Width multiplier times airframe scale. 5 at scale=1 matches the old scale=5 look.")]
@@ -74,7 +72,7 @@ namespace SwarmViewer
                 view.Init(s, meta.entities[s]);
                 view.SetOutlineMaterials(selectedOutlineMaterial, hoverOutlineMaterial);
                 view.ConfigureTrail(trailWidth * sAbs, trailTime);
-                view.ConfigurePickCollider(pickColliderRadius / sAbs, pickVolumeMaterial);
+                view.ConfigurePickCollider(pickColliderRadius / sAbs);
 
                 if (killRadiusPrefab != null)
                 {
@@ -124,6 +122,8 @@ namespace SwarmViewer
                 }
                 _views = null;
             }
+
+            EntityView.ReleasePickGhosts();
         }
 
         void OnDestroy()

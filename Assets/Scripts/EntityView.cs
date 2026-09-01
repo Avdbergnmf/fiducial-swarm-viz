@@ -2,6 +2,7 @@
 // Manages position, rotation, class material, trail, outline, and kill-radius marker.
 // Selection never touches the entity's own material — only the outline child.
 
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -31,12 +32,16 @@ namespace SwarmViewer
         [SerializeField] Material hoverOutlineMaterial;
 
         Material _currentMaterial;
-        MaterialPropertyBlock _trailBlock; 
+        MaterialPropertyBlock _trailBlock;
         bool _selected;
         bool _hovered;
         bool _killCueOn = true;
         GameObject _killRadiusGo;
         GameObject _pickVolumeGo;
+        MeshRenderer _pickVolumeRend;
+
+        const float PickVolumeAlpha = 0.12f;
+        static readonly Dictionary<Material, Material> PickGhosts = new();
 
         public bool IsSelected => _selected;
         public bool IsHovered => _hovered;
@@ -78,9 +83,10 @@ namespace SwarmViewer
         /// <summary>
         /// Pick volume in local metres. Larger than the mesh so a click near the
         /// craft still hits; EntityPicker breaks ties by origin, not first hit.
-        /// Optional ghost mesh is the same size, shown on hover only.
+        /// Ghost mesh is the same size, shown on hover only, tinted from the
+        /// airframe material so class / belief colour carries through.
         /// </summary>
-        public void ConfigurePickCollider(float localRadius, Material volumeMat)
+        public void ConfigurePickCollider(float localRadius)
         {
             var box = GetComponent<BoxCollider>();
             if (box != null)
@@ -96,8 +102,6 @@ namespace SwarmViewer
 
             if (_pickVolumeGo != null)
                 Destroy(_pickVolumeGo);
-            if (volumeMat == null)
-                return;
 
             _pickVolumeGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             _pickVolumeGo.name = "PickVolume";
@@ -112,11 +116,23 @@ namespace SwarmViewer
             t.localPosition = Vector3.zero;
             t.localRotation = Quaternion.identity;
             t.localScale = Vector3.one * (r * 2f);
-            var rend = _pickVolumeGo.GetComponent<MeshRenderer>();
-            rend.sharedMaterial = volumeMat;
-            rend.shadowCastingMode = ShadowCastingMode.Off;
-            rend.receiveShadows = false;
+            _pickVolumeRend = _pickVolumeGo.GetComponent<MeshRenderer>();
+            _pickVolumeRend.shadowCastingMode = ShadowCastingMode.Off;
+            _pickVolumeRend.receiveShadows = false;
+            if (_currentMaterial != null)
+                ApplyPickGhost(_currentMaterial);
             _pickVolumeGo.SetActive(false);
+        }
+
+        /// <summary>Runtime copies of class materials. Call when the scene is torn down.</summary>
+        public static void ReleasePickGhosts()
+        {
+            foreach (var kv in PickGhosts)
+            {
+                if (kv.Value != null)
+                    Destroy(kv.Value);
+            }
+            PickGhosts.Clear();
         }
 
         /// <summary>
@@ -173,6 +189,62 @@ namespace SwarmViewer
                 mainRenderer.sharedMaterial = mat;
 
             ApplyTrailColor(mat);
+            ApplyPickGhost(mat);
+        }
+
+        void ApplyPickGhost(Material source)
+        {
+            if (_pickVolumeRend == null) return;
+            var ghost = GhostOf(source);
+            if (ghost != null)
+                _pickVolumeRend.sharedMaterial = ghost;
+        }
+
+        static Material GhostOf(Material source)
+        {
+            if (source == null) return null;
+            if (PickGhosts.TryGetValue(source, out var ghost) && ghost != null)
+                return ghost;
+
+            ghost = new Material(source)
+            {
+                name = source.name + " (pick ghost)",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            MakeTransparentGhost(ghost, PickVolumeAlpha);
+            PickGhosts[source] = ghost;
+            return ghost;
+        }
+
+        static void MakeTransparentGhost(Material mat, float alpha)
+        {
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_BlendModePreserveSpecular"))
+                mat.SetFloat("_BlendModePreserveSpecular", 0f);
+            if (mat.HasProperty("_SrcBlend"))
+                mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend"))
+                mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_SrcBlendAlpha"))
+                mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlendAlpha"))
+                mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_ReceiveShadows")) mat.SetFloat("_ReceiveShadows", 0f);
+            if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", (float)CullMode.Off);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)RenderQueue.Transparent;
+            mat.SetShaderPassEnabled("ShadowCaster", false);
+            mat.SetShaderPassEnabled("DepthOnly", false);
+
+            Color c = ReadBaseColor(mat);
+            c.a = alpha;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", c);
         }
 
         /// <summary>
