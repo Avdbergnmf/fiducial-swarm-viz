@@ -148,9 +148,23 @@ namespace SwarmViewer
             t.localPosition = Vector3.zero;
             t.localRotation = Quaternion.identity;
             t.localScale = Vector3.one * (radiusMetres * 2f);
+            TintKillSphere(_killRadiusGo);
             foreach (var col in _killRadiusGo.GetComponentsInChildren<Collider>())
                 col.enabled = false;
             _killRadiusGo.SetActive(false);
+        }
+
+        static void TintKillSphere(GameObject go)
+        {
+            var rends = go.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < rends.Length; i++)
+            {
+                var block = new MaterialPropertyBlock();
+                rends[i].GetPropertyBlock(block);
+                block.SetColor("_BaseColor", Palette.Kill);
+                block.SetColor("_Color", Palette.Kill);
+                rends[i].SetPropertyBlock(block);
+            }
         }
 
         public void Apply(in EntitySnapshot snap)

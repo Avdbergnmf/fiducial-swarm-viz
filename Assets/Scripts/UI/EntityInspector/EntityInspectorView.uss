@@ -41,7 +41,7 @@
 
 .inspector-panel--hostile {
     border-left-width: 3px;
-    border-left-color: rgb(232, 93, 93);
+    border-left-color: rgb(232, 72, 64);
 }
 
 .inspector-panel--civilian {
@@ -51,7 +51,12 @@
 
 .inspector-panel--wreckage {
     border-left-width: 3px;
-    border-left-color: rgb(154, 160, 168);
+    border-left-color: rgb(138, 120, 100);
+}
+
+.inspector-panel--compromised {
+    border-left-width: 3px;
+    border-left-color: rgb(224, 70, 200);
 }
 
 .inspector-header {
@@ -94,7 +99,7 @@
 }
 
 .inspector-kind-dot--hostile {
-    background-color: rgb(232, 93, 93);
+    background-color: rgb(232, 72, 64);
 }
 
 .inspector-kind-dot--civilian {
@@ -102,11 +107,15 @@
 }
 
 .inspector-kind-dot--wreckage {
-    background-color: rgb(154, 160, 168);
+    background-color: rgb(138, 120, 100);
 }
 
 .inspector-kind-dot--unknown {
-    background-color: rgb(160, 160, 160);
+    background-color: rgb(140, 144, 152);
+}
+
+.inspector-kind-dot--compromised {
+    background-color: rgb(224, 70, 200);
 }
 
 .inspector-title {

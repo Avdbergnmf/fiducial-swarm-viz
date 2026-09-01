@@ -20,6 +20,7 @@ namespace SwarmViewer
         {
             public int Slot;
             public VisualElement Root;
+            public VisualElement Dot;
             public Label Called;
             public Label Speed;
             public Label Status;
@@ -386,8 +387,8 @@ namespace SwarmViewer
             int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
             _aircraftBeliefBtn.text = on && observer >= 0 ? $"Color {observer}" : "Color";
             _aircraftBeliefBtn.tooltip = on && observer >= 0
-                ? $"Scene is painted as drone {observer} declared it. Grey is undeclared. Click to restore ground truth. B also toggles."
-                : "Paint every craft as the selected observer declared it. Grey is undeclared. Scoring declarations, not radio contact. B also toggles.";
+                ? $"Bodies are what drone {observer} declared. Grey is undeclared. The legend (bottom left) tracks this. Click to restore ground truth. B also toggles."
+                : "Paint every craft as the selected observer declared it. Grey is undeclared. The legend (bottom left) tracks the mapping. B also toggles.";
         }
 
         void OnViewModeChanged(ViewMode _)
@@ -726,7 +727,7 @@ namespace SwarmViewer
 
                 var dot = new VisualElement();
                 dot.AddToClassList("scene-state-dot");
-                dot.AddToClassList(DotClass(info.Kind));
+                PaintAircraftDot(dot, slot, info);
                 dot.pickingMode = PickingMode.Ignore;
 
                 var name = new Label(info.Label);
@@ -770,6 +771,7 @@ namespace SwarmViewer
                 {
                     Slot = slot,
                     Root = row,
+                    Dot = dot,
                     Called = called,
                     Speed = speed,
                     Status = status,
@@ -890,6 +892,8 @@ namespace SwarmViewer
                 row.Status.text = alive ? "Alive" : "Gone";
                 if (row.Called != null)
                     ApplyCalled(row.Called, row.Slot, _ctx.Run.Info(row.Slot));
+                if (row.Dot != null)
+                    PaintAircraftDot(row.Dot, row.Slot, _ctx.Run.Info(row.Slot));
             }
         }
 
@@ -1296,14 +1300,20 @@ namespace SwarmViewer
             _ => "Unknown",
         };
 
-        static string DotClass(EntityKind kind) => kind switch
+        void PaintAircraftDot(VisualElement dot, int slot, EntityInfo info)
         {
-            EntityKind.Friendly => "scene-state-dot--friendly",
-            EntityKind.Hostile => "scene-state-dot--hostile",
-            EntityKind.Civilian => "scene-state-dot--civilian",
-            EntityKind.Wreckage => "scene-state-dot--wreckage",
-            _ => "scene-state-dot",
-        };
+            if (dot == null || info == null) return;
+            bool compromised = _ctx?.State != null && _ctx.State.IsCompromisedNow(slot);
+            bool belief = _ctx?.Selection != null && _ctx.Selection.BeliefViewOn;
+            int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
+            bool isObserver = observer >= 0 && info.drone_id == observer;
+            BeliefClass declared = BeliefClass.Unknown;
+            if (belief && observer >= 0 && _ctx?.Run?.Beliefs != null)
+                declared = _ctx.Run.Beliefs.At(observer, slot, _ctx.Clock.Time);
+            Palette.Fill(dot, Palette.Body(
+                belief ? ViewMode.FleetBelief : ViewMode.GroundTruth,
+                info.Kind, declared, compromised, isObserver));
+        }
 
         static string SeverityLabel(int severity) => severity switch
         {

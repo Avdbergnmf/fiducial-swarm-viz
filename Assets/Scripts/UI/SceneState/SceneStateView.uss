@@ -440,7 +440,7 @@
 }
 
 .scene-state-dot--hostile {
-    background-color: rgb(232, 93, 93);
+    background-color: rgb(232, 72, 64);
 }
 
 .scene-state-dot--civilian {
@@ -448,7 +448,7 @@
 }
 
 .scene-state-dot--wreckage {
-    background-color: rgb(154, 160, 168);
+    background-color: rgb(138, 120, 100);
 }
 
 .scene-state-drone-name {

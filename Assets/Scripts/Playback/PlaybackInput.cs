@@ -49,6 +49,9 @@ namespace SwarmViewer
             var root = uiDocument.rootVisualElement;
             if (root == null) return;
 
+            if (GetComponent<LegendView>() == null)
+                gameObject.AddComponent<LegendView>();
+
             if (!_wired)
             {
                 _selBackBtn = UiQuery.Named<Button>(root, "selBackBtn");
@@ -155,6 +158,9 @@ namespace SwarmViewer
 
             if (keyboard.cKey.wasPressedThisFrame)
                 GetComponent<SceneStateView>()?.ToggleCues();
+
+            if (keyboard.slashKey.wasPressedThisFrame || keyboard.hKey.wasPressedThisFrame)
+                GetComponent<LegendView>()?.ToggleCollapsed();
         }
 
         bool IsAnyTextFieldFocused()

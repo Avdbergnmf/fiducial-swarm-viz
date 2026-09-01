@@ -24,6 +24,7 @@ namespace SwarmViewer
         [SerializeField] float fallbackAssetRadius = 30f;
 
         GameObject _assetInstance;
+        Material _assetMat;
 
         public void Bind(ViewerContext ctx)
         {
@@ -116,6 +117,7 @@ namespace SwarmViewer
                 float height = ceilingY - floorY;
                 _assetInstance.transform.position = new Vector3(assetPos.x, floorY + height * 0.5f, assetPos.z);
                 _assetInstance.transform.localScale = new Vector3(assetRadius * 2f, height * 0.5f, assetRadius * 2f);
+                TintAsset();
             }
 
             // scale and position border markers
@@ -139,6 +141,23 @@ namespace SwarmViewer
                 westBorder.position = new Vector3(minX, 0.1f, centerZ);
                 westBorder.localScale = new Vector3(1f, 0.2f, length);
             }
+        }
+
+        void TintAsset()
+        {
+            if (_assetInstance == null) return;
+            var rend = _assetInstance.GetComponentInChildren<Renderer>();
+            if (rend == null) return;
+            if (_assetMat == null && rend.sharedMaterial != null)
+                _assetMat = new Material(rend.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
+            if (_assetMat == null) return;
+            Palette.Tint(_assetMat, Palette.Asset);
+            rend.sharedMaterial = _assetMat;
+        }
+
+        void OnDestroy()
+        {
+            if (_assetMat != null) Destroy(_assetMat);
         }
     }
 }

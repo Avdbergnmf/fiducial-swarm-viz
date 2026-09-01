@@ -103,6 +103,9 @@ namespace SwarmViewer
         Material _lineMat;
         CueMask _mask = DefaultMask;
 
+        public event Action MaskChanged;
+        public CueMask Mask => _mask;
+
         public void Bind(ViewerContext ctx)
         {
             Unhook();
@@ -111,6 +114,7 @@ namespace SwarmViewer
             _mask = LoadMask();
             Hook();
             Refresh();
+            MaskChanged?.Invoke();
         }
 
         void OnDestroy()
@@ -153,6 +157,7 @@ namespace SwarmViewer
             settings.cueMask = (int)_mask;
             settings.Save();
             Refresh();
+            MaskChanged?.Invoke();
         }
 
         static CueMask LoadMask()
@@ -344,25 +349,25 @@ namespace SwarmViewer
             if (selected && friendly)
             {
                 if (On(CueMask.Sense) && p.Has(p.SenseRadius))
-                    _lines.Circle(pos, p.SenseRadius, new Color(0.35f, 0.85f, 1f, 0.85f), 0.35f);
+                    _lines.Circle(pos, p.SenseRadius, Palette.A(Palette.Sense, 0.85f), 0.35f);
                 if (On(CueMask.Comm) && p.Has(p.CommDraw))
-                    _lines.Circle(pos, p.CommDraw, new Color(0.72f, 0.45f, 1f, 0.85f), 0.35f);
+                    _lines.Circle(pos, p.CommDraw, Palette.A(Palette.Comm, 0.85f), 0.35f);
                 if (On(CueMask.Separate) && p.Has(p.SeparationMargin))
-                    _lines.Circle(pos, p.SeparationMargin, new Color(1f, 0.55f, 0.15f, 0.95f), 0.22f);
+                    _lines.Circle(pos, p.SeparationMargin, Palette.A(Palette.Separate, 0.95f), 0.22f);
             }
 
             if (On(CueMask.Velocity) && snap.Velocity.sqrMagnitude > 0.01f)
-                _lines.Arrow(pos, snap.Velocity * VelScale, new Color(0.55f, 0.95f, 1f, 1f), 0.18f);
+                _lines.Arrow(pos, snap.Velocity * VelScale, Palette.Velocity, 0.18f);
             if (On(CueMask.Accel) && snap.Acceleration.sqrMagnitude > AccelNoise * AccelNoise)
-                _lines.Arrow(pos, snap.Acceleration * AccelScale, new Color(1f, 0.88f, 0.2f, 1f), 0.18f);
+                _lines.Arrow(pos, snap.Acceleration * AccelScale, Palette.Accel, 0.18f);
             if (On(CueMask.Attitude))
-                _lines.Arrow(pos, snap.Rotation * Vector3.forward * AttitudeLen, new Color(0.45f, 0.55f, 1f, 1f), 0.12f);
+                _lines.Arrow(pos, snap.Rotation * Vector3.forward * AttitudeLen, Palette.Attitude, 0.12f);
         }
 
         void DrawLinks(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
         {
             var links = _ctx.Run.Meta.links;
-            var color = new Color(0.35f, 0.9f, 0.45f, 0.55f);
+            var color = Palette.Links;
             bool filter = _ctx.Selection.Count > 0;
             for (int i = 0; i < links.Count; i++)
             {
@@ -382,7 +387,7 @@ namespace SwarmViewer
         {
             var spans = _ctx.Run.Commits?.Spans;
             if (spans == null || spans.Count == 0) return;
-            var color = new Color(1f, 0.2f, 0.18f, 0.95f);
+            var color = Palette.Intercept;
             for (int i = 0; i < spans.Count; i++)
             {
                 var span = spans[i];
@@ -399,7 +404,7 @@ namespace SwarmViewer
         {
             var spans = _ctx.Run.Yields?.Spans;
             if (spans == null || spans.Count == 0) return;
-            var color = new Color(1f, 0.72f, 0.18f, 0.9f);
+            var color = Palette.Yield;
 
             for (int i = 0; i < spans.Count; i++)
             {
@@ -438,22 +443,11 @@ namespace SwarmViewer
 
                 float k = 1f - age / hold;
                 if (k < 0.08f) k = 0.08f;
-                Color ca = PingColor(ping.Kind, k);
-                Color cb = PingColor(ping.Kind, k * 0.35f);
+                Color ca = Palette.A(Palette.Ping(ping.Kind), k);
+                Color cb = Palette.A(Palette.Ping(ping.Kind), k * 0.35f);
                 _lines.Segment(snaps[a].Position, snaps[b].Position, ca, cb, 0.28f * k, 0.08f);
             }
         }
-
-        static Color PingColor(RelationKind kind, float a) => kind switch
-        {
-            RelationKind.Call => new Color(1f, 0.55f, 0.15f, a),
-            RelationKind.Drop => new Color(0.7f, 0.75f, 0.8f, a),
-            RelationKind.Wreck => new Color(0.75f, 0.5f, 0.28f, a),
-            RelationKind.Near => new Color(0.4f, 0.95f, 1f, a),
-            RelationKind.Ram => new Color(1f, 0.3f, 0.12f, a),
-            RelationKind.Duplicate => new Color(1f, 0.45f, 0.85f, a),
-            _ => new Color(1f, 1f, 1f, a),
-        };
 
         void DrawPicket(RunParams p)
         {
@@ -462,7 +456,7 @@ namespace SwarmViewer
             if (asset?.position != null && asset.position.Length >= 3)
                 c = new Vector3(asset.position[0], asset.position[1], asset.position[2]);
             c.y = p.Has(p.RingAltitude) ? p.RingAltitude : c.y;
-            _lines.Circle(c, p.RingRadius, new Color(0.85f, 0.85f, 0.9f, 0.7f), 0.4f);
+            _lines.Circle(c, p.RingRadius, Palette.A(Palette.Picket, 0.7f), 0.4f);
         }
 
         void EnsureViews()

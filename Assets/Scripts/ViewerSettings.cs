@@ -24,6 +24,7 @@ namespace SwarmViewer
         /// than a nested object so one window stays one readable line in the file.
         /// </summary>
         public Dictionary<string, string> panelRects = new();
+        public bool legendCollapsed;
 
         public const float UiScaleMin = 0.8f;
         public const float UiScaleMax = 2.0f;

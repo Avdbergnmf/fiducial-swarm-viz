@@ -21,23 +21,23 @@ namespace SwarmViewer.Editor
                 ?? Shader.Find("Sprites/Default")
                 ?? Shader.Find("Unlit/Color");
 
-            Material friendlyMat = CreateOrUpdateMaterial("Assets/Materials/Friendly.mat", litShader, new Color(0.25f, 0.60f, 1.00f), 0.3f);
-            Material hostileMat = CreateOrUpdateMaterial("Assets/Materials/Hostile.mat", litShader, new Color(1.00f, 0.25f, 0.20f), 0.3f);
-            Material civilianMat = CreateOrUpdateMaterial("Assets/Materials/Civilian.mat", litShader, new Color(0.80f, 0.80f, 0.80f), 0.3f);
-            Material wreckageMat = CreateOrUpdateMaterial("Assets/Materials/Wreckage.mat", litShader, new Color(0.45f, 0.35f, 0.25f), 0.3f);
-            Material unknownMat = CreateOrUpdateMaterial("Assets/Materials/Unknown.mat", litShader, new Color(0.35f, 0.35f, 0.40f), 0.3f);
-            Material compromisedMat = CreateOrUpdateMaterial("Assets/Materials/Compromised.mat", litShader, new Color(1.00f, 0.75f, 0.15f), 0.3f);
-            Material selectedMat = CreateOrUpdateMaterial("Assets/Materials/Selected.mat", litShader, new Color(1.00f, 1.00f, 1.00f), 0.6f);
+            Material friendlyMat = CreateOrUpdateMaterial("Assets/Materials/Friendly.mat", litShader, Palette.Friendly, 0.3f);
+            Material hostileMat = CreateOrUpdateMaterial("Assets/Materials/Hostile.mat", litShader, Palette.Hostile, 0.3f);
+            Material civilianMat = CreateOrUpdateMaterial("Assets/Materials/Civilian.mat", litShader, Palette.Civilian, 0.3f);
+            Material wreckageMat = CreateOrUpdateMaterial("Assets/Materials/Wreckage.mat", litShader, Palette.Wreckage, 0.3f);
+            Material unknownMat = CreateOrUpdateMaterial("Assets/Materials/Unknown.mat", litShader, Palette.Unknown, 0.3f);
+            Material compromisedMat = CreateOrUpdateMaterial("Assets/Materials/Compromised.mat", litShader, Palette.Compromised, 0.3f);
+            Material selectedMat = CreateOrUpdateMaterial("Assets/Materials/Selected.mat", litShader, Palette.Selected, 0.6f);
 
             Material groundMat = CreateOrUpdateMaterial("Assets/Materials/Ground.mat", litShader, new Color(0.12f, 0.12f, 0.14f), 0.05f);
             Material arenaBoundsMat = CreateOrUpdateMaterial("Assets/Materials/ArenaBounds.mat", litShader, new Color(0.35f, 0.40f, 0.45f), 0.1f);
-            Material assetMat = CreateOrUpdateMaterial("Assets/Materials/Asset.mat", litShader, new Color(1.00f, 0.65f, 0.10f), 0.2f);
+            Material assetMat = CreateOrUpdateMaterial("Assets/Materials/Asset.mat", litShader, Palette.Asset, 0.2f);
             
             Material trailMat = CreateOrUpdateMaterial("Assets/Materials/Trail.mat", unlitShader, new Color(1f, 1f, 1f, 0.85f), 0f);
             MakeTransparent(trailMat);
 
             // Outline material: bright unlit yellow/cyan with Cull Front if possible
-            Material outlineMat = CreateOrUpdateMaterial("Assets/Materials/Outline.mat", unlitShader, new Color(1.00f, 0.90f, 0.20f, 1f), 0f);
+            Material outlineMat = CreateOrUpdateMaterial("Assets/Materials/Outline.mat", unlitShader, Palette.Selected, 0f);
             if (outlineMat.HasProperty("_Cull"))
             {
                 outlineMat.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Front);

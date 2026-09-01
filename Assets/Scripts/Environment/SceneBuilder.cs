@@ -39,6 +39,14 @@ namespace SwarmViewer
 
         ViewerContext _ctx;
         EntityView[] _views;
+        Material _friendly;
+        Material _hostile;
+        Material _civilian;
+        Material _wreckage;
+        Material _unknown;
+        Material _compromised;
+        Material _outlineSel;
+        Material _outlineHover;
 
         public void Bind(ViewerContext ctx)
         {
@@ -62,6 +70,8 @@ namespace SwarmViewer
             if (killRadiusPrefab == null)
                 Debug.LogWarning("[viewer] SceneBuilder.killRadiusPrefab is not assigned; no kill-radius sphere.");
 
+            StampMaterials();
+
             _views = new EntityView[meta.slot_count];
 
             for (int s = 0; s < meta.slot_count; s++)
@@ -70,7 +80,7 @@ namespace SwarmViewer
                 float sAbs = Mathf.Max(0.01f, scale);
                 view.transform.localScale = Vector3.one * sAbs;
                 view.Init(s, meta.entities[s]);
-                view.SetOutlineMaterials(selectedOutlineMaterial, hoverOutlineMaterial);
+                view.SetOutlineMaterials(_outlineSel, _outlineHover);
                 view.ConfigureTrail(trailWidth * sAbs, trailTime);
                 view.ConfigurePickCollider(pickColliderRadius / sAbs);
 
@@ -124,6 +134,7 @@ namespace SwarmViewer
             }
 
             EntityView.ReleasePickGhosts();
+            ReleaseStamped();
         }
 
         void OnDestroy()
@@ -151,10 +162,48 @@ namespace SwarmViewer
             if (_ctx.Selection.Mode == ViewMode.FleetBelief)
                 return MaterialForBelief(slot);
 
-            if (_ctx.Selection.Mode == ViewMode.GroundTruth && _ctx.State.IsCompromisedNow(slot) && compromisedMat != null)
-                return compromisedMat;
+            if (_ctx.Selection.Mode == ViewMode.GroundTruth && _ctx.State.IsCompromisedNow(slot) && _compromised != null)
+                return _compromised;
 
             return MaterialForKind(_ctx.State.Info(slot).Kind);
+        }
+
+        void StampMaterials()
+        {
+            ReleaseStamped();
+            _friendly = Stamp(friendlyMat, Palette.Friendly);
+            _hostile = Stamp(hostileMat, Palette.Hostile);
+            _civilian = Stamp(civilianMat, Palette.Civilian);
+            _wreckage = Stamp(wreckageMat, Palette.Wreckage);
+            _unknown = Stamp(unknownMat, Palette.Unknown);
+            _compromised = Stamp(compromisedMat, Palette.Compromised);
+            _outlineSel = Stamp(selectedOutlineMaterial, Palette.Selected);
+            _outlineHover = Stamp(hoverOutlineMaterial, Palette.Hover);
+        }
+
+        static Material Stamp(Material src, Color color)
+        {
+            if (src == null) return null;
+            var copy = new Material(src) { hideFlags = HideFlags.HideAndDontSave };
+            Palette.Tint(copy, color);
+            return copy;
+        }
+
+        void ReleaseStamped()
+        {
+            DestroyIfOwned(_friendly); _friendly = null;
+            DestroyIfOwned(_hostile); _hostile = null;
+            DestroyIfOwned(_civilian); _civilian = null;
+            DestroyIfOwned(_wreckage); _wreckage = null;
+            DestroyIfOwned(_unknown); _unknown = null;
+            DestroyIfOwned(_compromised); _compromised = null;
+            DestroyIfOwned(_outlineSel); _outlineSel = null;
+            DestroyIfOwned(_outlineHover); _outlineHover = null;
+        }
+
+        static void DestroyIfOwned(Material mat)
+        {
+            if (mat != null) Destroy(mat);
         }
 
         Material MaterialForBelief(int slot)
@@ -162,29 +211,29 @@ namespace SwarmViewer
             int observer = _ctx.Selection.Observer;
             var info = _ctx.State.Info(slot);
             if (observer >= 0 && info.drone_id == observer)
-                return friendlyMat;
+                return _friendly;
 
             if (observer < 0)
-                return unknownMat;
+                return _unknown;
 
             var cls = _ctx.Run.Beliefs.At(observer, slot, _ctx.Clock.Time);
             return cls switch
             {
-                BeliefClass.Friendly => friendlyMat,
-                BeliefClass.Enemy => hostileMat,
-                BeliefClass.Neutral => civilianMat,
-                BeliefClass.Compromised => compromisedMat != null ? compromisedMat : hostileMat,
-                _ => unknownMat,
+                BeliefClass.Friendly => _friendly,
+                BeliefClass.Enemy => _hostile,
+                BeliefClass.Neutral => _civilian,
+                BeliefClass.Compromised => _compromised != null ? _compromised : _hostile,
+                _ => _unknown,
             };
         }
 
         Material MaterialForKind(EntityKind kind) => kind switch
         {
-            EntityKind.Friendly => friendlyMat,
-            EntityKind.Hostile => hostileMat,
-            EntityKind.Civilian => civilianMat,
-            EntityKind.Wreckage => wreckageMat,
-            _ => unknownMat,
+            EntityKind.Friendly => _friendly,
+            EntityKind.Hostile => _hostile,
+            EntityKind.Civilian => _civilian,
+            EntityKind.Wreckage => _wreckage,
+            _ => _unknown,
         };
     }
 }

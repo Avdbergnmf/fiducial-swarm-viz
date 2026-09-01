@@ -9,24 +9,6 @@ namespace SwarmViewer
 {
     public sealed class EntityInspectorView : MonoBehaviour, IRunView
     {
-        static readonly string[] KindClasses =
-        {
-            "inspector-panel--unknown",
-            "inspector-panel--friendly",
-            "inspector-panel--hostile",
-            "inspector-panel--civilian",
-            "inspector-panel--wreckage",
-        };
-
-        static readonly string[] DotClasses =
-        {
-            "inspector-kind-dot--unknown",
-            "inspector-kind-dot--friendly",
-            "inspector-kind-dot--hostile",
-            "inspector-kind-dot--civilian",
-            "inspector-kind-dot--wreckage",
-        };
-
         [SerializeField] UIDocument uiDocument;
         [Tooltip("Seconds before a log line to land. Events jump one recorded frame earlier so the craft is still selectable.")]
         [SerializeField] float eventLeadIn = 2f;
@@ -396,7 +378,7 @@ namespace SwarmViewer
             if (compromised && _compromised != null)
                 _compromised.text = $"from {_ctx.Run.TimeOfFrame(info.compromised_from):F1} s";
 
-            ApplyKindChrome(info.Kind);
+            ApplyKindChrome(info.Kind, _ctx.State != null && _ctx.State.IsCompromisedNow(slot));
 
             _events = _ctx.Run.EventsFor(slot);
             _logs = info.drone_id >= 0 ? _ctx.Run.LogsForDrone(info.drone_id) : null;
@@ -406,35 +388,12 @@ namespace SwarmViewer
             RefreshBeliefsOpenBtn(info);
         }
 
-        void ApplyKindChrome(EntityKind kind)
+        void ApplyKindChrome(EntityKind kind, bool compromised = false)
         {
-            if (_panel != null)
-            {
-                for (int i = 0; i < KindClasses.Length; i++)
-                    _panel.RemoveFromClassList(KindClasses[i]);
-                int idx = KindClassIndex(kind);
-                if (idx >= 0 && idx < KindClasses.Length)
-                    _panel.AddToClassList(KindClasses[idx]);
-            }
-
-            if (_kindDot != null)
-            {
-                for (int i = 0; i < DotClasses.Length; i++)
-                    _kindDot.RemoveFromClassList(DotClasses[i]);
-                int idx = KindClassIndex(kind);
-                if (idx >= 0 && idx < DotClasses.Length)
-                    _kindDot.AddToClassList(DotClasses[idx]);
-            }
+            Color c = compromised ? Palette.Compromised : Palette.Kind(kind);
+            Palette.Border(_panel, c);
+            Palette.Fill(_kindDot, c);
         }
-
-        static int KindClassIndex(EntityKind kind) => kind switch
-        {
-            EntityKind.Friendly => 1,
-            EntityKind.Hostile => 2,
-            EntityKind.Civilian => 3,
-            EntityKind.Wreckage => 4,
-            _ => 0,
-        };
 
         static string KindName(EntityKind kind) => kind switch
         {
@@ -457,6 +416,8 @@ namespace SwarmViewer
         void RefreshLive()
         {
             if (_ctx?.State == null || _boundSlot < 0) return;
+            var info = _ctx.Run.Info(_boundSlot);
+            ApplyKindChrome(info.Kind, _ctx.State.IsCompromisedNow(_boundSlot));
             var snap = _ctx.State.Entities[_boundSlot];
 
             if (_status != null)
@@ -745,23 +706,9 @@ namespace SwarmViewer
 
         void ApplyBeliefsChrome(EntityKind kind)
         {
-            if (_beliefsPanel != null)
-            {
-                for (int i = 0; i < KindClasses.Length; i++)
-                    _beliefsPanel.RemoveFromClassList(KindClasses[i]);
-                int idx = KindClassIndex(kind);
-                if (idx >= 0 && idx < KindClasses.Length)
-                    _beliefsPanel.AddToClassList(KindClasses[idx]);
-            }
-
-            if (_beliefsKindDot != null)
-            {
-                for (int i = 0; i < DotClasses.Length; i++)
-                    _beliefsKindDot.RemoveFromClassList(DotClasses[i]);
-                int idx = KindClassIndex(kind);
-                if (idx >= 0 && idx < DotClasses.Length)
-                    _beliefsKindDot.AddToClassList(DotClasses[idx]);
-            }
+            Color c = Palette.Kind(kind);
+            Palette.Border(_beliefsPanel, c);
+            Palette.Fill(_beliefsKindDot, c);
         }
 
         void RefreshPinnedBeliefs(bool force)
@@ -817,7 +764,7 @@ namespace SwarmViewer
                 string who = slot >= 0 ? _ctx.Run.Info(slot).Label : $"Drone {observer}";
                 bool mismatch = !BeliefIndex.Agrees(_callsBuf[i].cls, subject, subjectCompromised);
                 var row = BeliefRow(who, BeliefIndex.Label(_callsBuf[i].cls), actual,
-                    BeliefDotClass(_callsBuf[i].cls), mismatch);
+                    _callsBuf[i].cls, mismatch);
                 row.userData = observer;
                 row.RegisterCallback<ClickEvent>(OnCallClicked);
                 _beliefsCallsScroll.Add(row);
@@ -841,7 +788,7 @@ namespace SwarmViewer
                 bool mismatch = !BeliefIndex.Agrees(_seesBuf[i].cls, other, compromised);
                 var row = BeliefRow(other.Label, BeliefIndex.Label(_seesBuf[i].cls),
                     BeliefIndex.TruthLabel(other, compromised),
-                    BeliefDotClass(_seesBuf[i].cls), mismatch);
+                    _seesBuf[i].cls, mismatch);
                 row.userData = slot;
                 row.RegisterCallback<ClickEvent>(OnSeesClicked);
                 _beliefsSeesScroll.Add(row);
@@ -872,7 +819,7 @@ namespace SwarmViewer
             evt.StopPropagation();
         }
 
-        static VisualElement BeliefRow(string name, string called, string actual, string dotClass, bool mismatch)
+        static VisualElement BeliefRow(string name, string called, string actual, BeliefClass cls, bool mismatch)
         {
             var row = new VisualElement();
             row.AddToClassList("inspector-belief");
@@ -880,7 +827,7 @@ namespace SwarmViewer
 
             var dot = new VisualElement();
             dot.AddToClassList("inspector-kind-dot");
-            dot.AddToClassList(dotClass);
+            Palette.Fill(dot, Palette.Belief(cls));
             dot.pickingMode = PickingMode.Ignore;
 
             var left = new Label(name);
@@ -901,15 +848,6 @@ namespace SwarmViewer
             row.Add(actualLbl);
             return row;
         }
-
-        static string BeliefDotClass(BeliefClass cls) => cls switch
-        {
-            BeliefClass.Friendly => "inspector-kind-dot--friendly",
-            BeliefClass.Enemy => "inspector-kind-dot--hostile",
-            BeliefClass.Neutral => "inspector-kind-dot--civilian",
-            BeliefClass.Compromised => "inspector-kind-dot--hostile",
-            _ => "inspector-kind-dot--unknown",
-        };
 
         static int FingerprintCalls(List<(int observer, BeliefClass cls)> list)
         {
