@@ -47,8 +47,20 @@
 .scene-state-panel--logs {
     left: 200px;
     top: 120px;
-    width: 560px;
+    width: 680px;
     height: 360px;
+}
+
+.scene-state-panel--cues {
+    left: 14px;
+    top: 52px;
+    width: 300px;
+    height: 240px;
+}
+
+.scene-state-cue-footer {
+    margin-top: 6px;
+    white-space: normal;
 }
 
 .scene-state-header {
@@ -533,6 +545,36 @@
     flex-shrink: 1;
     min-width: 80px;
     color: rgb(190, 196, 204);
+}
+
+/* Log rows are tinted by verb so a run reads at a glance: red is a terminal
+   run, orange a close pass, blue a commitment, dim is routine chatter. */
+.scene-state-log--ram {
+    color: rgb(255, 190, 190);
+}
+
+.scene-state-log--near {
+    color: rgb(255, 180, 120);
+}
+
+.scene-state-log--abort {
+    color: rgb(240, 210, 130);
+}
+
+.scene-state-log--commit {
+    color: rgb(120, 175, 255);
+}
+
+.scene-state-log--call {
+    color: rgb(220, 226, 235);
+}
+
+.scene-state-log--drop,
+.scene-state-log--wreck,
+.scene-state-log--picket,
+.scene-state-log--params,
+.scene-state-log--drone {
+    color: rgb(140, 146, 154);
 }
 
 .scene-state-cell-log-drone {

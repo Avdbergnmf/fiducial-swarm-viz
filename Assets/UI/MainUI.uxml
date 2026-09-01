@@ -9,19 +9,6 @@
     <ui:Instance template="SceneState" name="sceneStateInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="EntityInspector" name="entityInspectorInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="RunPicker" name="runPickerInstance" picking-mode="Ignore" class="screen-overlay"/>
-    <ui:VisualElement name="cuesOverlay" picking-mode="Ignore" class="screen-overlay">
-        <ui:VisualElement name="cuesPanel" picking-mode="Position" class="scene-state-panel scene-state-panel--cues">
-            <ui:VisualElement name="cuesHeaderBar" class="scene-state-header">
-                <ui:VisualElement name="cuesDragHandle" class="scene-state-drag">
-                    <ui:Label text="Cues" picking-mode="Ignore" class="scene-state-title" />
-                </ui:VisualElement>
-                <ui:Button name="cuesCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
-            </ui:VisualElement>
-            <ui:Label text="Selected craft, unless noted. Off = hidden, not unknown." picking-mode="Ignore" class="scene-state-section-hint" />
-            <ui:VisualElement name="cuesChipRow" class="filter-chips" picking-mode="Ignore" />
-            <ui:Label name="cuesFooter" text="" picking-mode="Ignore" class="cue-footer" />
-        </ui:VisualElement>
-    </ui:VisualElement>
     <ui:VisualElement name="uiScaleBar" picking-mode="Position" class="ui-scale-bar">
         <ui:Button name="selBackBtn" text="Prev" picking-mode="Position" class="ui-scene-btn" tooltip="Previous selection" />
         <ui:Button name="selFwdBtn" text="Next" picking-mode="Position" class="ui-scene-btn" tooltip="Next selection" />

@@ -44,7 +44,19 @@ namespace SwarmViewer
 
     [Serializable] public class LinkInfo { public int a, b; public float t_start, t_end; }
     [Serializable] public class BeliefChange { public float t; public int observer, slot; public string @class; }
-    [Serializable] public class LogLine { public float t; public int drone; public string text; }
+    [Serializable]
+    public class LogLine
+    {
+        public float t;
+        public int drone;
+        public string text;
+
+        [NonSerialized] string _pretty;
+
+        /// <summary>The line in English. Built once, on first display.</summary>
+        public string Pretty => _pretty ??= LogPhrase.Humanize(text);
+    }
+
     [Serializable] public class TelemetrySample { public float t; public int drone; public int bytes_sent, budget_remaining; }
     [Serializable] public class Bounds3 { public float[] min, max; }
     [Serializable] public class AssetInfo { public float[] position; public float radius; }

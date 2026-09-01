@@ -1,12 +1,14 @@
 // Diagnostic overlay: range rings, motion arrows, radio links, picket ring.
-// One IRunView, one line pool, one toggle panel. A new cue is a CueSpec row
-// plus a few lines in Draw(). Numbers come from RunParams; unknown cues stay off.
+//
+// Drawing only. The Cues panel and its chips live in SceneStateView alongside
+// Aircraft, Events and Logs, so one component owns the windows instead of two
+// racing to wire the same UIDocument. A new cue is a CueSpec row plus a few
+// lines in DrawEntity. Numbers come from RunParams, and a cue whose number this
+// run does not carry reports itself unavailable rather than guessing one.
 
 using System;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
-using UnityEngine.UIElements;
 
 namespace SwarmViewer
 {
@@ -34,9 +36,8 @@ namespace SwarmViewer
         const float HeadingLen = 5f;
         const float AccelNoise = 0.4f;  // hide jitter below this m/s^2
 
-        [SerializeField] UIDocument uiDocument;
-
-        static readonly CueSpec[] Specs =
+        /// <summary>Chip rows in the Cues panel, in display order.</summary>
+        public static readonly CueSpec[] Specs =
         {
             new(CueMask.Kill, "Kill", "Hard collision radius (trace header). Sphere on the selected craft."),
             new(CueMask.Sense, "Sense", "Sensor disc from the brain's boot params. Ring at the craft's altitude."),
@@ -54,16 +55,6 @@ namespace SwarmViewer
         EntityView[] _bySlot;
         LinePool _lines;
         Material _lineMat;
-
-        VisualElement _root;
-        VisualElement _panel;
-        Button _openBtn;
-        Label _footer;
-        Button[] _chips;
-        FloatingPanel _window;
-        bool _uiWired;
-        bool _panelOpen;
-        int _wireAttempts;
         CueMask _mask = DefaultMask;
 
         public void Bind(ViewerContext ctx)
@@ -72,30 +63,8 @@ namespace SwarmViewer
             _ctx = ctx;
             _bySlot = null;
             _mask = LoadMask();
-            TryWireUi();
             Hook();
-            RefreshChips();
             Refresh();
-        }
-
-        void OnEnable() => TryWireUi();
-        void Start() => TryWireUi();
-        void LateUpdate()
-        {
-            if (_uiWired) return;
-            if (uiDocument != null && uiDocument.rootVisualElement == null) return;
-            if (_wireAttempts > 8) return;
-            _wireAttempts++;
-            TryWireUi();
-        }
-
-        /// <summary>Scale-bar Cues button and the C key both land here.</summary>
-        public void Toggle()
-        {
-            TryWireUi();
-            if (_window == null) return;
-            if (_panelOpen) _window.Hide();
-            else OpenPanel();
         }
 
         void OnDestroy()
@@ -129,79 +98,14 @@ namespace SwarmViewer
 
         void OnSelection(int _) => Refresh();
 
-        void TryWireUi()
-        {
-            if (uiDocument == null)
-                uiDocument = GetComponent<UIDocument>();
-            if (uiDocument == null) return;
-            var root = uiDocument.rootVisualElement;
-            if (root == null) return;
-            if (_uiWired && _root == root) return;
-
-            _root = root;
-            _openBtn = UiQuery.Named<Button>(root, "cuesOpenBtn");
-            _panel = UiQuery.Named<VisualElement>(root, "cuesPanel");
-            var drag = UiQuery.Named<VisualElement>(root, "cuesDragHandle");
-            var close = UiQuery.Named<Button>(root, "cuesCloseBtn");
-            var chipRow = UiQuery.Named<VisualElement>(root, "cuesChipRow");
-            _footer = UiQuery.Named<Label>(root, "cuesFooter");
-
-            // Root can exist a frame before the tree is populated; wait rather
-            // than marking wired and never attaching the click handler.
-            if (_openBtn == null || _panel == null) return;
-
-            _uiWired = true;
-            _openBtn.tooltip = "Range rings and motion arrows   C";
-            _openBtn.clicked += Toggle;
-
-            BuildChips(chipRow);
-            _window = new FloatingPanel();
-            _window.Attach(_panel, drag, close);
-            _window.Hidden += () =>
-            {
-                _panelOpen = false;
-                SetOpenButton(false);
-            };
-            _panel.style.display = DisplayStyle.None;
-            RefreshChips();
-        }
-
-        void BuildChips(VisualElement row)
-        {
-            _chips = new Button[Specs.Length];
-            if (row == null) return;
-            row.Clear();
-            for (int i = 0; i < Specs.Length; i++)
-            {
-                int idx = i;
-                var spec = Specs[i];
-                var btn = new Button { text = spec.Label, tooltip = spec.Hint };
-                btn.AddToClassList("filter-chip");
-                btn.clicked += () => ToggleBit(Specs[idx].Bit);
-                row.Add(btn);
-                _chips[i] = btn;
-            }
-        }
-
-        void OpenPanel()
-        {
-            _panelOpen = true;
-            _window.Show();
-            SetOpenButton(true);
-            RefreshChips();
-        }
-
-        void SetOpenButton(bool on) =>
-            _openBtn?.EnableInClassList("scene-state-toggle--open", on);
-
-        void ToggleBit(CueMask bit)
+        /// <summary>Flip one cue and remember it. A cue this run cannot draw is ignored.</summary>
+        public void Toggle(CueMask bit)
         {
             if (!Available(bit)) return;
             _mask ^= bit;
             var settings = ViewerSettings.Load();
             settings.cueMask = (int)_mask;
             settings.Save();
-            RefreshChips();
             Refresh();
         }
 
@@ -213,9 +117,14 @@ namespace SwarmViewer
 
         bool On(CueMask bit) => (_mask & bit) != 0 && Available(bit);
 
-        bool Available(CueMask bit)
+        /// <summary>Switched on, availability aside. For the chip's lit state.</summary>
+        public bool IsOn(CueMask bit) => (_mask & bit) != 0;
+
+        /// <summary>False when this run carries no number for the cue.</summary>
+        public bool Available(CueMask bit)
         {
-            var p = _ctx?.Run?.Params;
+            if (_ctx?.Run == null) return false;
+            var p = _ctx.Run.Params;
             return bit switch
             {
                 CueMask.Kill => true,
@@ -223,30 +132,13 @@ namespace SwarmViewer
                 CueMask.Comm => p != null && p.Has(p.CommDraw),
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
-                CueMask.Links => _ctx?.Run?.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
+                CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 },
                 _ => true,
             };
         }
 
-        void RefreshChips()
-        {
-            if (_chips == null) return;
-            for (int i = 0; i < Specs.Length; i++)
-            {
-                var spec = Specs[i];
-                var btn = _chips[i];
-                if (btn == null) continue;
-                bool avail = _ctx != null && Available(spec.Bit);
-                btn.SetEnabled(avail);
-                btn.EnableInClassList("filter-chip--on", avail && (_mask & spec.Bit) != 0);
-                btn.tooltip = avail ? spec.Hint : spec.Hint + " — unknown in this run";
-            }
-
-            if (_footer != null)
-                _footer.text = FooterText();
-        }
-
-        string FooterText()
+        /// <summary>This run's cue distances, for the panel footer.</summary>
+        public string FooterText()
         {
             var p = _ctx?.Run?.Params;
             if (p == null) return "";
@@ -269,21 +161,6 @@ namespace SwarmViewer
                 sb.Append(parts[i]);
             }
             return sb.ToString();
-        }
-
-        void Update()
-        {
-            var keyboard = Keyboard.current;
-            if (keyboard == null || !keyboard.cKey.wasPressedThisFrame) return;
-            if (IsAnyTextFieldFocused()) return;
-            Toggle();
-        }
-
-        bool IsAnyTextFieldFocused()
-        {
-            if (uiDocument == null || uiDocument.rootVisualElement == null) return false;
-            var focused = uiDocument.rootVisualElement.focusController?.focusedElement;
-            return focused is TextField || focused is TextInputBaseField<string>;
         }
 
         void Refresh()
@@ -436,7 +313,7 @@ namespace SwarmViewer
             return mat;
         }
 
-        readonly struct CueSpec
+        public readonly struct CueSpec
         {
             public readonly CueMask Bit;
             public readonly string Label;

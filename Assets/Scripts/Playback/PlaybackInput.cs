@@ -152,6 +152,9 @@ namespace SwarmViewer
 
             if (keyboard.bKey.wasPressedThisFrame)
                 ToggleBeliefMode();
+
+            if (keyboard.cKey.wasPressedThisFrame)
+                GetComponent<SceneStateView>()?.ToggleCues();
         }
 
         bool IsAnyTextFieldFocused()

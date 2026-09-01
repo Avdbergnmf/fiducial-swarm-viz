@@ -1,5 +1,6 @@
 {
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\last",
-  "uiScale": 1.4
+  "uiScale": 1.0,
+  "cueMask": 0
 }

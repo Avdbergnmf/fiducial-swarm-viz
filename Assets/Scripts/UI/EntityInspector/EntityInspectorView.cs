@@ -653,13 +653,15 @@ namespace SwarmViewer
         {
             var row = new VisualElement();
             row.AddToClassList("inspector-log-line");
-            row.pickingMode = PickingMode.Ignore;
+            // Pickable so hovering can show the raw line and the field key.
+            row.pickingMode = PickingMode.Position;
+            row.tooltip = LogPhrase.Tooltip(line.text);
 
             var time = new Label($"{line.t:F1}s");
             time.AddToClassList("inspector-log-time");
             time.pickingMode = PickingMode.Ignore;
 
-            var text = new Label(line.text ?? "");
+            var text = new Label(line.Pretty);
             text.AddToClassList("inspector-log-text");
             text.pickingMode = PickingMode.Ignore;
 

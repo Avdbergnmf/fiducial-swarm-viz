@@ -37,13 +37,16 @@ namespace SwarmViewer
         Button _aircraftOpenBtn;
         Button _eventsOpenBtn;
         Button _logsOpenBtn;
+        Button _cuesOpenBtn;
 
         FloatingPanel _aircraftFloat;
         FloatingPanel _eventsFloat;
         FloatingPanel _logsFloat;
+        FloatingPanel _cuesFloat;
         bool _aircraftVisible;
         bool _eventsVisible;
         bool _logsVisible;
+        bool _cuesVisible;
 
         Label _aircraftHeader;
         Label _aircraftMix;
@@ -76,7 +79,13 @@ namespace SwarmViewer
         Button _logsColTime;
         Button _logsColDrone;
         Button _logsColText;
+        Button _logsRawBtn;
         ScrollView _logsScroll;
+
+        VisualElement _cuesChipRow;
+        Label _cuesFooter;
+        Button[] _cueChips;
+        CueOverlay _cues;
 
         readonly List<AircraftRow> _aircraftRows = new();
         readonly List<int> _displayedAircraft = new();
@@ -99,6 +108,7 @@ namespace SwarmViewer
 
         LogSort _logSort = LogSort.Time;
         bool _logSortAsc = true;
+        bool _logsRaw;
         LogLine _nowLog;
         bool _logHighlightDirty;
         int _aliveFingerprint = int.MinValue;
@@ -121,6 +131,7 @@ namespace SwarmViewer
             if (_eventsVisible) RebuildEvents();
             if (_logsVisible) RebuildLogs();
             RefreshAircraftBeliefBtn();
+            RefreshCueChips();
         }
 
         void TryWireUi()
@@ -155,10 +166,12 @@ namespace SwarmViewer
             _aircraftOpenBtn = UiQuery.Named<Button>(_root, "aircraftOpenBtn");
             _eventsOpenBtn = UiQuery.Named<Button>(_root, "sceneStateOpenBtn");
             _logsOpenBtn = UiQuery.Named<Button>(_root, "logsOpenBtn");
+            _cuesOpenBtn = UiQuery.Named<Button>(_root, "cuesOpenBtn");
 
             var aircraftPanel = UiQuery.Named<VisualElement>(_root, "aircraftPanel");
             var eventsPanel = UiQuery.Named<VisualElement>(_root, "eventsPanel");
             var logsPanel = UiQuery.Named<VisualElement>(_root, "logsPanel");
+            var cuesPanel = UiQuery.Named<VisualElement>(_root, "cuesPanel");
 
             _aircraftHeader = UiQuery.Named<Label>(_root, "aircraftHeader");
             _aircraftMix = UiQuery.Named<Label>(_root, "aircraftMix");
@@ -191,7 +204,11 @@ namespace SwarmViewer
             _logsColTime = UiQuery.Named<Button>(_root, "logsColTime");
             _logsColDrone = UiQuery.Named<Button>(_root, "logsColDrone");
             _logsColText = UiQuery.Named<Button>(_root, "logsColText");
+            _logsRawBtn = UiQuery.Named<Button>(_root, "logsRawBtn");
             _logsScroll = UiQuery.Named<ScrollView>(_root, "logsScroll");
+
+            _cuesChipRow = UiQuery.Named<VisualElement>(_root, "cuesChipRow");
+            _cuesFooter = UiQuery.Named<Label>(_root, "cuesFooter");
 
             _aircraftFloat = AttachWindow(aircraftPanel, "aircraftDragHandle", "aircraftCloseBtn",
                 () => { _aircraftVisible = false; SetOpen(_aircraftOpenBtn, false); });
@@ -199,6 +216,8 @@ namespace SwarmViewer
                 () => { _eventsVisible = false; SetOpen(_eventsOpenBtn, false); });
             _logsFloat = AttachWindow(logsPanel, "logsDragHandle", "logsCloseBtn",
                 () => { _logsVisible = false; SetOpen(_logsOpenBtn, false); });
+            _cuesFloat = AttachWindow(cuesPanel, "cuesDragHandle", "cuesCloseBtn",
+                () => { _cuesVisible = false; SetOpen(_cuesOpenBtn, false); });
 
             RegisterCallbacks();
             _uiWired = true;
@@ -220,6 +239,12 @@ namespace SwarmViewer
             if (_aircraftOpenBtn != null) _aircraftOpenBtn.clicked += ToggleAircraft;
             if (_eventsOpenBtn != null) _eventsOpenBtn.clicked += ToggleEvents;
             if (_logsOpenBtn != null) _logsOpenBtn.clicked += ToggleLogs;
+            if (_cuesOpenBtn != null)
+            {
+                _cuesOpenBtn.tooltip = "Range rings and motion arrows   C";
+                _cuesOpenBtn.clicked += ToggleCues;
+            }
+            BuildCueChips();
 
             if (_aircraftFilter != null)
                 _aircraftFilter.RegisterValueChangedCallback(_ => { if (_aircraftVisible) RebuildAircraft(); });
@@ -254,6 +279,15 @@ namespace SwarmViewer
             if (_logsColTime != null) _logsColTime.clicked += () => SortLogs(LogSort.Time);
             if (_logsColDrone != null) _logsColDrone.clicked += () => SortLogs(LogSort.Drone);
             if (_logsColText != null) _logsColText.clicked += () => SortLogs(LogSort.Text);
+            if (_logsRawBtn != null) _logsRawBtn.clicked += ToggleLogsRaw;
+        }
+
+        /// <summary>Swap the English rendering for exactly what the brain wrote.</summary>
+        void ToggleLogsRaw()
+        {
+            _logsRaw = !_logsRaw;
+            _logsRawBtn?.EnableInClassList("scene-state-toggle--open", _logsRaw);
+            if (_logsVisible) RebuildLogs();
         }
 
         void Hook()
@@ -372,6 +406,71 @@ namespace SwarmViewer
             _logsFloat?.Show();
             SetOpen(_logsOpenBtn, true);
             RebuildLogs();
+        }
+
+        /// <summary>Cues window. Public because the C key in PlaybackInput calls it.</summary>
+        public void ToggleCues()
+        {
+            if (_cuesVisible) _cuesFloat?.Hide();
+            else OpenCues();
+        }
+
+        void OpenCues()
+        {
+            _cuesVisible = true;
+            _cuesFloat?.Show();
+            SetOpen(_cuesOpenBtn, true);
+            RefreshCueChips();
+        }
+
+        /// <summary>
+        /// The renderer that owns the lines. Made here if the scene has no
+        /// CueOverlay, so the panel never depends on a scene edit landing.
+        /// </summary>
+        CueOverlay Cues
+        {
+            get
+            {
+                if (_cues != null) return _cues;
+                _cues = GetComponent<CueOverlay>();
+                if (_cues == null)
+                {
+                    _cues = gameObject.AddComponent<CueOverlay>();
+                    if (_ctx != null) _cues.Bind(_ctx);
+                }
+                return _cues;
+            }
+        }
+
+        void BuildCueChips()
+        {
+            if (_cuesChipRow == null) return;
+            _cuesChipRow.Clear();
+            _cueChips = new Button[CueOverlay.Specs.Length];
+            for (int i = 0; i < CueOverlay.Specs.Length; i++)
+            {
+                var spec = CueOverlay.Specs[i];
+                var btn = new Button { text = spec.Label, tooltip = spec.Hint };
+                btn.AddToClassList("filter-chip");
+                btn.clicked += () => { Cues.Toggle(spec.Bit); RefreshCueChips(); };
+                _cuesChipRow.Add(btn);
+                _cueChips[i] = btn;
+            }
+        }
+
+        void RefreshCueChips()
+        {
+            if (_cueChips == null) return;
+            var cues = Cues;
+            for (int i = 0; i < _cueChips.Length; i++)
+            {
+                var spec = CueOverlay.Specs[i];
+                bool avail = cues.Available(spec.Bit);
+                _cueChips[i].SetEnabled(avail);
+                _cueChips[i].EnableInClassList("filter-chip--on", avail && cues.IsOn(spec.Bit));
+                _cueChips[i].tooltip = avail ? spec.Hint : spec.Hint + " — unknown in this run";
+            }
+            if (_cuesFooter != null) _cuesFooter.text = cues.FooterText();
         }
 
         static void SetOpen(Button btn, bool on) =>
@@ -1094,9 +1193,11 @@ namespace SwarmViewer
                 row.Add(Cell($"{line.t:F1}s", "scene-state-cell-time"));
                 row.Add(Cell(DroneChip(line.drone), "scene-state-cell-log-drone"));
 
-                var text = Cell(line.text ?? "", "scene-state-cell-text");
+                var text = Cell(_logsRaw ? (line.text ?? "") : line.Pretty, "scene-state-cell-text");
                 text.AddToClassList("scene-state-cell--wrap");
+                text.AddToClassList("scene-state-log--" + LogVerb(line.text));
                 row.Add(text);
+                row.tooltip = LogPhrase.Tooltip(line.text);
 
                 row.RegisterCallback<ClickEvent>(OnLogClicked);
                 _logsScroll.Add(row);
@@ -1132,6 +1233,7 @@ namespace SwarmViewer
         {
             if (string.IsNullOrEmpty(query)) return true;
             if (Contains(line.text, query)) return true;
+            if (Contains(line.Pretty, query)) return true;
             if (Contains(DroneChip(line.drone), query)) return true;
             if ($"{line.drone}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
             if ($"{line.t:F1}".IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
