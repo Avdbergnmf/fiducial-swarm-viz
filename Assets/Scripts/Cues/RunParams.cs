@@ -16,6 +16,7 @@ namespace SwarmViewer
         public float MaxTilt;
         public float LateralLimit;
         public float SeparationMargin;
+        public float FriendlyMargin;
         public float RingRadius;
         public float RingAltitude;
         public float ObservedComm;
@@ -56,6 +57,7 @@ namespace SwarmViewer
                 TryKey(text, "tilt", ref p.MaxTilt);
                 TryKey(text, "lat", ref p.LateralLimit);
                 TryKey(text, "sep", ref p.SeparationMargin);
+                TryKey(text, "fsep", ref p.FriendlyMargin);
                 TryKey(text, "ring", ref p.RingRadius);
                 TryKey(text, "alt", ref p.RingAltitude);
                 return;

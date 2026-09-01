@@ -601,6 +601,10 @@
     color: rgb(120, 175, 255);
 }
 
+.scene-state-log--yield {
+    color: rgb(255, 196, 110);
+}
+
 .scene-state-log--call {
     color: rgb(220, 226, 235);
 }

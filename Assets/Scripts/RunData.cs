@@ -19,6 +19,8 @@ namespace SwarmViewer
         public readonly BeliefIndex Beliefs;
         public readonly RunParams Params;
         public readonly CommitIndex Commits;
+        public readonly YieldIndex Yields;
+        public readonly RelationIndex Relations;
 
         readonly float[] _geometry;      // frame-major: [(frame * slots + slot) * stride]
         readonly int _slots, _stride;
@@ -52,7 +54,6 @@ namespace SwarmViewer
             RelabelEvents();
 
             EventsBySlot = new EntityEventIndex(meta.events, meta.slot_count);
-            LogsByDrone = new DroneLogIndex(meta.logs);
             Beliefs = new BeliefIndex(meta.beliefs);
 
             int maxDrone = 63;
@@ -71,6 +72,9 @@ namespace SwarmViewer
 
             Params = RunParams.From(this);
             Commits = new CommitIndex(this);
+            Yields = new YieldIndex(this);
+            LogsByDrone = new DroneLogIndex(meta.logs);
+            Relations = new RelationIndex(this);
         }
 
         /// <summary>

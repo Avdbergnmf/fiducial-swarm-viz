@@ -1,4 +1,5 @@
-// Diagnostic overlay: range rings, motion arrows, radio links, intercepts, picket ring.
+// Diagnostic overlay: range rings, motion arrows, radio links, intercepts,
+// yield, log pings, picket ring.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
 // Aircraft, Events and Logs, so one component owns the windows instead of two
@@ -26,6 +27,8 @@ namespace SwarmViewer
         Links = 1 << 7,
         Picket = 1 << 8,
         Intercept = 1 << 9,
+        Yield = 1 << 10,
+        Pings = 1 << 11,
     }
 
     public sealed class CueOverlay : MonoBehaviour, IRunView
@@ -79,6 +82,14 @@ namespace SwarmViewer
             new(CueMask.Intercept, "Intercept",
                 "A red line from a drone that has committed to the craft it is spending itself on, for as long as that intercept is still on. All active intercepts, not only the selection.",
                 "Reconstructed from commit / abort / picket log lines. The brain's trk= is observer-local and does not name a world entity, so the other end is the craft this drone had declared enemy at commit time (nearest alive hostile if it had not declared yet)."),
+
+            new(CueMask.Yield, "Yield",
+                "An amber line from a picket onto an intercept it is sitting in. That is the drone stepping off the corridor so it does not cancel the interceptor's ProNav. The same moments appear as yield rows in Logs.",
+                "Reconstructed from intercept spans plus params fsep=, then written into the log list as yield / yield clear so you can filter them. The brain does not write this verb. Drawn against the intercept you already see when the picket's position is inside that margin."),
+
+            new(CueMask.Pings, "Pings",
+                "A short fading line when a drone's log names another craft: a classification call, a drop, wreckage, a close pass, the last metres of a ram, or a duplicate abort to the other interceptor.",
+                "The log line itself. trk= is observer-local, so the other end is the craft this drone had declared (or the nearest alive of that class) at that time — same association as Intercept. Hearsay (peer) lines have no world entity and are omitted. Visible for 1.4 s after the log."),
 
             new(CueMask.Picket, "Picket ring",
                 "The ring the brain holds around the asset.",
@@ -167,8 +178,10 @@ namespace SwarmViewer
                 CueMask.Comm => p != null && p.Has(p.CommDraw),
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
-                CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 },
+                CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Intercept => _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0,
+                CueMask.Yield => _ctx.Run.Yields != null && _ctx.Run.Yields.Spans.Count > 0,
+                CueMask.Pings => _ctx.Run.Relations != null && _ctx.Run.Relations.Pings.Count > 0,
                 _ => true,
             };
         }
@@ -189,8 +202,11 @@ namespace SwarmViewer
                     : p.CommFromLinks ? $"{p.CommDraw:G4} m, measured from links" : $"{p.CommDraw:G4} m",
                 CueMask.Separate => p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G4} m" : "",
                 CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
-                CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 } l ? $"{l.Count} link records" : "",
+                CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0
+                    ? $"{_ctx.Run.Meta.links.Count} link records" : "",
                 CueMask.Intercept => InterceptValue(_ctx.Run.Commits),
+                CueMask.Yield => YieldValue(_ctx.Run.Yields),
+                CueMask.Pings => PingValue(_ctx.Run.Relations),
                 _ => "",
             };
         }
@@ -201,6 +217,22 @@ namespace SwarmViewer
             int n = commits.Spans.Count;
             if (n <= 0) return "";
             return n == 1 ? "1 intercept" : n + " intercepts";
+        }
+
+        static string YieldValue(YieldIndex yields)
+        {
+            if (yields == null) return "";
+            int n = yields.Spans.Count;
+            if (n <= 0) return "";
+            return n == 1 ? "1 yield" : n + " yields";
+        }
+
+        static string PingValue(RelationIndex rel)
+        {
+            if (rel == null) return "";
+            int n = rel.Pings.Count;
+            if (n <= 0) return "";
+            return n == 1 ? "1 ping" : n + " pings";
         }
 
         /// <summary>This run's cue distances, for the panel footer.</summary>
@@ -214,7 +246,8 @@ namespace SwarmViewer
             string sense = p.Has(p.SenseRadius) ? $"sense {p.SenseRadius:G4} m" : "";
             string sep = p.Has(p.SeparationMargin) ? $"sep {p.SeparationMargin:G4} m" : "";
             string ring = p.Has(p.RingRadius) ? $"picket {p.RingRadius:G4} m" : "";
-            return JoinNonEmpty(" · ", sense, comm, sep, ring);
+            string fsep = p.Has(p.FriendlyMargin) ? $"fsep {p.FriendlyMargin:G4} m" : "";
+            return JoinNonEmpty(" · ", sense, comm, sep, fsep, ring);
         }
 
         static string JoinNonEmpty(string sep, params string[] parts)
@@ -264,6 +297,10 @@ namespace SwarmViewer
                 DrawLinks(snaps, t);
             if (On(CueMask.Intercept))
                 DrawIntercepts(snaps, t);
+            if (On(CueMask.Yield))
+                DrawYields(snaps, t);
+            if (On(CueMask.Pings))
+                DrawPings(snaps, t);
             if (On(CueMask.Picket) && p.Has(p.RingRadius))
                 DrawPicket(p);
 
@@ -357,6 +394,64 @@ namespace SwarmViewer
                 _lines.Segment(snaps[a].Position, snaps[b].Position, color, 0.22f);
             }
         }
+
+        void DrawYields(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
+        {
+            var spans = _ctx.Run.Yields?.Spans;
+            if (spans == null || spans.Count == 0) return;
+            var color = new Color(1f, 0.72f, 0.18f, 0.9f);
+
+            for (int i = 0; i < spans.Count; i++)
+            {
+                var span = spans[i];
+                if (!span.ActiveAt(t)) continue;
+                int s = span.PicketSlot;
+                int a = span.InterceptorSlot;
+                int b = span.TargetSlot;
+                if ((uint)s >= (uint)snaps.Count || (uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count)
+                    continue;
+                if (!snaps[s].Alive || !snaps[a].Alive || !snaps[b].Alive) continue;
+                if (!YieldIndex.ClosestOnSegmentXZ(snaps[s].Position, snaps[a].Position, snaps[b].Position,
+                        out Vector3 hit, out _))
+                    continue;
+                _lines.Segment(snaps[s].Position, hit, color, 0.16f);
+            }
+        }
+
+        void DrawPings(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
+        {
+            var pings = _ctx.Run.Relations?.Pings;
+            if (pings == null || pings.Count == 0) return;
+            float hold = RelationIndex.PingHold;
+
+            for (int i = 0; i < pings.Count; i++)
+            {
+                var ping = pings[i];
+                float age = t - ping.T;
+                if (age < -0.02f || age > hold) continue;
+                int a = ping.FromSlot;
+                int b = ping.ToSlot;
+                if ((uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count) continue;
+                if (!snaps[a].Alive || !snaps[b].Alive) continue;
+
+                float k = 1f - age / hold;
+                if (k < 0.08f) k = 0.08f;
+                Color ca = PingColor(ping.Kind, k);
+                Color cb = PingColor(ping.Kind, k * 0.35f);
+                _lines.Segment(snaps[a].Position, snaps[b].Position, ca, cb, 0.28f * k, 0.08f);
+            }
+        }
+
+        static Color PingColor(RelationKind kind, float a) => kind switch
+        {
+            RelationKind.Call => new Color(1f, 0.55f, 0.15f, a),
+            RelationKind.Drop => new Color(0.7f, 0.75f, 0.8f, a),
+            RelationKind.Wreck => new Color(0.75f, 0.5f, 0.28f, a),
+            RelationKind.Near => new Color(0.4f, 0.95f, 1f, a),
+            RelationKind.Ram => new Color(1f, 0.3f, 0.12f, a),
+            RelationKind.Duplicate => new Color(1f, 0.45f, 0.85f, a),
+            _ => new Color(1f, 1f, 1f, a),
+        };
 
         void DrawPicket(RunParams p)
         {
@@ -488,7 +583,14 @@ namespace SwarmViewer
 
             public void Segment(Vector3 a, Vector3 b, Color color, float width)
             {
-                var lr = Next(color, width, loop: false);
+                Segment(a, b, color, color, width, width);
+            }
+
+            public void Segment(Vector3 a, Vector3 b, Color ca, Color cb, float wa, float wb)
+            {
+                var lr = Next(ca, wa, loop: false);
+                lr.endColor = cb;
+                lr.endWidth = wb;
                 lr.positionCount = 2;
                 lr.SetPosition(0, a);
                 lr.SetPosition(1, b);

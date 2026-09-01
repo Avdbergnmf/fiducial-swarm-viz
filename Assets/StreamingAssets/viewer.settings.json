@@ -1,14 +1,14 @@
 {
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs",
-  "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\last",
+  "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\worst",
   "uiScale": 1.0,
-  "cueMask": 225,
+  "cueMask": 1777,
   "panelRects": {
     "aircraftPanel": "666,45,960,472",
     "cuesPanel": "13,52,1045,282",
     "inspectorPanel": "238,48,536,629",
     "eventsPanel": "1507,229,580,420",
     "beliefsPanel": "1740,128,401,521",
-    "logsPanel": "1014,0,680,360"
+    "logsPanel": "1581,215,680,360"
   }
 }

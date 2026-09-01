@@ -74,6 +74,7 @@ namespace SwarmViewer
                     case "near":
                     case "ram": return Proximity(raw);
                     case "picket": return "In position on the picket ring.";
+                    case "yield": return Yield(raw);
                     case "params": return Params(raw);
                     case "drone": return Boot(raw);
                     default: return raw;
@@ -120,6 +121,13 @@ namespace SwarmViewer
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
                 "Bands are 12 m, 6 m and 3 m; one line per band crossed.",
+            "yield" =>
+                "Reconstructed in the viewer from intercept geometry and params fsep=.\n" +
+                "The brain does not write this verb (log budget; D3 / D16).\n" +
+                "interceptor  the committed drone (brain id, same as the Drone column)\n" +
+                "target       the craft it is spending itself on\n" +
+                "dist         horizontal range from this picket to that intercept line\n" +
+                "clear        the picket is no longer inside the keep-out",
             _ => "",
         };
 
@@ -223,6 +231,32 @@ namespace SwarmViewer
             return Join(head,
                 ram && !float.IsNaN(rng) ? Metres(rng) + " out" : "",
                 Closing(Num(raw, "close="), "us"));
+        }
+
+        // "yield interceptor=%u target=… dist=%.1f"
+        // "yield clear interceptor=%u target=…"
+        static string Yield(string raw)
+        {
+            bool off = raw.StartsWith("yield clear", StringComparison.Ordinal);
+            int interceptor = Int(raw, "interceptor=");
+            string target = TargetName(raw);
+            float dist = Num(raw, "dist=");
+            string who = interceptor >= 0 ? $"drone {interceptor}" : "another drone";
+            string of = string.IsNullOrEmpty(target) ? "an inbound" : target;
+            if (off)
+                return $"Clear of {who}'s intercept of {of} — back on station";
+            return Join($"Stepping off {who}'s intercept of {of}",
+                float.IsNaN(dist) ? "" : Metres(dist) + " from the corridor");
+        }
+
+        static string TargetName(string raw)
+        {
+            int i = raw.IndexOf("target=", StringComparison.Ordinal);
+            if (i < 0) return "";
+            i += 7;
+            int end = raw.IndexOf(" dist=", i, StringComparison.Ordinal);
+            string s = end < 0 ? raw.Substring(i) : raw.Substring(i, end - i);
+            return s.Trim();
         }
 
         // "params sense=… comm=… maxv=… maxa=… tilt=… lat=… sep=… fsep=… ring=… alt=…"
