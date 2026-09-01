@@ -2,7 +2,7 @@
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/ablation",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/ablation\\current_x2-a",
   "uiScale": 1.1,
-  "cueMask": 3793,
+  "cueMask": 1745,
   "panelRects": {
     "aircraftPanel": "196,407,960,472",
     "cuesPanel": "13,52,1045,282",
@@ -10,5 +10,6 @@
     "eventsPanel": "1123,106,579,421",
     "beliefsPanel": "223,273,400,522",
     "logsPanel": "1581,215,680,360"
-  }
+  },
+  "legendCollapsed": true
 }

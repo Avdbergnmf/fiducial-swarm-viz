@@ -214,10 +214,12 @@ namespace SwarmViewer
             {
                 var spec = CueOverlay.Specs[i];
                 if (!_cues.IsOn(spec.Bit) || !_cues.Available(spec.Bit)) continue;
-                Row(_cuesBox, Palette.Opaque(Palette.Cue(spec.Bit)), spec.Label, CueShape(spec.Bit));
+                Row(_cuesBox, spec.Color, spec.Label, spec.Shape);
                 shown++;
                 if (spec.Bit == CueMask.Pings)
-                    PingSubrow(_cuesBox);
+                    CueLegend.AddPingKey(_cuesBox, labeled: false);
+                if (spec.Bit == CueMask.Hops)
+                    CueLegend.AddHopKey(_cuesBox, labeled: false);
             }
 
             if (_cuesTitle != null)
@@ -225,40 +227,6 @@ namespace SwarmViewer
                 _cuesTitle.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 _cuesTitle.text = shown > 0 ? "Cues on now" : "";
             }
-        }
-
-        static string CueShape(CueMask bit) => bit switch
-        {
-            CueMask.Kill => "sphere on the selection",
-            CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
-            CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
-            CueMask.Links or CueMask.Intercept or CueMask.Yield or CueMask.Pings => "line",
-            _ => "",
-        };
-
-        static void PingSubrow(VisualElement parent)
-        {
-            var row = new VisualElement();
-            row.AddToClassList("legend-row");
-            row.pickingMode = PickingMode.Ignore;
-            var dots = new VisualElement();
-            dots.AddToClassList("legend-ping-dots");
-            dots.pickingMode = PickingMode.Ignore;
-            AddPingDot(dots, Palette.Ping(RelationKind.Call), "call");
-            AddPingDot(dots, Palette.Ping(RelationKind.Drop), "drop");
-            AddPingDot(dots, Palette.Ping(RelationKind.Wreck), "wreck");
-            AddPingDot(dots, Palette.Ping(RelationKind.Near), "near");
-            AddPingDot(dots, Palette.Ping(RelationKind.Ram), "ram");
-            AddPingDot(dots, Palette.Ping(RelationKind.Duplicate), "duplicate");
-            row.Add(dots);
-            parent.Add(row);
-        }
-
-        static void AddPingDot(VisualElement parent, Color color, string tip)
-        {
-            var dot = Swatch(color);
-            dot.tooltip = tip;
-            parent.Add(dot);
         }
 
         void FillKeys()
@@ -269,6 +237,7 @@ namespace SwarmViewer
             Key(_keys, "J L", "±5s");
             Key(_keys, "B", "belief");
             Key(_keys, "C", "cues");
+            Key(_keys, "D", "disagree");
             Key(_keys, "Esc", "deselect");
             Key(_keys, "[ ]", "prev/next");
             Key(_keys, "?", "legend");
@@ -295,7 +264,7 @@ namespace SwarmViewer
             var row = new VisualElement();
             row.AddToClassList("legend-row");
             row.pickingMode = PickingMode.Ignore;
-            row.Add(Swatch(color));
+            row.Add(CueLegend.Swatch(color));
             var label = new Label(name);
             label.AddToClassList("legend-name");
             label.pickingMode = PickingMode.Ignore;
@@ -305,15 +274,6 @@ namespace SwarmViewer
             row.Add(label);
             row.Add(hint);
             parent.Add(row);
-        }
-
-        static VisualElement Swatch(Color color)
-        {
-            var dot = new VisualElement();
-            dot.AddToClassList("legend-swatch");
-            dot.pickingMode = PickingMode.Ignore;
-            Palette.Fill(dot, color);
-            return dot;
         }
     }
 }

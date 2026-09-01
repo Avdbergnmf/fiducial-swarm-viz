@@ -31,7 +31,10 @@ namespace SwarmViewer.Editor
 
             Material groundMat = CreateOrUpdateMaterial("Assets/Materials/Ground.mat", litShader, new Color(0.12f, 0.12f, 0.14f), 0.05f);
             Material arenaBoundsMat = CreateOrUpdateMaterial("Assets/Materials/ArenaBounds.mat", litShader, new Color(0.35f, 0.40f, 0.45f), 0.1f);
-            Material assetMat = CreateOrUpdateMaterial("Assets/Materials/Asset.mat", litShader, Palette.Asset, 0.2f);
+            Material assetMat = CreateOrUpdateMaterial("Assets/Materials/Asset.mat", litShader, Palette.Asset, 0f);
+            MakeTransparent(assetMat);
+            StampVolume("Assets/Materials/AssetDangerZone.mat", litShader, Palette.Asset);
+            StampVolume("Assets/Materials/KillRadiusIndicator.mat", litShader, Palette.Kill);
             
             Material trailMat = CreateOrUpdateMaterial("Assets/Materials/Trail.mat", unlitShader, new Color(1f, 1f, 1f, 0.85f), 0f);
             MakeTransparent(trailMat);
@@ -82,18 +85,15 @@ namespace SwarmViewer.Editor
             return mat;
         }
 
+        static void StampVolume(string path, Shader shader, Color color)
+        {
+            Material mat = CreateOrUpdateMaterial(path, shader, color, 0f);
+            MakeTransparent(mat);
+        }
+
         static void MakeTransparent(Material mat)
         {
-            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
-            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
-            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
-            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            mat.SetOverrideTag("RenderType", "Transparent");
-            mat.renderQueue = 3000;
+            Palette.MakeTransparent(mat);
             EditorUtility.SetDirty(mat);
         }
     }

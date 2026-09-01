@@ -75,15 +75,40 @@ namespace SwarmViewer
                 else if (verb == "ram") kind = RelationKind.Ram;
                 else continue;
 
-                if (line.text.EndsWith(" peer", System.StringComparison.Ordinal))
-                    continue;
-
-                int to = kind == RelationKind.Drop
-                    ? ResolveDropped(run, line.drone, from, line.t)
-                    : ResolveNamed(run, line.drone, from, line.t, ClassToken(verb, line.text));
+                int to;
+                if (line.text.IndexOf(" peer", System.StringComparison.Ordinal) >= 0)
+                {
+                    to = ResolvePeer(run, from, line.t, line.text);
+                }
+                else
+                {
+                    to = kind == RelationKind.Drop
+                        ? ResolveDropped(run, line.drone, from, line.t)
+                        : ResolveNamed(run, line.drone, from, line.t, ClassToken(verb, line.text));
+                }
                 if (to < 0 || to == from) continue;
                 _pings.Add(new RelationPing(from, to, line.t, kind));
             }
+        }
+
+        int ResolvePeer(RunData run, int fromSlot, float t, string raw)
+        {
+            if (!LogPhrase.TryNumber(raw, "n=", out float n) ||
+                !LogPhrase.TryNumber(raw, "e=", out float e))
+                return -1;
+            float frame = run.FrameOf(t);
+            Vector3 at = SwarmCoord.Ned(n, e);
+            float capSq = 40f * 40f;
+            int best = -1;
+            float bestD = capSq;
+            for (int s = 0; s < run.SlotCount; s++)
+            {
+                if (s == fromSlot) continue;
+                if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
+                float d = (p - at).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = s; }
+            }
+            return best;
         }
 
         int ResolveNamed(RunData run, int droneId, int fromSlot, float t, string cls)

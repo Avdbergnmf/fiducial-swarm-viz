@@ -84,7 +84,10 @@ namespace SwarmViewer
 
         VisualElement _cuesChipRow;
         Label _cuesFooter;
+        VisualElement _cuesDetailSwatch;
         Label _cuesDetailTitle;
+        Label _cuesDetailShape;
+        VisualElement _cuesDetailKey;
         Label _cuesDetailDraws;
         Label _cuesDetailSource;
         Button[] _cueChips;
@@ -226,9 +229,13 @@ namespace SwarmViewer
 
             _cuesChipRow = UiQuery.Named<VisualElement>(_root, "cuesChipRow");
             _cuesFooter = UiQuery.Named<Label>(_root, "cuesFooter");
+            _cuesDetailSwatch = UiQuery.Named<VisualElement>(_root, "cuesDetailSwatch");
             _cuesDetailTitle = UiQuery.Named<Label>(_root, "cuesDetailTitle");
+            _cuesDetailShape = UiQuery.Named<Label>(_root, "cuesDetailShape");
+            _cuesDetailKey = UiQuery.Named<VisualElement>(_root, "cuesDetailKey");
             _cuesDetailDraws = UiQuery.Named<Label>(_root, "cuesDetailDraws");
             _cuesDetailSource = UiQuery.Named<Label>(_root, "cuesDetailSource");
+            HideDetailChrome();
 
             _aircraftFloat = AttachWindow(aircraftPanel, "aircraftDragHandle", "aircraftCloseBtn",
                 () => { _aircraftVisible = false; SetOpen(_aircraftOpenBtn, false); });
@@ -465,8 +472,15 @@ namespace SwarmViewer
             for (int i = 0; i < CueOverlay.Specs.Length; i++)
             {
                 int index = i;
-                var btn = new Button { text = CueOverlay.Specs[i].Label };
+                var spec = CueOverlay.Specs[i];
+                var btn = new Button();
                 btn.AddToClassList("filter-chip");
+                btn.AddToClassList("cue-chip");
+                btn.Add(CueLegend.Swatch(spec.Color));
+                var caption = new Label(spec.Label);
+                caption.AddToClassList("cue-chip-label");
+                caption.pickingMode = PickingMode.Ignore;
+                btn.Add(caption);
                 // Unavailable cues stay clickable: the toggle no-ops, and the click
                 // still earns you the explanation of what is missing and why.
                 btn.clicked += () =>
@@ -488,8 +502,12 @@ namespace SwarmViewer
             {
                 var spec = CueOverlay.Specs[i];
                 bool avail = cues.Available(spec.Bit);
-                _cueChips[i].EnableInClassList("filter-chip--on", avail && cues.IsOn(spec.Bit));
+                bool on = avail && cues.IsOn(spec.Bit);
+                _cueChips[i].EnableInClassList("filter-chip--on", on);
                 _cueChips[i].EnableInClassList("filter-chip--unavailable", !avail);
+                _cueChips[i].style.backgroundColor = on
+                    ? Palette.A(spec.Color, 0.42f)
+                    : StyleKeyword.Null;
             }
             if (_cuesFooter != null) _cuesFooter.text = cues.FooterText();
             RefreshCueDetail(cues);
@@ -503,6 +521,7 @@ namespace SwarmViewer
             if ((uint)_cueExplained >= (uint)CueOverlay.Specs.Length)
             {
                 _cuesDetailTitle.text = "Pick a cue";
+                HideDetailChrome();
                 if (_cuesDetailDraws != null)
                     _cuesDetailDraws.text = "Each one says what it draws and which recorded field it came from.";
                 if (_cuesDetailSource != null) _cuesDetailSource.text = "";
@@ -514,6 +533,32 @@ namespace SwarmViewer
             string state = !avail ? "unavailable in this run" : cues.IsOn(spec.Bit) ? "on" : "off";
             _cuesDetailTitle.text = $"{spec.Label} — {state}";
 
+            if (_cuesDetailSwatch != null)
+            {
+                _cuesDetailSwatch.style.display = DisplayStyle.Flex;
+                Palette.Fill(_cuesDetailSwatch, spec.Color);
+            }
+
+            if (_cuesDetailShape != null)
+            {
+                _cuesDetailShape.text = CueLegend.DrawnAs(spec);
+                _cuesDetailShape.style.display = string.IsNullOrEmpty(_cuesDetailShape.text)
+                    ? DisplayStyle.None
+                    : DisplayStyle.Flex;
+            }
+
+            if (_cuesDetailKey != null)
+            {
+                _cuesDetailKey.Clear();
+                if (spec.Bit == CueMask.Pings)
+                    CueLegend.AddPingKey(_cuesDetailKey, labeled: true);
+                else if (spec.Bit == CueMask.Hops)
+                    CueLegend.AddHopKey(_cuesDetailKey, labeled: true);
+                _cuesDetailKey.style.display = _cuesDetailKey.childCount > 0
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+            }
+
             if (_cuesDetailDraws != null) _cuesDetailDraws.text = spec.Draws;
 
             if (_cuesDetailSource != null)
@@ -522,6 +567,22 @@ namespace SwarmViewer
                 _cuesDetailSource.text = spec.Source + (string.IsNullOrEmpty(value)
                     ? "\nThis run: nothing recorded, so there is nothing to draw."
                     : $"\nThis run: {value}.");
+            }
+        }
+
+        void HideDetailChrome()
+        {
+            if (_cuesDetailSwatch != null)
+                _cuesDetailSwatch.style.display = DisplayStyle.None;
+            if (_cuesDetailShape != null)
+            {
+                _cuesDetailShape.text = "";
+                _cuesDetailShape.style.display = DisplayStyle.None;
+            }
+            if (_cuesDetailKey != null)
+            {
+                _cuesDetailKey.Clear();
+                _cuesDetailKey.style.display = DisplayStyle.None;
             }
         }
 

@@ -29,6 +29,26 @@ namespace SwarmViewer
             return end < 0 ? raw : raw.Substring(0, end);
         }
 
+        public static bool TryNumber(string s, string key, out float value)
+        {
+            value = 0f;
+            if (string.IsNullOrEmpty(s) || string.IsNullOrEmpty(key)) return false;
+            int i = s.IndexOf(key, StringComparison.Ordinal);
+            if (i < 0) return false;
+            i += key.Length;
+
+            int start = i;
+            if (i < s.Length && (s[i] == '-' || s[i] == '+')) i++;
+            while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '.')) i++;
+            if (i == start) return false;
+
+            return float.TryParse(s.Substring(start, i - start), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out value);
+        }
+
+        public static int IntField(string s, string key) =>
+            TryNumber(s, key, out float v) ? (int)v : -1;
+
         /// <summary>
         /// Reconstruct Policy::Stance at time t from the sparse transition logs.
         /// Forming / Picketing / Committed. near and ram are proximity, not stance.
@@ -102,13 +122,16 @@ namespace SwarmViewer
                 "first  the same figure when it was first classified\n" +
                 "score  integrated approach evidence; commit needs a Hostile call plus catchable geometry\n" +
                 "align  heading vs bearing to the asset in the horizontal plane, 1 = straight at it\n" +
-                "close  horizontal closing speed on the asset",
+                "close  horizontal closing speed on the asset\n" +
+                "peer   fused from a TrackReport; origin/hops/n/e are the author's id, hop count, NED pose",
             "commit" =>
                 "score  integrated approach evidence\n" +
                 "miss   3D closest approach to the asset on its current course\n" +
                 "rng    range from us to it\n" +
                 "close  relative horizontal closing speed between us and it (both velocities)\n" +
-                "ttg    time until it reaches the asset cylinder",
+                "ttg    time until it reaches the cylinder\n" +
+                "n, e   NED of the target at commit (hearsay intercepts are out of sense range)\n" +
+                "peer   committed on a radio report, not a local track",
             "abort" =>
                 "close  relative horizontal closing on the target when we broke off\n" +
                 "rng    range from us to it\n" +
@@ -139,8 +162,16 @@ namespace SwarmViewer
             var tok = raw.Split(' ');
             string verb = tok[0];
             string cls = tok.Length > 2 ? tok[2] : "unknown";
-            bool peer = raw.EndsWith(" peer", StringComparison.Ordinal);
+            bool peer = raw.IndexOf(" peer", StringComparison.Ordinal) >= 0;
             string subject = Track(Int(raw, "trk="), peer);
+            int origin = Int(raw, "origin=");
+            int hops = Int(raw, "hops=");
+            if (peer && origin >= 0)
+            {
+                subject += hops > 0
+                    ? $" (radio, {hops} hop" + (hops == 1 ? "" : "s") + $" from drone {origin})"
+                    : $" (radio from drone {origin})";
+            }
 
             string head = verb switch
             {
@@ -166,7 +197,7 @@ namespace SwarmViewer
                 Evidence(Num(raw, "score=")));
         }
 
-        // "commit trk=%u score=%.2f miss=%.1f rng=%.0f close=%.1f ttg=%.1f"
+        // "commit trk=%u score=%.2f miss=%.1f rng=%.0f close=%.1f ttg=%.1f n=%.0f e=%.0f[ peer]"
         static string Commit(string raw)
         {
             float ttg = Num(raw, "ttg=");
@@ -174,12 +205,14 @@ namespace SwarmViewer
             string reach = float.IsNaN(ttg) ? ""
                 : float.IsNaN(miss) ? $"reaches the cylinder in {ttg:F1} s"
                 : $"reaches the cylinder in {ttg:F1} s, passing {Metres(miss)} from the origin";
+            bool peer = raw.IndexOf(" peer", StringComparison.Ordinal) >= 0;
 
-            return Join($"Committed to {Track(Int(raw, "trk="), false)}",
+            return Join($"Committed to {Track(Int(raw, "trk="), peer)}",
                 Range(Num(raw, "rng=")),
                 Closing(Num(raw, "close="), "us"),
                 reach,
-                Evidence(Num(raw, "score=")));
+                Evidence(Num(raw, "score=")),
+                peer ? "on a radio report — this drone had not seen it yet" : "");
         }
 
         // "abort trk=%u <reason> close=%.1f rng=%.0f ttg=%.1f held=%.1f now=%s"
@@ -354,26 +387,12 @@ namespace SwarmViewer
 
         // ---- field scanning ------------------------------------------------
 
-        static bool TryNum(string s, string key, out float value)
-        {
-            value = 0f;
-            if (string.IsNullOrEmpty(s)) return false;
-            int i = s.IndexOf(key, StringComparison.Ordinal);
-            if (i < 0) return false;
-            i += key.Length;
+        static bool TryNum(string s, string key, out float value) =>
+            TryNumber(s, key, out value);
 
-            int start = i;
-            if (i < s.Length && (s[i] == '-' || s[i] == '+')) i++;
-            while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '.')) i++;
-            if (i == start) return false;
+        static float Num(string s, string key) => TryNumber(s, key, out float v) ? v : float.NaN;
 
-            return float.TryParse(s.Substring(start, i - start), NumberStyles.Float,
-                CultureInfo.InvariantCulture, out value);
-        }
-
-        static float Num(string s, string key) => TryNum(s, key, out float v) ? v : float.NaN;
-
-        static int Int(string s, string key) => TryNum(s, key, out float v) ? (int)v : -1;
+        static int Int(string s, string key) => IntField(s, key);
 
         /// <summary>The bare word after a key, e.g. "unknown" from "class=unknown".</summary>
         static string Word(string s, string key)

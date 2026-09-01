@@ -20,6 +20,7 @@ namespace SwarmViewer
         public readonly RunParams Params;
         public readonly CommitIndex Commits;
         public readonly YieldIndex Yields;
+        public readonly HearIndex Hear;
         public readonly RelationIndex Relations;
 
         readonly float[] _geometry;      // frame-major: [(frame * slots + slot) * stride]
@@ -73,6 +74,7 @@ namespace SwarmViewer
             Params = RunParams.From(this);
             Commits = new CommitIndex(this);
             Yields = new YieldIndex(this);
+            Hear = new HearIndex(this);
             LogsByDrone = new DroneLogIndex(meta.logs);
             Relations = new RelationIndex(this);
         }

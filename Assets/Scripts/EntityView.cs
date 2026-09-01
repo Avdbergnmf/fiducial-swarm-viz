@@ -42,6 +42,7 @@ namespace SwarmViewer
 
         const float PickVolumeAlpha = 0.12f;
         static readonly Dictionary<Material, Material> PickGhosts = new();
+        static Material _killMat;
 
         public bool IsSelected => _selected;
         public bool IsHovered => _hovered;
@@ -133,6 +134,11 @@ namespace SwarmViewer
                     Destroy(kv.Value);
             }
             PickGhosts.Clear();
+            if (_killMat != null)
+            {
+                Destroy(_killMat);
+                _killMat = null;
+            }
         }
 
         /// <summary>
@@ -157,13 +163,22 @@ namespace SwarmViewer
         static void TintKillSphere(GameObject go)
         {
             var rends = go.GetComponentsInChildren<Renderer>(true);
+            if (rends.Length == 0) return;
+            if (_killMat == null && rends[0].sharedMaterial != null)
+            {
+                _killMat = new Material(rends[0].sharedMaterial)
+                {
+                    name = "KillRadius (runtime)",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                Palette.TintVolume(_killMat, Palette.Kill);
+            }
             for (int i = 0; i < rends.Length; i++)
             {
-                var block = new MaterialPropertyBlock();
-                rends[i].GetPropertyBlock(block);
-                block.SetColor("_BaseColor", Palette.Kill);
-                block.SetColor("_Color", Palette.Kill);
-                rends[i].SetPropertyBlock(block);
+                if (_killMat != null)
+                    rends[i].sharedMaterial = _killMat;
+                rends[i].shadowCastingMode = ShadowCastingMode.Off;
+                rends[i].receiveShadows = false;
             }
         }
 
@@ -232,33 +247,12 @@ namespace SwarmViewer
 
         static void MakeTransparentGhost(Material mat, float alpha)
         {
-            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
-            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
-            if (mat.HasProperty("_BlendModePreserveSpecular"))
-                mat.SetFloat("_BlendModePreserveSpecular", 0f);
-            if (mat.HasProperty("_SrcBlend"))
-                mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            if (mat.HasProperty("_DstBlend"))
-                mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            if (mat.HasProperty("_SrcBlendAlpha"))
-                mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.SrcAlpha);
-            if (mat.HasProperty("_DstBlendAlpha"))
-                mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
-            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
-            if (mat.HasProperty("_ReceiveShadows")) mat.SetFloat("_ReceiveShadows", 0f);
-            if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", (float)CullMode.Off);
-            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            mat.DisableKeyword("_ALPHATEST_ON");
-            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            mat.SetOverrideTag("RenderType", "Transparent");
-            mat.renderQueue = (int)RenderQueue.Transparent;
-            mat.SetShaderPassEnabled("ShadowCaster", false);
-            mat.SetShaderPassEnabled("DepthOnly", false);
-
+            Palette.MakeTransparent(mat);
+            if (mat.HasProperty("_Cull"))
+                mat.SetFloat("_Cull", (float)CullMode.Off);
             Color c = ReadBaseColor(mat);
             c.a = alpha;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", c);
+            Palette.Tint(mat, c);
         }
 
         /// <summary>

@@ -55,7 +55,7 @@ namespace SwarmViewer
                 {
                     if (open.TryGetValue(drone, out var prev))
                         Close(run, drone, prev.target, prev.t0, line.t);
-                    int target = ResolveTarget(run, drone, line.t, declared);
+                    int target = ResolveTarget(run, drone, line.t, line.text, declared);
                     open[drone] = (target, line.t);
                 }
                 else if (open.TryGetValue(drone, out var cur))
@@ -89,13 +89,20 @@ namespace SwarmViewer
             return run.TimeOfFrame(Mathf.Min(last + 1, run.FrameCount - 1));
         }
 
-        static int ResolveTarget(RunData run, int droneId, float t,
+        static int ResolveTarget(RunData run, int droneId, float t, string raw,
             List<(int slot, BeliefClass cls)> declared)
         {
             int self = run.SlotOfDrone(droneId);
             if (self < 0) return -1;
             float frame = run.FrameOf(t);
             if (!run.Sample(frame, self, out Vector3 origin, out _, out _)) return -1;
+
+            if (LogPhrase.TryNumber(raw, "n=", out float n) &&
+                LogPhrase.TryNumber(raw, "e=", out float e))
+            {
+                int hit = NearestPoint(run, frame, SwarmCoord.Ned(n, e), 40f);
+                if (hit >= 0) return hit;
+            }
 
             run.Beliefs.FillObserver(droneId, t, declared);
             int best = Nearest(run, frame, origin, declared, BeliefClass.Enemy);
@@ -110,6 +117,20 @@ namespace SwarmViewer
             for (int s = 0; s < run.SlotCount; s++)
             {
                 if (run.Info(s).Kind != EntityKind.Hostile) continue;
+                if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
+                float d = (p - origin).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = s; }
+            }
+            return best;
+        }
+
+        static int NearestPoint(RunData run, float frame, Vector3 origin, float cap)
+        {
+            float capSq = cap * cap;
+            int best = -1;
+            float bestD = capSq;
+            for (int s = 0; s < run.SlotCount; s++)
+            {
                 if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
                 float d = (p - origin).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = s; }

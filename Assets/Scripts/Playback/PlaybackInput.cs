@@ -22,6 +22,8 @@ namespace SwarmViewer
             _ctx = ctx;
             Hook();
             TryWire();
+            GetComponent<LegendView>()?.Bind(_ctx);
+            GetComponent<DisagreeView>()?.Bind(_ctx);
             RefreshSelButtons();
         }
 
@@ -51,6 +53,8 @@ namespace SwarmViewer
 
             if (GetComponent<LegendView>() == null)
                 gameObject.AddComponent<LegendView>();
+            if (GetComponent<DisagreeView>() == null)
+                gameObject.AddComponent<DisagreeView>();
 
             if (!_wired)
             {
@@ -158,6 +162,9 @@ namespace SwarmViewer
 
             if (keyboard.cKey.wasPressedThisFrame)
                 GetComponent<SceneStateView>()?.ToggleCues();
+
+            if (keyboard.dKey.wasPressedThisFrame)
+                GetComponent<DisagreeView>()?.Toggle();
 
             if (keyboard.slashKey.wasPressedThisFrame || keyboard.hKey.wasPressedThisFrame)
                 GetComponent<LegendView>()?.ToggleCollapsed();

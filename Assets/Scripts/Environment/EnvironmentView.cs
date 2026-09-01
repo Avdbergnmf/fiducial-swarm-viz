@@ -2,6 +2,7 @@
 // Instantiates the asset from a prefab once; never creates primitives at runtime.
 
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace SwarmViewer
 {
@@ -109,14 +110,16 @@ namespace SwarmViewer
                 // cylinder of radius asset_radius from the ground to the arena
                 // ceiling (D10) — not a sphere, and not the 2 m disc we used
                 // to plant at y=1, which made 7 m breaches look like they hit
-                // a hat. Scale Y so the mesh spans floor → ceiling.
+                // a hat. Scale XZ is 2 * radius because the mesh is 1 m across.
+                // Scale Y so the mesh spans floor → ceiling.
                 float floorY = 0f;
                 float ceilingY = 120f;
                 if (hasArena && meta.arena.max.Length >= 2 && meta.arena.max[1] > 1f)
                     ceilingY = meta.arena.max[1];
                 float height = ceilingY - floorY;
                 _assetInstance.transform.position = new Vector3(assetPos.x, floorY + height * 0.5f, assetPos.z);
-                _assetInstance.transform.localScale = new Vector3(assetRadius * 2f, height * 0.5f, assetRadius * 2f);
+                _assetInstance.transform.localScale = new Vector3(
+                    assetRadius * 2f, height * 0.5f, assetRadius * 2f);
                 TintAsset();
             }
 
@@ -146,13 +149,21 @@ namespace SwarmViewer
         void TintAsset()
         {
             if (_assetInstance == null) return;
-            var rend = _assetInstance.GetComponentInChildren<Renderer>();
-            if (rend == null) return;
-            if (_assetMat == null && rend.sharedMaterial != null)
-                _assetMat = new Material(rend.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
+            var rends = _assetInstance.GetComponentsInChildren<Renderer>(true);
+            if (rends.Length == 0) return;
+            if (_assetMat == null && rends[0].sharedMaterial != null)
+                _assetMat = new Material(rends[0].sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
             if (_assetMat == null) return;
-            Palette.Tint(_assetMat, Palette.Asset);
-            rend.sharedMaterial = _assetMat;
+            Palette.TintVolume(_assetMat, Palette.Asset);
+            for (int i = 0; i < rends.Length; i++)
+            {
+                rends[i].sharedMaterial = _assetMat;
+                rends[i].shadowCastingMode = ShadowCastingMode.Off;
+                rends[i].receiveShadows = false;
+            }
+            var cols = _assetInstance.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < cols.Length; i++)
+                cols[i].enabled = false;
         }
 
         void OnDestroy()

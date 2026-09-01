@@ -3,6 +3,7 @@
 // *caption*, not the hue: blue is still "friendly / declared mate".
 
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 
 namespace SwarmViewer
@@ -16,11 +17,11 @@ namespace SwarmViewer
         public static readonly Color Unknown = Rgb(140, 144, 152);
         public static readonly Color Compromised = Rgb(224, 70, 200);
 
-        public static readonly Color Asset = Rgb(216, 208, 196);
+        public static readonly Color Asset = Rgb(216, 208, 196, 0.05f);
         public static readonly Color Selected = Rgb(242, 246, 255);
         public static readonly Color Hover = Rgb(186, 204, 230);
 
-        public static readonly Color Kill = new Color(1f, 1f, 1f, 0.4f);
+        public static readonly Color Kill = Rgb(232, 72, 64, 0.08f);
         public static readonly Color Sense = Rgb(89, 217, 255);
         public static readonly Color Comm = Rgb(184, 115, 255);
         public static readonly Color Separate = Rgb(255, 140, 38);
@@ -60,11 +61,20 @@ namespace SwarmViewer
             CueMask.Accel => Accel,
             CueMask.Attitude => Attitude,
             CueMask.Links => Links,
+            CueMask.Hops => Hop(2),
             CueMask.Picket => Picket,
             CueMask.Intercept => Intercept,
             CueMask.Yield => Yield,
             CueMask.Pings => Rgb(255, 255, 255),
             _ => Color.white,
+        };
+
+        public static Color Hop(int hops) => hops switch
+        {
+            <= 1 => Links,
+            2 => Yield,
+            3 => Separate,
+            _ => Compromised,
         };
 
         public static Color Ping(RelationKind kind) => kind switch
@@ -107,6 +117,44 @@ namespace SwarmViewer
             if (mat == null) return;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+        }
+
+        /// <summary>
+        /// Ghost volumes (kill sphere, asset cylinder). Colour alpha is the fill;
+        /// URP Lit ignores that alpha unless the surface is actually Transparent.
+        /// </summary>
+        public static void TintVolume(Material mat, Color color)
+        {
+            if (mat == null) return;
+            MakeTransparent(mat);
+            Tint(mat, color);
+        }
+
+        public static void MakeTransparent(Material mat)
+        {
+            if (mat == null) return;
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_BlendModePreserveSpecular"))
+                mat.SetFloat("_BlendModePreserveSpecular", 0f);
+            if (mat.HasProperty("_SrcBlend"))
+                mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend"))
+                mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_SrcBlendAlpha"))
+                mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlendAlpha"))
+                mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_ReceiveShadows")) mat.SetFloat("_ReceiveShadows", 0f);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0f);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = 3000;
+            mat.SetShaderPassEnabled("ShadowCaster", false);
+            mat.SetShaderPassEnabled("DepthOnly", false);
         }
 
         public static void Fill(VisualElement el, Color color)

@@ -58,6 +58,22 @@
     height: 400px;
 }
 
+.scene-state-panel--disagree {
+    left: 360px;
+    top: 52px;
+    width: 560px;
+    height: 460px;
+}
+
+.disagree-detail-scroll {
+    flex-grow: 1;
+    min-height: 80px;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
 .scene-state-cue-footer {
     margin-top: 6px;
     white-space: normal;
@@ -72,12 +88,51 @@
     border-top-color: rgba(255, 255, 255, 0.1);
 }
 
+.cue-detail-head {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.cue-detail-head .legend-swatch {
+    margin-right: 8px;
+}
+
 .cue-detail-title {
     color: rgb(226, 232, 240);
     font-size: 11px;
     -unity-font-style: bold;
     white-space: normal;
-    margin-bottom: 3px;
+    margin-bottom: 0;
+    flex-grow: 1;
+}
+
+.cue-detail-key {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.cue-detail-key .legend-ping-dots {
+    margin-left: 0;
+}
+
+.cue-detail-key-item {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.cue-detail-key-item .legend-swatch {
+    margin-right: 4px;
+}
+
+.cue-detail-key-name {
+    color: rgb(186, 193, 202);
+    font-size: 10px;
 }
 
 .cue-detail-body {
@@ -256,6 +311,39 @@
 .filter-chip--on {
     background-color: rgba(65, 140, 245, 0.42);
     color: rgb(235, 240, 248);
+}
+
+.cue-chip {
+    flex-direction: row;
+    align-items: center;
+}
+
+.cue-chip .legend-swatch {
+    width: 7px;
+    height: 7px;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+
+.cue-chip-label {
+    font-size: 10px;
+    color: rgb(190, 196, 204);
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.filter-chip--on .cue-chip-label {
+    color: rgb(235, 240, 248);
+}
+
+.filter-chip--unavailable .cue-chip-label {
+    color: rgb(112, 118, 128);
 }
 
 .scene-state-cols {

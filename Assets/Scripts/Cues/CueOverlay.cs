@@ -29,6 +29,7 @@ namespace SwarmViewer
         Intercept = 1 << 9,
         Yield = 1 << 10,
         Pings = 1 << 11,
+        Hops = 1 << 12,
     }
 
     public sealed class CueOverlay : MonoBehaviour, IRunView
@@ -76,8 +77,12 @@ namespace SwarmViewer
                 "The attitude quaternion in the trace. Its disagreeing with Velocity during straight flight is how a wrong quaternion conversion gives itself away."),
 
             new(CueMask.Links, "Radio links",
-                "A line between two friendlies who can hear each other right now. The radio is a broadcast: anyone in range may get the frame. These lines are that reachability, not a transcript of what crossed, and not a relay graph — this brain does not forward. With a selection, only that craft's links.",
-                "links[] in the trace: drone ids a, b and a closed interval [t_start, t_end], from the simulator's add/remove deltas. Recorded edges, not distance inferred from comm_radius. Payloads are not in the recording; heartbeats, hostile reports and claims stay inside the brains."),
+                "A line between two friendlies who can hear each other right now. The radio is a broadcast: anyone in range may get the frame. These lines are that reachability, not a transcript of what crossed.",
+                "links[] in the trace: drone ids a, b and a closed interval [t_start, t_end], from the simulator's add/remove deltas. Recorded edges, not distance inferred from comm_radius. Payloads are not in the recording."),
+
+            new(CueMask.Hops, "Hops",
+                "From the selected friendly, the shortest path along the radio graph. Hop 1 is a neighbour; hop 2+ is a drone this craft can only reach if someone forwards. Track reports hop this graph, hop-limited to 4, budget-checked. Select a drone.",
+                "Reconstructed from links[] at this time. Not a transcript of which frames actually forwarded — that is the peer call lines (Pings) and the Disagree window. The example flood is not what this brain does; only TrackReport is relayed."),
 
             new(CueMask.Intercept, "Intercept",
                 "A red line from a drone that has committed to the craft it is spending itself on, for as long as that intercept is still on. All active intercepts, not only the selection.",
@@ -89,11 +94,31 @@ namespace SwarmViewer
 
             new(CueMask.Pings, "Pings",
                 "A short fading line when a drone's log names another craft: a classification call, a drop, wreckage, a close pass, the last metres of a ram, or a duplicate abort to the other interceptor.",
-                "The log line itself. trk= is observer-local, so the other end is the craft this drone had declared (or the nearest alive of that class) at that time — same association as Intercept. Hearsay (peer) lines have no world entity and are omitted. Visible for 1.4 s after the log."),
+                "The log line itself. trk= is observer-local, so the other end is the craft this drone had declared (or the nearest alive of that class) at that time — same association as Intercept. Peer (hearsay) lines use the n=/e= pose the brain associated by geometry. Visible for 1.4 s after the log."),
 
             new(CueMask.Picket, "Picket ring",
                 "The ring the brain holds around the asset.",
                 "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
+        };
+
+        /// <summary>Ping-line kinds, in the order the legend and Cues panel list them.</summary>
+        public static readonly (RelationKind Kind, string Label)[] PingKinds =
+        {
+            (RelationKind.Call, "call"),
+            (RelationKind.Drop, "drop"),
+            (RelationKind.Wreck, "wreck"),
+            (RelationKind.Near, "near"),
+            (RelationKind.Ram, "ram"),
+            (RelationKind.Duplicate, "duplicate"),
+        };
+
+        /// <summary>Hop-count colours, same order as Palette.Hop.</summary>
+        public static readonly (int Hops, string Label)[] HopSteps =
+        {
+            (1, "1 hop"),
+            (2, "2 hops"),
+            (3, "3 hops"),
+            (4, "4+ hops"),
         };
 
         ViewerContext _ctx;
@@ -184,6 +209,7 @@ namespace SwarmViewer
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
+                CueMask.Hops => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Intercept => _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0,
                 CueMask.Yield => _ctx.Run.Yields != null && _ctx.Run.Yields.Spans.Count > 0,
                 CueMask.Pings => _ctx.Run.Relations != null && _ctx.Run.Relations.Pings.Count > 0,
@@ -209,6 +235,7 @@ namespace SwarmViewer
                 CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0
                     ? $"{_ctx.Run.Meta.links.Count} link records" : "",
+                CueMask.Hops => HopValue(),
                 CueMask.Intercept => InterceptValue(_ctx.Run.Commits),
                 CueMask.Yield => YieldValue(_ctx.Run.Yields),
                 CueMask.Pings => PingValue(_ctx.Run.Relations),
@@ -238,6 +265,69 @@ namespace SwarmViewer
             int n = rel.Pings.Count;
             if (n <= 0) return "";
             return n == 1 ? "1 ping" : n + " pings";
+        }
+
+        string HopValue()
+        {
+            int src = SelectedFriendlyDrone();
+            if (src < 0) return "select a friendly";
+            int max = BfsHops(_ctx.Clock != null ? _ctx.Clock.Time : 0f, src, null, null);
+            if (max <= 0) return $"drone {src}, no other radio";
+            return $"drone {src}, up to {max} hop" + (max == 1 ? "" : "s");
+        }
+
+        int SelectedFriendlyDrone()
+        {
+            var sel = _ctx?.Selection;
+            var run = _ctx?.Run;
+            if (sel == null || run == null || sel.Count == 0) return -1;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                int slot = sel.Slots[i];
+                if ((uint)slot >= (uint)run.SlotCount) continue;
+                int id = run.Info(slot).drone_id;
+                if (id >= 0) return id;
+            }
+            return -1;
+        }
+
+        /// <summary>Shortest-path hops from src along current radio links.
+        /// Optional hop[] / parent[] are filled for drawing. Returns max hop.</summary>
+        int BfsHops(float t, int src, int[] hop, int[] parent)
+        {
+            var links = _ctx?.Run?.Meta?.links;
+            if (links == null || src < 0) return 0;
+
+            int cap = 64;
+            hop ??= new int[cap];
+            parent ??= new int[cap];
+            if (src >= cap) return 0;
+            for (int i = 0; i < cap; i++)
+            {
+                hop[i] = -1;
+                parent[i] = -1;
+            }
+            hop[src] = 0;
+
+            var q = new System.Collections.Generic.Queue<int>();
+            q.Enqueue(src);
+            int max = 0;
+            while (q.Count > 0)
+            {
+                int a = q.Dequeue();
+                for (int i = 0; i < links.Count; i++)
+                {
+                    var link = links[i];
+                    if (t < link.t_start || t >= link.t_end) continue;
+                    int b = link.a == a ? link.b : link.b == a ? link.a : -1;
+                    if (b < 0 || b >= cap || hop[b] >= 0) continue;
+                    hop[b] = hop[a] + 1;
+                    parent[b] = a;
+                    if (hop[b] > max) max = hop[b];
+                    q.Enqueue(b);
+                }
+            }
+            return max;
         }
 
         /// <summary>This run's cue distances, for the panel footer.</summary>
@@ -300,6 +390,8 @@ namespace SwarmViewer
 
             if (On(CueMask.Links))
                 DrawLinks(snaps, t);
+            if (On(CueMask.Hops))
+                DrawHops(snaps, t);
             if (On(CueMask.Intercept))
                 DrawIntercepts(snaps, t);
             if (On(CueMask.Yield))
@@ -380,6 +472,27 @@ namespace SwarmViewer
                 if (filter && !_ctx.Selection.IsSelected(sa) && !_ctx.Selection.IsSelected(sb))
                     continue;
                 _lines.Segment(snaps[sa].Position, snaps[sb].Position, color, 0.1f);
+            }
+        }
+
+        void DrawHops(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
+        {
+            int src = SelectedFriendlyDrone();
+            if (src < 0) return;
+
+            int[] hop = new int[64];
+            int[] parent = new int[64];
+            BfsHops(t, src, hop, parent);
+
+            for (int d = 0; d < hop.Length; d++)
+            {
+                if (hop[d] <= 0 || parent[d] < 0) continue;
+                int sa = _ctx.Run.SlotOfDrone(parent[d]);
+                int sb = _ctx.Run.SlotOfDrone(d);
+                if ((uint)sa >= (uint)snaps.Count || (uint)sb >= (uint)snaps.Count) continue;
+                if (!snaps[sa].Alive || !snaps[sb].Alive) continue;
+                float width = hop[d] == 1 ? 0.16f : 0.22f;
+                _lines.Segment(snaps[sa].Position, snaps[sb].Position, Palette.Hop(hop[d]), width);
             }
         }
 
@@ -522,6 +635,19 @@ namespace SwarmViewer
                 Draws = draws;
                 Source = source;
             }
+
+            /// <summary>Same hue the overlay and legend use. Always opaque for UI chrome.</summary>
+            public Color Color => Palette.Opaque(Palette.Cue(Bit));
+
+            /// <summary>What the overlay actually draws, for the legend hint and the Cues panel.</summary>
+            public string Shape => Bit switch
+            {
+                CueMask.Kill => "sphere on the selection",
+                CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
+                CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
+                CueMask.Links or CueMask.Hops or CueMask.Intercept or CueMask.Yield or CueMask.Pings => "line",
+                _ => "",
+            };
         }
 
         sealed class LinePool

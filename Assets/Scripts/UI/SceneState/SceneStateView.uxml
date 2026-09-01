@@ -93,11 +93,42 @@
             </ui:VisualElement>
             <ui:VisualElement name="cuesChipRow" class="filter-chips" picking-mode="Ignore" />
             <ui:ScrollView name="cuesDetailScroll" class="cue-detail-scroll">
-                <ui:Label name="cuesDetailTitle" text="" picking-mode="Ignore" class="cue-detail-title" />
+                <ui:VisualElement name="cuesDetailHead" class="cue-detail-head" picking-mode="Ignore">
+                    <ui:VisualElement name="cuesDetailSwatch" class="legend-swatch" picking-mode="Ignore" style="display: none;" />
+                    <ui:Label name="cuesDetailTitle" text="" picking-mode="Ignore" class="cue-detail-title" />
+                </ui:VisualElement>
+                <ui:Label name="cuesDetailShape" text="" picking-mode="Ignore" class="cue-detail-body" />
+                <ui:VisualElement name="cuesDetailKey" picking-mode="Ignore" />
                 <ui:Label name="cuesDetailDraws" text="" picking-mode="Ignore" class="cue-detail-body" />
                 <ui:Label name="cuesDetailSource" text="" picking-mode="Ignore" class="cue-detail-source" />
             </ui:ScrollView>
             <ui:Label name="cuesFooter" text="" picking-mode="Ignore" class="scene-state-section-hint scene-state-cue-footer" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="disagreePanel" picking-mode="Position" class="scene-state-panel scene-state-panel--disagree">
+            <ui:VisualElement name="disagreeHeaderBar" class="scene-state-header">
+                <ui:VisualElement name="disagreeDragHandle" class="scene-state-drag">
+                    <ui:Label text="Disagree" picking-mode="Ignore" class="scene-state-title" />
+                </ui:VisualElement>
+                <ui:Button name="disagreeAgreeBtn" text="Agreements" picking-mode="Position" class="scene-state-header-btn" tooltip="Also list crafts where every caller agrees with the others and with ground truth, including fused radio calls." />
+                <ui:Button name="disagreeCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
+                <ui:Label name="disagreeHeader" text="Disagree" picking-mode="Ignore" class="scene-state-section-title" />
+                <ui:Label name="disagreeMix" text="" picking-mode="Ignore" class="scene-state-section-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
+                <ui:TextField name="disagreeFilter" placeholder-text="Filter craft, calls…" class="scene-state-filter" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-cols">
+                <ui:Label text="Craft" picking-mode="Ignore" class="scene-state-col scene-state-col-name" />
+                <ui:Label text="Truth" picking-mode="Ignore" class="scene-state-col scene-state-col-ac-kind" />
+                <ui:Label text="Calls" picking-mode="Ignore" class="scene-state-col scene-state-col-called" />
+                <ui:Label text="Why" picking-mode="Ignore" class="scene-state-col scene-state-col-status" />
+            </ui:VisualElement>
+            <ui:ScrollView name="disagreeScroll" class="scene-state-table-scroll" />
+            <ui:Label name="disagreeDetailTitle" text="Click a row for every call on that craft" picking-mode="Ignore" class="scene-state-section-hint" />
+            <ui:ScrollView name="disagreeDetailScroll" class="disagree-detail-scroll" />
         </ui:VisualElement>
 
     </ui:VisualElement>
