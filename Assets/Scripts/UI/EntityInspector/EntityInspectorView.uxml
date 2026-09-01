@@ -89,7 +89,7 @@
                     <ui:Label name="inspectorEventsHeader" text="Events" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
                     <ui:Label text="click to jump" picking-mode="Ignore" class="inspector-section-hint" />
                 </ui:VisualElement>
-                <ui:ScrollView name="inspectorEventsScroll" class="inspector-scroll" />
+                <ui:ScrollView name="inspectorEventsScroll" class="inspector-scroll inspector-scroll--events" />
             </ui:VisualElement>
 
             <ui:VisualElement name="inspectorLogSection" class="inspector-section" picking-mode="Ignore">
@@ -112,7 +112,10 @@
             <ui:Label name="beliefsSubtitle" text="" picking-mode="Ignore" class="inspector-subtitle" />
             <ui:Button name="beliefsVizBtn" text="Color scene" picking-mode="Position" class="inspector-toggle" tooltip="Paint every craft as this drone declared it. Grey is undeclared. B also toggles." />
             <ui:ScrollView name="beliefsBody" class="inspector-body">
-                <ui:Label text="Intent" picking-mode="Ignore" class="inspector-section-title" />
+                <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
+                    <ui:Label text="Stance" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                    <ui:Label text="what it is doing with itself" picking-mode="Ignore" class="inspector-section-hint" />
+                </ui:VisualElement>
                 <ui:Label name="beliefsIntent" text="—" picking-mode="Ignore" class="inspector-value inspector-value--wrap inspector-intent" />
 
                 <ui:VisualElement class="inspector-section" picking-mode="Ignore">
@@ -125,7 +128,7 @@
                         <ui:Label text="Called" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--called" />
                         <ui:Label text="Actual" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--actual" />
                     </ui:VisualElement>
-                    <ui:ScrollView name="beliefsCallsScroll" class="inspector-scroll inspector-scroll--log" />
+                    <ui:ScrollView name="beliefsCallsScroll" class="inspector-scroll" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="inspector-section" picking-mode="Ignore">
@@ -138,7 +141,7 @@
                         <ui:Label text="Called" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--called" />
                         <ui:Label text="Actual" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--actual" />
                     </ui:VisualElement>
-                    <ui:ScrollView name="beliefsSeesScroll" class="inspector-scroll inspector-scroll--log" />
+                    <ui:ScrollView name="beliefsSeesScroll" class="inspector-scroll" />
                 </ui:VisualElement>
             </ui:ScrollView>
         </ui:VisualElement>

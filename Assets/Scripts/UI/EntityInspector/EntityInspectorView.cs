@@ -793,7 +793,7 @@ namespace SwarmViewer
             var info = _ctx.Run.Info(_beliefsSlot);
 
             if (_beliefsIntent != null)
-                _beliefsIntent.text = IntentFromLogs(_beliefsLogs, t) ?? "—";
+                _beliefsIntent.text = LogPhrase.StanceAt(_beliefsLogs, t);
 
             bool compromised = _ctx.State != null && _ctx.State.IsCompromisedNow(_beliefsSlot);
             if (_beliefsCallsHint != null)
@@ -814,22 +814,6 @@ namespace SwarmViewer
                 _seesFingerprint = seesFp;
                 RebuildSeesRows(info.drone_id);
             }
-        }
-
-        static string IntentFromLogs(IReadOnlyList<LogLine> logs, float t)
-        {
-            if (logs == null) return null;
-            string found = null;
-            for (int i = 0; i < logs.Count; i++)
-            {
-                if (logs[i].t > t + 0.001f) break;
-                string text = logs[i].text ?? "";
-                if (text.StartsWith("commit ") || text.StartsWith("abort ") ||
-                    text.StartsWith("picket") || text.StartsWith("ram ") ||
-                    text.StartsWith("near "))
-                    found = text;
-            }
-            return found;
         }
 
         void RebuildCallRows(EntityInfo subject, bool subjectCompromised)

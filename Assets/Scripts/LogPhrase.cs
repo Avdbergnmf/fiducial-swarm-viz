@@ -13,6 +13,7 @@
 // -- and the raw line does not say which.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
@@ -26,6 +27,36 @@ namespace SwarmViewer
             if (string.IsNullOrEmpty(raw)) return "other";
             int end = raw.IndexOf(' ');
             return end < 0 ? raw : raw.Substring(0, end);
+        }
+
+        /// <summary>
+        /// Reconstruct Policy::Stance at time t from the sparse transition logs.
+        /// Forming / Picketing / Committed. near and ram are proximity, not stance.
+        /// </summary>
+        public static string StanceAt(IReadOnlyList<LogLine> logs, float t)
+        {
+            string last = null;
+            if (logs != null)
+            {
+                for (int i = 0; i < logs.Count; i++)
+                {
+                    if (logs[i].t > t + 0.001f) break;
+                    string v = Verb(logs[i].text);
+                    if (v == "commit" || v == "abort" || v == "picket")
+                        last = logs[i].text;
+                }
+            }
+
+            if (last == null)
+                return "Flying to its ring slot. Every drone starts Forming; it logs picket once it is within 8 m of the slot.";
+
+            return Verb(last) switch
+            {
+                "picket" => "On station: holding its ring slot and watching. It has not spent itself on an intercept.",
+                "commit" => "Intercept — " + Humanize(last),
+                "abort" => "Back on the ring. " + Humanize(last) + ".",
+                _ => Humanize(last),
+            };
         }
 
         public static string Humanize(string raw)
