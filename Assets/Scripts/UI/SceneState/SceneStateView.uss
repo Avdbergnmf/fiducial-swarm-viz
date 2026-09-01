@@ -33,7 +33,7 @@
 .scene-state-panel--aircraft {
     left: 14px;
     top: 52px;
-    width: 440px;
+    width: 520px;
     height: 400px;
 }
 
@@ -99,6 +99,35 @@
 .scene-state-close:hover {
     background-color: rgba(232, 93, 93, 0.55);
     color: rgb(255, 255, 255);
+}
+
+.scene-state-header-btn {
+    height: 22px;
+    margin-left: 4px;
+    margin-right: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(230, 230, 230);
+    font-size: 11px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+.scene-state-header-btn:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.scene-state-header-btn.scene-state-toggle--open {
+    background-color: rgba(65, 140, 245, 0.4);
 }
 
 .scene-state-section-head {
@@ -259,6 +288,11 @@
     flex-shrink: 0;
 }
 
+.scene-state-col-called {
+    width: 72px;
+    flex-shrink: 0;
+}
+
 .scene-state-col-slot {
     width: 40px;
     flex-shrink: 0;
@@ -386,6 +420,18 @@
     width: 72px;
     flex-shrink: 0;
     -unity-text-align: middle-left;
+}
+
+.scene-state-drone-called {
+    color: rgb(170, 178, 188);
+    font-size: 10px;
+    width: 72px;
+    flex-shrink: 0;
+    -unity-text-align: middle-left;
+}
+
+.scene-state-drone-called--mismatch {
+    color: rgb(232, 160, 80);
 }
 
 .scene-state-drone-slot {

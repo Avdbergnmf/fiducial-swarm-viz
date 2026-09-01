@@ -105,6 +105,10 @@
     background-color: rgb(154, 160, 168);
 }
 
+.inspector-kind-dot--unknown {
+    background-color: rgb(160, 160, 160);
+}
+
 .inspector-title {
     color: rgb(245, 245, 245);
     font-size: 13px;
@@ -141,6 +145,77 @@
 .inspector-close:hover {
     background-color: rgba(232, 93, 93, 0.55);
     color: rgb(255, 255, 255);
+}
+
+.inspector-header-btn {
+    height: 22px;
+    margin-left: 4px;
+    margin-right: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(230, 230, 230);
+    font-size: 11px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+.inspector-header-btn:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.inspector-header-btn.scene-state-toggle--open {
+    background-color: rgba(65, 140, 245, 0.4);
+}
+
+.inspector-panel--beliefs {
+    left: 368px;
+    top: 52px;
+    width: 400px;
+    height: 520px;
+}
+
+.inspector-toggle {
+    height: 22px;
+    margin-top: 2px;
+    margin-bottom: 4px;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    align-self: flex-start;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(230, 230, 230);
+    font-size: 11px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+.inspector-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.inspector-toggle.scene-state-toggle--open {
+    background-color: rgba(65, 140, 245, 0.4);
+}
+
+.inspector-intent {
+    margin-bottom: 4px;
+    white-space: normal;
 }
 
 .inspector-subtitle {
@@ -219,8 +294,23 @@
     text-overflow: ellipsis;
 }
 
+.inspector-value--wrap {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    -unity-text-align: upper-right;
+}
+
+.inspector-row--stack {
+    align-items: flex-start;
+}
+
 .inspector-value--alive {
     color: rgb(120, 200, 140);
+}
+
+.inspector-value--hot {
+    color: rgb(240, 160, 70);
 }
 
 .inspector-value--gone {
@@ -389,6 +479,86 @@
     flex-grow: 1;
     flex-shrink: 1;
     white-space: normal;
+}
+
+.inspector-belief {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.inspector-belief:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.inspector-belief--mismatch {
+    background-color: rgba(232, 140, 50, 0.12);
+}
+
+.inspector-belief-name {
+    color: rgb(230, 230, 230);
+    font-size: 11px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 48px;
+}
+
+.inspector-belief-called {
+    color: rgb(190, 196, 204);
+    font-size: 10px;
+    width: 78px;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+.inspector-belief-actual {
+    color: rgb(150, 156, 164);
+    font-size: 10px;
+    width: 78px;
+    flex-shrink: 0;
+}
+
+.inspector-belief--mismatch .inspector-belief-actual {
+    color: rgb(232, 170, 90);
+}
+
+.inspector-belief-cols {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 22px;
+    padding-right: 6px;
+    margin-bottom: 1px;
+}
+
+.inspector-belief-col {
+    color: rgb(110, 116, 124);
+    font-size: 9px;
+    -unity-font-style: bold;
+}
+
+.inspector-belief-col--name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 48px;
+}
+
+.inspector-belief-col--called {
+    width: 78px;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+.inspector-belief-col--actual {
+    width: 78px;
+    flex-shrink: 0;
 }
 
 .float-grip {

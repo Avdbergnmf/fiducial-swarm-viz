@@ -12,44 +12,117 @@ namespace SwarmViewer
         [SerializeField] UIDocument uiDocument;
 
         ViewerContext _ctx;
+        Button _selBackBtn;
+        Button _selFwdBtn;
+        bool _wired;
 
         public void Bind(ViewerContext ctx)
         {
+            Unhook();
             _ctx = ctx;
+            Hook();
+            TryWire();
+            RefreshSelButtons();
+        }
+
+        void OnEnable() => TryWire();
+        void Start() => TryWire();
+        void OnDestroy() => Unhook();
+
+        void Hook()
+        {
+            if (_ctx?.Selection == null) return;
+            _ctx.Selection.OnSelectionSetChanged += RefreshSelButtons;
+        }
+
+        void Unhook()
+        {
+            if (_ctx?.Selection == null) return;
+            _ctx.Selection.OnSelectionSetChanged -= RefreshSelButtons;
+        }
+
+        void TryWire()
+        {
             if (uiDocument == null)
                 uiDocument = GetComponent<UIDocument>();
+            if (uiDocument == null) return;
+            var root = uiDocument.rootVisualElement;
+            if (root == null) return;
+
+            if (!_wired)
+            {
+                _selBackBtn = UiQuery.Named<Button>(root, "selBackBtn");
+                if (_selBackBtn != null)
+                {
+                    _selBackBtn.tooltip = "Previous selection   mouse back, [, or Ctrl+Z";
+                    _selBackBtn.clicked += () => _ctx?.Selection?.Back();
+                }
+                _selFwdBtn = UiQuery.Named<Button>(root, "selFwdBtn");
+                if (_selFwdBtn != null)
+                {
+                    _selFwdBtn.tooltip = "Next selection   mouse forward, ], or Ctrl+Y";
+                    _selFwdBtn.clicked += () => _ctx?.Selection?.Forward();
+                }
+                _wired = true;
+            }
+
+            RefreshSelButtons();
+        }
+
+        void ToggleBeliefMode()
+        {
+            if (_ctx?.Selection == null || _ctx.Run == null) return;
+            if (_ctx.Selection.BeliefViewOn)
+            {
+                _ctx.Selection.SetBeliefView(false);
+                return;
+            }
+
+            int drone = -1;
+            int primary = _ctx.Selection.Primary;
+            if (primary >= 0)
+                drone = _ctx.Run.Info(primary).drone_id;
+            _ctx.Selection.SetBeliefView(true, drone);
+        }
+
+        void RefreshSelButtons()
+        {
+            bool back = _ctx?.Selection != null && _ctx.Selection.CanBack;
+            bool fwd = _ctx?.Selection != null && _ctx.Selection.CanForward;
+            if (_selBackBtn != null) _selBackBtn.SetEnabled(back);
+            if (_selFwdBtn != null) _selFwdBtn.SetEnabled(fwd);
         }
 
         void Update()
         {
             if (_ctx == null) return;
 
+            // Thumb buttons work like the browser: even with a filter field focused.
+            var mouse = Mouse.current;
+            if (mouse != null)
+            {
+                if (mouse.backButton.wasPressedThisFrame)
+                    _ctx.Selection.Back();
+                if (mouse.forwardButton.wasPressedThisFrame)
+                    _ctx.Selection.Forward();
+            }
+
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
 
-            // Guard against keyboard inputs while typing in a UI Toolkit TextField or input element
             if (IsAnyTextFieldFocused()) return;
 
             var clock = _ctx.Clock;
             bool shift = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
 
-            // Space / K : Play / Pause
             if (keyboard.spaceKey.wasPressedThisFrame || keyboard.kKey.wasPressedThisFrame)
-            {
                 clock.TogglePlay();
-            }
 
-            // J / L : Step 5 seconds backward / forward
             if (keyboard.jKey.wasPressedThisFrame)
-            {
                 clock.StepSeconds(-5f);
-            }
             if (keyboard.lKey.wasPressedThisFrame)
-            {
                 clock.StepSeconds(5f);
-            }
 
-            // Frame stepping / Speed cycling with ',' and '.'
             if (keyboard.commaKey.wasPressedThisFrame)
             {
                 if (shift) clock.CycleSpeedPrev();
@@ -61,17 +134,24 @@ namespace SwarmViewer
                 else clock.StepFrames(1);
             }
 
-            // Home / 0 / Numpad 0 : Seek to start
             if (keyboard.homeKey.wasPressedThisFrame || keyboard.digit0Key.wasPressedThisFrame || keyboard.numpad0Key.wasPressedThisFrame)
-            {
                 clock.Seek(0f);
-            }
 
-            // Esc : Clear selection
             if (keyboard.escapeKey.wasPressedThisFrame)
-            {
                 _ctx.Selection.Clear();
-            }
+
+            bool ctrl = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+                        || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
+            if (keyboard.leftBracketKey.wasPressedThisFrame ||
+                (ctrl && keyboard.zKey.wasPressedThisFrame && !shift))
+                _ctx.Selection.Back();
+            if (keyboard.rightBracketKey.wasPressedThisFrame ||
+                (ctrl && keyboard.yKey.wasPressedThisFrame) ||
+                (ctrl && shift && keyboard.zKey.wasPressedThisFrame))
+                _ctx.Selection.Forward();
+
+            if (keyboard.bKey.wasPressedThisFrame)
+                ToggleBeliefMode();
         }
 
         bool IsAnyTextFieldFocused()

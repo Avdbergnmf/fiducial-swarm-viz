@@ -1,6 +1,7 @@
 // Aircraft, Events, and Logs each get their own floating window. Open from the
 // matching button in the scale bar. Aircraft list supports click / Ctrl-toggle /
-// Shift-range. Categorical filters are multi-select chips (none on = no restriction).
+// Shift-range. The Called column is what the current observer declared; Color
+// paints the 3D view that way (B is the same toggle).
 
 using System;
 using System.Collections.Generic;
@@ -12,13 +13,14 @@ namespace SwarmViewer
     public sealed class SceneStateView : MonoBehaviour, IRunView
     {
         enum EventSort { Time, Kind, Severity, Involved, Text }
-        enum AircraftSort { Name, Kind, Slot, Speed, Status }
+        enum AircraftSort { Name, Kind, Called, Slot, Speed, Status }
         enum LogSort { Time, Drone, Text }
 
         struct AircraftRow
         {
             public int Slot;
             public VisualElement Root;
+            public Label Called;
             public Label Speed;
             public Label Status;
         }
@@ -50,9 +52,11 @@ namespace SwarmViewer
         FilterChips _aircraftStatusChips;
         Button _aircraftColName;
         Button _aircraftColKind;
+        Button _aircraftColCalled;
         Button _aircraftColSlot;
         Button _aircraftColSpeed;
         Button _aircraftColStatus;
+        Button _aircraftBeliefBtn;
         ScrollView _aircraftScroll;
 
         Label _eventsHeader;
@@ -68,6 +72,7 @@ namespace SwarmViewer
         Label _logsHeader;
         TextField _logsFilter;
         FilterChips _logDroneChips;
+        FilterChips _logVerbChips;
         Button _logsColTime;
         Button _logsColDrone;
         Button _logsColText;
@@ -115,6 +120,7 @@ namespace SwarmViewer
             if (_aircraftVisible) RebuildAircraft();
             if (_eventsVisible) RebuildEvents();
             if (_logsVisible) RebuildLogs();
+            RefreshAircraftBeliefBtn();
         }
 
         void TryWireUi()
@@ -161,9 +167,11 @@ namespace SwarmViewer
             _aircraftStatusChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "aircraftStatusChips"));
             _aircraftColName = UiQuery.Named<Button>(_root, "aircraftColName");
             _aircraftColKind = UiQuery.Named<Button>(_root, "aircraftColKind");
+            _aircraftColCalled = UiQuery.Named<Button>(_root, "aircraftColCalled");
             _aircraftColSlot = UiQuery.Named<Button>(_root, "aircraftColSlot");
             _aircraftColSpeed = UiQuery.Named<Button>(_root, "aircraftColSpeed");
             _aircraftColStatus = UiQuery.Named<Button>(_root, "aircraftColStatus");
+            _aircraftBeliefBtn = UiQuery.Named<Button>(_root, "aircraftBeliefBtn");
             _aircraftScroll = UiQuery.Named<ScrollView>(_root, "aircraftScroll");
 
             _eventsHeader = UiQuery.Named<Label>(_root, "eventsHeader");
@@ -179,6 +187,7 @@ namespace SwarmViewer
             _logsHeader = UiQuery.Named<Label>(_root, "logsHeader");
             _logsFilter = UiQuery.Named<TextField>(_root, "logsFilter");
             _logDroneChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "logDroneChips"));
+            _logVerbChips = new FilterChips(UiQuery.Named<VisualElement>(_root, "logVerbChips"));
             _logsColTime = UiQuery.Named<Button>(_root, "logsColTime");
             _logsColDrone = UiQuery.Named<Button>(_root, "logsColDrone");
             _logsColText = UiQuery.Named<Button>(_root, "logsColText");
@@ -220,9 +229,11 @@ namespace SwarmViewer
                 _aircraftStatusChips.Changed += () => { if (_aircraftVisible) RebuildAircraft(); };
             if (_aircraftColName != null) _aircraftColName.clicked += () => SortAircraft(AircraftSort.Name);
             if (_aircraftColKind != null) _aircraftColKind.clicked += () => SortAircraft(AircraftSort.Kind);
+            if (_aircraftColCalled != null) _aircraftColCalled.clicked += () => SortAircraft(AircraftSort.Called);
             if (_aircraftColSlot != null) _aircraftColSlot.clicked += () => SortAircraft(AircraftSort.Slot);
             if (_aircraftColSpeed != null) _aircraftColSpeed.clicked += () => SortAircraft(AircraftSort.Speed);
             if (_aircraftColStatus != null) _aircraftColStatus.clicked += () => SortAircraft(AircraftSort.Status);
+            if (_aircraftBeliefBtn != null) _aircraftBeliefBtn.clicked += ToggleAircraftBeliefs;
 
             if (_eventsFilter != null)
                 _eventsFilter.RegisterValueChangedCallback(_ => { if (_eventsVisible) RebuildEvents(); });
@@ -238,6 +249,8 @@ namespace SwarmViewer
                 _logsFilter.RegisterValueChangedCallback(_ => { if (_logsVisible) RebuildLogs(); });
             if (_logDroneChips != null)
                 _logDroneChips.Changed += () => { if (_logsVisible) RebuildLogs(); };
+            if (_logVerbChips != null)
+                _logVerbChips.Changed += () => { if (_logsVisible) RebuildLogs(); };
             if (_logsColTime != null) _logsColTime.clicked += () => SortLogs(LogSort.Time);
             if (_logsColDrone != null) _logsColDrone.clicked += () => SortLogs(LogSort.Drone);
             if (_logsColText != null) _logsColText.clicked += () => SortLogs(LogSort.Text);
@@ -249,7 +262,11 @@ namespace SwarmViewer
             if (_ctx.State != null)
                 _ctx.State.Changed += OnStateChanged;
             if (_ctx.Selection != null)
+            {
                 _ctx.Selection.OnSelectionChanged += OnSelectionChanged;
+                _ctx.Selection.OnViewModeChanged += OnViewModeChanged;
+                _ctx.Selection.OnObserverChanged += OnObserverChanged;
+            }
         }
 
         void Unhook()
@@ -258,7 +275,11 @@ namespace SwarmViewer
             if (_ctx.State != null)
                 _ctx.State.Changed -= OnStateChanged;
             if (_ctx.Selection != null)
+            {
                 _ctx.Selection.OnSelectionChanged -= OnSelectionChanged;
+                _ctx.Selection.OnViewModeChanged -= OnViewModeChanged;
+                _ctx.Selection.OnObserverChanged -= OnObserverChanged;
+            }
         }
 
         void OnDestroy() => Unhook();
@@ -287,6 +308,54 @@ namespace SwarmViewer
             _aircraftFloat?.Show();
             SetOpen(_aircraftOpenBtn, true);
             RebuildAircraft();
+            RefreshAircraftBeliefBtn();
+        }
+
+        void ToggleAircraftBeliefs()
+        {
+            if (_ctx?.Selection == null || _ctx.Run == null) return;
+            if (_ctx.Selection.BeliefViewOn)
+            {
+                _ctx.Selection.SetBeliefView(false);
+                return;
+            }
+
+            int drone = _ctx.Selection.Observer;
+            int primary = _ctx.Selection.Primary;
+            if (primary >= 0)
+            {
+                int id = _ctx.Run.Info(primary).drone_id;
+                if (id >= 0) drone = id;
+            }
+            _ctx.Selection.SetBeliefView(true, drone);
+        }
+
+        void RefreshAircraftBeliefBtn()
+        {
+            if (_aircraftBeliefBtn == null) return;
+            bool on = _ctx?.Selection != null && _ctx.Selection.BeliefViewOn;
+            _aircraftBeliefBtn.EnableInClassList("scene-state-toggle--open", on);
+            int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
+            _aircraftBeliefBtn.text = on && observer >= 0 ? $"Color {observer}" : "Color";
+            _aircraftBeliefBtn.tooltip = on && observer >= 0
+                ? $"Scene is painted as drone {observer} sees it. Click to restore ground truth. B also toggles."
+                : "Paint the scene as the current observer sees it. Grey is undeclared. B also toggles.";
+        }
+
+        void OnViewModeChanged(ViewMode _)
+        {
+            RefreshAircraftBeliefBtn();
+            if (_aircraftVisible) RefreshAircraftLive();
+        }
+
+        void OnObserverChanged(int _)
+        {
+            RefreshAircraftBeliefBtn();
+            if (_aircraftVisible)
+            {
+                RefreshAircraftLive();
+                RefreshAircraftObserverMix();
+            }
         }
 
         void OpenEvents()
@@ -404,6 +473,20 @@ namespace SwarmViewer
                 drones.Sort(StringComparer.OrdinalIgnoreCase);
             }
             _logDroneChips?.SetChoices(drones);
+
+            var verbs = new List<string>();
+            var seenVerb = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (logs != null)
+            {
+                for (int i = 0; i < logs.Count; i++)
+                {
+                    string verb = LogVerb(logs[i]?.text);
+                    if (!seenVerb.Add(verb)) continue;
+                    verbs.Add(verb);
+                }
+                verbs.Sort(StringComparer.OrdinalIgnoreCase);
+            }
+            _logVerbChips?.SetChoices(verbs);
         }
 
         void SortAircraft(AircraftSort col)
@@ -518,6 +601,11 @@ namespace SwarmViewer
                 kind.AddToClassList("scene-state-drone-kind");
                 kind.pickingMode = PickingMode.Ignore;
 
+                var called = new Label();
+                called.AddToClassList("scene-state-drone-called");
+                called.pickingMode = PickingMode.Ignore;
+                ApplyCalled(called, slot, info);
+
                 var slotLabel = new Label(info.slot.ToString());
                 slotLabel.AddToClassList("scene-state-drone-slot");
                 slotLabel.pickingMode = PickingMode.Ignore;
@@ -534,12 +622,20 @@ namespace SwarmViewer
                 row.Add(dot);
                 row.Add(name);
                 row.Add(kind);
+                row.Add(called);
                 row.Add(slotLabel);
                 row.Add(speed);
                 row.Add(status);
                 row.RegisterCallback<ClickEvent>(OnAircraftClicked);
                 _aircraftScroll.Add(row);
-                _aircraftRows.Add(new AircraftRow { Slot = slot, Root = row, Speed = speed, Status = status });
+                _aircraftRows.Add(new AircraftRow
+                {
+                    Slot = slot,
+                    Root = row,
+                    Called = called,
+                    Speed = speed,
+                    Status = status,
+                });
             }
 
             UpdateAircraftHighlights();
@@ -583,7 +679,31 @@ namespace SwarmViewer
             if (hostile > 0) parts.Add($"{hostile} hostile");
             if (civilian > 0) parts.Add($"{civilian} civilian");
             if (wreckage > 0) parts.Add($"{wreckage} wreckage");
-            _aircraftMix.text = string.Join(" · ", parts);
+            string mix = string.Join(" · ", parts);
+            int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
+            if (observer >= 0)
+                mix = string.IsNullOrEmpty(mix)
+                    ? $"called as drone {observer}"
+                    : mix + $" · called as drone {observer}";
+            _aircraftMix.text = mix;
+        }
+
+        void RefreshAircraftObserverMix()
+        {
+            if (!_aircraftVisible || _aircraftMix == null || _ctx?.Run == null) return;
+            int n = _ctx.Run.SlotCount;
+            int friendly = 0, hostile = 0, civilian = 0, wreckage = 0;
+            for (int i = 0; i < _displayedAircraft.Count; i++)
+            {
+                switch (_ctx.Run.Info(_displayedAircraft[i]).Kind)
+                {
+                    case EntityKind.Friendly: friendly++; break;
+                    case EntityKind.Hostile: hostile++; break;
+                    case EntityKind.Civilian: civilian++; break;
+                    case EntityKind.Wreckage: wreckage++; break;
+                }
+            }
+            SetAircraftHeader(_displayedAircraft.Count, n, friendly, hostile, civilian, wreckage);
         }
 
         int CompareAircraft(int a, int b)
@@ -599,6 +719,7 @@ namespace SwarmViewer
             int c = _aircraftSort switch
             {
                 AircraftSort.Name => string.Compare(ia.Label, ib.Label, StringComparison.OrdinalIgnoreCase),
+                AircraftSort.Called => string.Compare(CalledText(a, ia), CalledText(b, ib), StringComparison.OrdinalIgnoreCase),
                 AircraftSort.Slot => ia.slot.CompareTo(ib.slot),
                 AircraftSort.Speed => speedA.CompareTo(speedB),
                 AircraftSort.Status => aliveA.CompareTo(aliveB),
@@ -629,6 +750,8 @@ namespace SwarmViewer
                 row.Root.EnableInClassList("scene-state-drone--gone", !alive);
                 row.Speed.text = alive ? FormatSpeed(ents[row.Slot].Velocity.magnitude) : "—";
                 row.Status.text = alive ? "Alive" : "Gone";
+                if (row.Called != null)
+                    ApplyCalled(row.Called, row.Slot, _ctx.Run.Info(row.Slot));
             }
         }
 
@@ -708,6 +831,7 @@ namespace SwarmViewer
         {
             SetHeader(_aircraftColName, _aircraftSort == AircraftSort.Name, _aircraftSortAsc, "Name");
             SetHeader(_aircraftColKind, _aircraftSort == AircraftSort.Kind, _aircraftSortAsc, "Kind");
+            SetHeader(_aircraftColCalled, _aircraftSort == AircraftSort.Called, _aircraftSortAsc, "Called");
             SetHeader(_aircraftColSlot, _aircraftSort == AircraftSort.Slot, _aircraftSortAsc, "Slot");
             SetHeader(_aircraftColSpeed, _aircraftSort == AircraftSort.Speed, _aircraftSortAsc, "Speed");
             SetHeader(_aircraftColStatus, _aircraftSort == AircraftSort.Status, _aircraftSortAsc, "Status");
@@ -936,6 +1060,8 @@ namespace SwarmViewer
                 if (line == null) continue;
                 if (_logDroneChips != null && !_logDroneChips.Allows(DroneChip(line.drone)))
                     continue;
+                if (_logVerbChips != null && !_logVerbChips.Allows(LogVerb(line.text)))
+                    continue;
                 if (!MatchesLogFilter(line, query))
                     continue;
                 _filteredLogs.Add(line);
@@ -1098,8 +1224,44 @@ namespace SwarmViewer
 
         static string DroneChip(int droneId) => $"Drone {droneId}";
 
+        static string LogVerb(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "other";
+            int end = text.IndexOf(' ');
+            return end < 0 ? text : text.Substring(0, end);
+        }
+
         static bool Contains(string hay, string needle) =>
             !string.IsNullOrEmpty(hay) && hay.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        void ApplyCalled(Label label, int slot, EntityInfo info)
+        {
+            if (label == null) return;
+            string text = CalledText(slot, info);
+            label.text = text;
+            bool mismatch = text != "—" && text != "self" &&
+                            !BeliefIndex.Agrees(CalledClass(slot, info), info,
+                                _ctx?.State != null && _ctx.State.IsCompromisedNow(slot));
+            label.EnableInClassList("scene-state-drone-called--mismatch", mismatch);
+        }
+
+        string CalledText(int slot, EntityInfo info)
+        {
+            int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
+            if (observer < 0) return "—";
+            if (info != null && info.drone_id == observer) return "self";
+            var cls = CalledClass(slot, info);
+            return cls == BeliefClass.Unknown ? "—" : BeliefIndex.Label(cls);
+        }
+
+        BeliefClass CalledClass(int slot, EntityInfo info)
+        {
+            int observer = _ctx?.Selection != null ? _ctx.Selection.Observer : -1;
+            if (observer < 0 || _ctx?.Run == null) return BeliefClass.Unknown;
+            if (info != null && info.drone_id == observer) return BeliefClass.Friendly;
+            float t = _ctx.Clock != null ? _ctx.Clock.Time : 0f;
+            return _ctx.Run.Beliefs.At(observer, slot, t);
+        }
 
         static int KindOrder(EntityKind kind) => kind switch
         {

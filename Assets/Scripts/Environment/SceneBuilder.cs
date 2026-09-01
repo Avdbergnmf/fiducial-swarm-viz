@@ -97,11 +97,13 @@ namespace SwarmViewer
             ctx.State.Changed += Refresh;
             ctx.Selection.OnSelectionChanged += OnSelectionChanged;
             ctx.Selection.OnViewModeChanged += OnViewModeChanged;
+            ctx.Selection.OnObserverChanged += OnObserverChanged;
             Refresh();
         }
 
         void OnSelectionChanged(int _) => Refresh();
         void OnViewModeChanged(ViewMode _) => Refresh();
+        void OnObserverChanged(int _) => Refresh();
 
         public void Teardown()
         {
@@ -110,6 +112,7 @@ namespace SwarmViewer
                 _ctx.State.Changed -= Refresh;
                 _ctx.Selection.OnSelectionChanged -= OnSelectionChanged;
                 _ctx.Selection.OnViewModeChanged -= OnViewModeChanged;
+                _ctx.Selection.OnObserverChanged -= OnObserverChanged;
             }
 
             if (_views != null)
@@ -145,17 +148,43 @@ namespace SwarmViewer
 
         Material MaterialFor(int slot)
         {
+            if (_ctx.Selection.Mode == ViewMode.FleetBelief)
+                return MaterialForBelief(slot);
+
             if (_ctx.Selection.Mode == ViewMode.GroundTruth && _ctx.State.IsCompromisedNow(slot) && compromisedMat != null)
                 return compromisedMat;
 
-            return _ctx.State.Info(slot).Kind switch
+            return MaterialForKind(_ctx.State.Info(slot).Kind);
+        }
+
+        Material MaterialForBelief(int slot)
+        {
+            int observer = _ctx.Selection.Observer;
+            var info = _ctx.State.Info(slot);
+            if (observer >= 0 && info.drone_id == observer)
+                return friendlyMat;
+
+            if (observer < 0)
+                return unknownMat;
+
+            var cls = _ctx.Run.Beliefs.At(observer, slot, _ctx.Clock.Time);
+            return cls switch
             {
-                EntityKind.Friendly => friendlyMat,
-                EntityKind.Hostile => hostileMat,
-                EntityKind.Civilian => civilianMat,
-                EntityKind.Wreckage => wreckageMat,
+                BeliefClass.Friendly => friendlyMat,
+                BeliefClass.Enemy => hostileMat,
+                BeliefClass.Neutral => civilianMat,
+                BeliefClass.Compromised => compromisedMat != null ? compromisedMat : hostileMat,
                 _ => unknownMat,
             };
         }
+
+        Material MaterialForKind(EntityKind kind) => kind switch
+        {
+            EntityKind.Friendly => friendlyMat,
+            EntityKind.Hostile => hostileMat,
+            EntityKind.Civilian => civilianMat,
+            EntityKind.Wreckage => wreckageMat,
+            _ => unknownMat,
+        };
     }
 }

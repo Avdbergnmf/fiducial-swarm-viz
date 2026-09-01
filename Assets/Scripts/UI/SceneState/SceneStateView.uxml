@@ -7,6 +7,7 @@
                 <ui:VisualElement name="aircraftDragHandle" class="scene-state-drag">
                     <ui:Label text="Aircraft" picking-mode="Ignore" class="scene-state-title" />
                 </ui:VisualElement>
+                <ui:Button name="aircraftBeliefBtn" text="Color" picking-mode="Position" class="scene-state-header-btn" tooltip="Paint the scene as the current observer sees it. Grey is undeclared. B also toggles." />
                 <ui:Button name="aircraftCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
@@ -21,6 +22,7 @@
             <ui:VisualElement class="scene-state-cols">
                 <ui:Button name="aircraftColName" text="Name" class="scene-state-col scene-state-col-name" />
                 <ui:Button name="aircraftColKind" text="Kind" class="scene-state-col scene-state-col-ac-kind" />
+                <ui:Button name="aircraftColCalled" text="Called" class="scene-state-col scene-state-col-called" />
                 <ui:Button name="aircraftColSlot" text="Slot" class="scene-state-col scene-state-col-slot" />
                 <ui:Button name="aircraftColSpeed" text="Speed" class="scene-state-col scene-state-col-speed" />
                 <ui:Button name="aircraftColStatus" text="Status" class="scene-state-col scene-state-col-status" />
@@ -66,6 +68,7 @@
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
                 <ui:TextField name="logsFilter" placeholder-text="Filter time, drone, text…" class="scene-state-filter" />
+                <ui:VisualElement name="logVerbChips" class="filter-chips" picking-mode="Ignore" />
                 <ui:VisualElement name="logDroneChips" class="filter-chips" picking-mode="Ignore" />
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-cols">

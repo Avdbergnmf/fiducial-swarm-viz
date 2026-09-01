@@ -34,6 +34,7 @@ namespace SwarmViewer
         MaterialPropertyBlock _trailBlock; 
         bool _selected;
         bool _hovered;
+        bool _killCueOn = true;
         GameObject _killRadiusGo;
         GameObject _pickVolumeGo;
 
@@ -229,10 +230,17 @@ namespace SwarmViewer
             UpdatePickVolumeVisibility();
         }
 
+        /// <summary>Kill sphere is one cue among several; CueOverlay owns the flag.</summary>
+        public void SetKillCueEnabled(bool on)
+        {
+            _killCueOn = on;
+            UpdateKillRadiusVisibility();
+        }
+
         void UpdateKillRadiusVisibility()
         {
             if (_killRadiusGo == null) return;
-            _killRadiusGo.SetActive(_selected && Current.Alive);
+            _killRadiusGo.SetActive(_killCueOn && _selected && Current.Alive);
         }
 
         void UpdatePickVolumeVisibility()

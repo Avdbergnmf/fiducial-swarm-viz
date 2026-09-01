@@ -7,6 +7,7 @@
                     <ui:VisualElement name="inspectorKindDot" picking-mode="Ignore" class="inspector-kind-dot" />
                     <ui:Label name="inspectorTitle" text="—" picking-mode="Ignore" class="inspector-title" />
                 </ui:VisualElement>
+                <ui:Button name="inspectorBeliefsBtn" text="Beliefs" picking-mode="Position" class="inspector-header-btn" tooltip="Pin this drone's beliefs. Stays open if you pick someone else." />
                 <ui:Button name="inspectorCloseBtn" text="×" picking-mode="Position" class="inspector-close" />
             </ui:VisualElement>
             <ui:Label name="inspectorSubtitle" text="" picking-mode="Ignore" class="inspector-subtitle" />
@@ -20,6 +21,10 @@
                 <ui:VisualElement class="inspector-row" picking-mode="Ignore">
                     <ui:Label text="Speed" picking-mode="Ignore" class="inspector-key" />
                     <ui:Label name="inspectorSpeed" text="—" picking-mode="Ignore" class="inspector-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                    <ui:Label text="Accel" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label name="inspectorAccel" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
                 <ui:VisualElement class="inspector-row" picking-mode="Ignore">
                     <ui:Label text="Altitude" picking-mode="Ignore" class="inspector-key" />
@@ -61,6 +66,18 @@
                     <ui:Label text="Kill radius" picking-mode="Ignore" class="inspector-key" />
                     <ui:Label name="inspectorKillRadius" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
+                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                    <ui:Label text="Sense" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label name="inspectorSense" text="—" picking-mode="Ignore" class="inspector-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                    <ui:Label text="Comm" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label name="inspectorComm" text="—" picking-mode="Ignore" class="inspector-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                    <ui:Label text="Sep margin" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label name="inspectorSep" text="—" picking-mode="Ignore" class="inspector-value" />
+                </ui:VisualElement>
                 <ui:VisualElement name="inspectorCompromisedRow" class="inspector-row" picking-mode="Ignore">
                     <ui:Label text="Compromised" picking-mode="Ignore" class="inspector-key" />
                     <ui:Label name="inspectorCompromised" text="—" picking-mode="Ignore" class="inspector-value" />
@@ -81,6 +98,48 @@
                 </ui:VisualElement>
                 <ui:ScrollView name="inspectorLogScroll" class="inspector-scroll inspector-scroll--log" />
             </ui:VisualElement>
+            </ui:ScrollView>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="beliefsPanel" picking-mode="Position" class="inspector-panel inspector-panel--beliefs">
+            <ui:VisualElement name="beliefsHeader" class="inspector-header">
+                <ui:VisualElement name="beliefsDragHandle" class="inspector-drag">
+                    <ui:VisualElement name="beliefsKindDot" picking-mode="Ignore" class="inspector-kind-dot" />
+                    <ui:Label name="beliefsTitle" text="Beliefs" picking-mode="Ignore" class="inspector-title" />
+                </ui:VisualElement>
+                <ui:Button name="beliefsCloseBtn" text="×" picking-mode="Position" class="inspector-close" />
+            </ui:VisualElement>
+            <ui:Label name="beliefsSubtitle" text="" picking-mode="Ignore" class="inspector-subtitle" />
+            <ui:Button name="beliefsVizBtn" text="Color scene" picking-mode="Position" class="inspector-toggle" tooltip="Paint every craft as this drone declared it. Grey is undeclared. B also toggles." />
+            <ui:ScrollView name="beliefsBody" class="inspector-body">
+                <ui:Label text="Intent" picking-mode="Ignore" class="inspector-section-title" />
+                <ui:Label name="beliefsIntent" text="—" picking-mode="Ignore" class="inspector-value inspector-value--wrap inspector-intent" />
+
+                <ui:VisualElement class="inspector-section" picking-mode="Ignore">
+                    <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
+                        <ui:Label name="beliefsCallsHeader" text="Calls on this craft" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                        <ui:Label name="beliefsCallsHint" text="who called it / actual" picking-mode="Ignore" class="inspector-section-hint" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="inspector-belief-cols" picking-mode="Ignore">
+                        <ui:Label text="Who" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--name" />
+                        <ui:Label text="Called" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--called" />
+                        <ui:Label text="Actual" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--actual" />
+                    </ui:VisualElement>
+                    <ui:ScrollView name="beliefsCallsScroll" class="inspector-scroll inspector-scroll--log" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="inspector-section" picking-mode="Ignore">
+                    <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
+                        <ui:Label name="beliefsSeesHeader" text="This drone sees" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                        <ui:Label text="click a row to select" picking-mode="Ignore" class="inspector-section-hint" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="inspector-belief-cols" picking-mode="Ignore">
+                        <ui:Label text="Craft" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--name" />
+                        <ui:Label text="Called" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--called" />
+                        <ui:Label text="Actual" picking-mode="Ignore" class="inspector-belief-col inspector-belief-col--actual" />
+                    </ui:VisualElement>
+                    <ui:ScrollView name="beliefsSeesScroll" class="inspector-scroll inspector-scroll--log" />
+                </ui:VisualElement>
             </ui:ScrollView>
         </ui:VisualElement>
     </ui:VisualElement>

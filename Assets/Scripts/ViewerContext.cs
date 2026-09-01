@@ -33,11 +33,18 @@ namespace SwarmViewer
     ///
     /// The set can hold many slots. <see cref="Primary"/> / <see cref="SelectedSlot"/>
     /// is the first entity selected and stays single-valued for the belief Observer.
+    /// <see cref="Back"/> / <see cref="Forward"/> walk prior sets (empty included)
+    /// so a misclick or Esc is recoverable; a new click drops the forward stack.
     /// </summary>
     public sealed class SelectionModel
     {
         readonly List<int> _slots = new();
         readonly HashSet<int> _set = new();
+        readonly List<int[]> _past = new();
+        readonly List<int[]> _future = new();
+
+        const int MaxHistory = 48;
+        bool _applyingHistory;
 
         int _observer = -1;
         ViewMode _mode = ViewMode.GroundTruth;
@@ -68,6 +75,29 @@ namespace SwarmViewer
         public IReadOnlyList<int> Slots => _slots;
         public bool IsSelected(int slot) => _set.Contains(slot);
 
+        public bool CanBack => _past.Count > 0;
+        public bool CanForward => _future.Count > 0;
+
+        /// <summary>Restore the previous selection set (including empty). No-op at the start.</summary>
+        public void Back()
+        {
+            if (_past.Count == 0) return;
+            _future.Add(Snapshot());
+            var prev = _past[_past.Count - 1];
+            _past.RemoveAt(_past.Count - 1);
+            ApplySnapshot(prev);
+        }
+
+        /// <summary>Undo <see cref="Back"/>. Cleared by any new click.</summary>
+        public void Forward()
+        {
+            if (_future.Count == 0) return;
+            _past.Add(Snapshot());
+            var next = _future[_future.Count - 1];
+            _future.RemoveAt(_future.Count - 1);
+            ApplySnapshot(next);
+        }
+
         public int Observer
         {
             get => _observer;
@@ -80,9 +110,29 @@ namespace SwarmViewer
             set { if (_mode != value) { _mode = value; OnViewModeChanged?.Invoke(value); } }
         }
 
+        public bool BeliefViewOn => _mode == ViewMode.FleetBelief;
+
+        public bool IsBeliefViewOf(int droneId) =>
+            _mode == ViewMode.FleetBelief && _observer == droneId && droneId >= 0;
+
+        /// <summary>Paint the scene as <paramref name="observerDrone"/> sees it.
+        /// Pass -1 to keep the current observer.</summary>
+        public void SetBeliefView(bool on, int observerDrone = -1)
+        {
+            if (!on)
+            {
+                Mode = ViewMode.GroundTruth;
+                return;
+            }
+            if (observerDrone >= 0)
+                Observer = observerDrone;
+            Mode = ViewMode.FleetBelief;
+        }
+
         public void SelectOnly(int slot)
         {
             if (_slots.Count == 1 && _slots[0] == slot) return;
+            RecordBeforeChange();
             _slots.Clear();
             _set.Clear();
             _slots.Add(slot);
@@ -92,14 +142,18 @@ namespace SwarmViewer
 
         public void Add(int slot)
         {
-            if (!_set.Add(slot)) return;
+            if (_set.Contains(slot)) return;
+            RecordBeforeChange();
+            _set.Add(slot);
             _slots.Add(slot);
             Fire();
         }
 
         public void Remove(int slot)
         {
-            if (!_set.Remove(slot)) return;
+            if (!_set.Contains(slot)) return;
+            RecordBeforeChange();
+            _set.Remove(slot);
             _slots.Remove(slot);
             Fire();
         }
@@ -133,6 +187,7 @@ namespace SwarmViewer
                 if (same) return;
             }
 
+            RecordBeforeChange();
             _slots.Clear();
             _set.Clear();
             for (int i = 0; i < slots.Count; i++)
@@ -147,9 +202,39 @@ namespace SwarmViewer
         public void Clear()
         {
             if (_slots.Count == 0) return;
+            RecordBeforeChange();
             _slots.Clear();
             _set.Clear();
             Fire();
+        }
+
+        void RecordBeforeChange()
+        {
+            if (_applyingHistory) return;
+            _past.Add(Snapshot());
+            while (_past.Count > MaxHistory)
+                _past.RemoveAt(0);
+            _future.Clear();
+        }
+
+        int[] Snapshot()
+        {
+            if (_slots.Count == 0) return Array.Empty<int>();
+            return _slots.ToArray();
+        }
+
+        void ApplySnapshot(int[] snap)
+        {
+            _applyingHistory = true;
+            try
+            {
+                if (snap == null || snap.Length == 0) Clear();
+                else Replace(snap);
+            }
+            finally
+            {
+                _applyingHistory = false;
+            }
         }
 
         void Fire()

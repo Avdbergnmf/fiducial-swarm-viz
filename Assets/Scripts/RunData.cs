@@ -16,9 +16,12 @@ namespace SwarmViewer
         public readonly RunMeta Meta;
         public readonly EntityEventIndex EventsBySlot;
         public readonly DroneLogIndex LogsByDrone;
+        public readonly BeliefIndex Beliefs;
+        public readonly RunParams Params;
 
         readonly float[] _geometry;      // frame-major: [(frame * slots + slot) * stride]
         readonly int _slots, _stride;
+        readonly int[] _droneToSlot;
 
         public int FrameCount => Meta.frame_count;
         public int SlotCount => _slots;
@@ -39,12 +42,32 @@ namespace SwarmViewer
             _stride = meta.stride;
 
             foreach (var e in meta.entities) e.Kind = ParseKind(e.kind);
+            meta.events ??= new List<EventInfo>();
+            meta.beliefs ??= new List<BeliefChange>();
+            meta.logs ??= new List<LogLine>();
             meta.events.Sort((a, b) => a.t.CompareTo(b.t));
             meta.beliefs.Sort((a, b) => a.t.CompareTo(b.t));
             meta.logs.Sort((a, b) => a.t.CompareTo(b.t));
 
             EventsBySlot = new EntityEventIndex(meta.events, meta.slot_count);
             LogsByDrone = new DroneLogIndex(meta.logs);
+            Beliefs = new BeliefIndex(meta.beliefs);
+
+            int maxDrone = 63;
+            for (int i = 0; i < _slots; i++)
+                if (meta.entities[i].drone_id > maxDrone)
+                    maxDrone = meta.entities[i].drone_id;
+            _droneToSlot = new int[maxDrone + 1];
+            for (int i = 0; i < _droneToSlot.Length; i++)
+                _droneToSlot[i] = -1;
+            for (int i = 0; i < _slots; i++)
+            {
+                int d = meta.entities[i].drone_id;
+                if (d >= 0 && _droneToSlot[d] < 0)
+                    _droneToSlot[d] = i;
+            }
+
+            Params = RunParams.From(this);
         }
 
         /// <summary>Uses the meta value when present, otherwise <paramref name="fallback"/>.</summary>
@@ -54,6 +77,12 @@ namespace SwarmViewer
         public IReadOnlyList<EntityEventRecord> EventsFor(int slot) => EventsBySlot.ForSlot(slot);
 
         public IReadOnlyList<LogLine> LogsForDrone(int droneId) => LogsByDrone.ForDrone(droneId);
+
+        public int SlotOfDrone(int droneId)
+        {
+            if (droneId < 0 || droneId >= _droneToSlot.Length) return -1;
+            return _droneToSlot[droneId];
+        }
 
         static EntityKind ParseKind(string s) => s switch
         {

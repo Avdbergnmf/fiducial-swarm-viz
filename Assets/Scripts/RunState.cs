@@ -13,6 +13,7 @@ namespace SwarmViewer
         public bool Alive;
         public Vector3 Position;
         public Vector3 Velocity;
+        public Vector3 Acceleration; // finite difference of recorded velocity, m/s^2
         public Quaternion Rotation;
     }
 
@@ -60,6 +61,8 @@ namespace SwarmViewer
                 _entities[s].Position = p;
                 _entities[s].Rotation = r;
                 _entities[s].Velocity = v;
+                bool prevOk = _run.Sample(Mathf.Max(0f, frameF - 1f), s, out _, out _, out var vPrev);
+                _entities[s].Acceleration = prevOk ? (v - vPrev) * _run.TraceHz : Vector3.zero;
             }
 
             // EXTENSION POINT. Everything else derived from time goes here and is

@@ -4,14 +4,32 @@
     <ui:Template name="EntityInspector" src="project://database/Assets/Scripts/UI/EntityInspector/EntityInspectorView.uxml?fileID=9197481963319205126&amp;guid=a7c2e9f14b5d4830ae6c1d8f2b4e7093&amp;type=3#EntityInspectorView"/>
     <ui:Template name="SceneState" src="project://database/Assets/Scripts/UI/SceneState/SceneStateView.uxml?fileID=9197481963319205126&amp;guid=c4010a8ec38487342b739e898b54ad35&amp;type=3#SceneStateView"/>
     <Style src="project://database/Assets/UI/MainUI.uss?fileID=7433441132597879392&amp;guid=98e2338bc91864847b2a69925e32154a&amp;type=3#MainUI"/>
+    <Style src="project://database/Assets/Scripts/UI/SceneState/SceneStateView.uss?fileID=7433441132597879392&amp;guid=6fda26c9b79c02341a1541a7a3e8325a&amp;type=3#SceneStateView"/>
     <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="SceneState" name="sceneStateInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="EntityInspector" name="entityInspectorInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="RunPicker" name="runPickerInstance" picking-mode="Ignore" class="screen-overlay"/>
+    <ui:VisualElement name="cuesOverlay" picking-mode="Ignore" class="screen-overlay">
+        <ui:VisualElement name="cuesPanel" picking-mode="Position" class="scene-state-panel scene-state-panel--cues">
+            <ui:VisualElement name="cuesHeaderBar" class="scene-state-header">
+                <ui:VisualElement name="cuesDragHandle" class="scene-state-drag">
+                    <ui:Label text="Cues" picking-mode="Ignore" class="scene-state-title" />
+                </ui:VisualElement>
+                <ui:Button name="cuesCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
+            </ui:VisualElement>
+            <ui:Label text="Selected craft, unless noted. Off = hidden, not unknown." picking-mode="Ignore" class="scene-state-section-hint" />
+            <ui:VisualElement name="cuesChipRow" class="filter-chips" picking-mode="Ignore" />
+            <ui:Label name="cuesFooter" text="" picking-mode="Ignore" class="cue-footer" />
+        </ui:VisualElement>
+    </ui:VisualElement>
     <ui:VisualElement name="uiScaleBar" picking-mode="Position" class="ui-scale-bar">
+        <ui:Button name="selBackBtn" text="Prev" picking-mode="Position" class="ui-scene-btn" tooltip="Previous selection" />
+        <ui:Button name="selFwdBtn" text="Next" picking-mode="Position" class="ui-scene-btn" tooltip="Next selection" />
+        <ui:VisualElement picking-mode="Ignore" class="ui-scale-sep" />
         <ui:Button name="aircraftOpenBtn" text="Aircraft" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="sceneStateOpenBtn" text="Events" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="logsOpenBtn" text="Logs" picking-mode="Position" class="ui-scene-btn" />
+        <ui:Button name="cuesOpenBtn" text="Cues" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="uiScaleDownBtn" text="-" picking-mode="Position" class="ui-scale-btn" />
         <ui:Label name="uiScaleLabel" text="125%" picking-mode="Ignore" class="ui-scale-label" />
         <ui:Button name="uiScaleUpBtn" text="+" picking-mode="Position" class="ui-scale-btn" />

@@ -13,6 +13,7 @@ namespace SwarmViewer
         public string extraRunFolder = "";
         public string lastRunStem = "";
         public float uiScale; // 0 = unset (older files); ResolvedUiScale() supplies the default
+        public int cueMask;   // 0 = default (Kill | Velocity); otherwise CueMask flags
 
         public const float UiScaleMin = 0.8f;
         public const float UiScaleMax = 2.0f;
