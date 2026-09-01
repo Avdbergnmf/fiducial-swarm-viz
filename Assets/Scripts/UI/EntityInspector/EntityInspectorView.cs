@@ -28,7 +28,7 @@ namespace SwarmViewer
         };
 
         [SerializeField] UIDocument uiDocument;
-        [Tooltip("Seconds before an event to land when its row is clicked.")]
+        [Tooltip("Seconds before a log line to land. Events jump one recorded frame earlier so the craft is still selectable.")]
         [SerializeField] float eventLeadIn = 2f;
 
         ViewerContext _ctx;
@@ -338,13 +338,38 @@ namespace SwarmViewer
             var info = _ctx.Run.Info(slot);
             string kindName = KindName(info.Kind);
 
-            if (_title != null) _title.text = info.Label;
+            if (_title != null)
+            {
+                _title.text = info.Label;
+                _title.tooltip = info.IdBlurb;
+            }
             if (_subtitle != null)
-                _subtitle.text = $"{kindName} · slot {info.slot}";
+            {
+                _subtitle.text = info.IsFriendly
+                    ? $"{kindName} · drone {info.drone_id} · sim #{info.trace_id} · slot {info.slot}"
+                    : $"{kindName} · sim #{info.trace_id} · slot {info.slot}";
+                _subtitle.tooltip = info.IdBlurb;
+            }
             if (_kind != null) _kind.text = kindName;
-            if (_slot != null) _slot.text = info.slot.ToString();
-            if (_trace != null) _trace.text = info.trace_id.ToString();
-            if (_drone != null) _drone.text = info.drone_id >= 0 ? info.drone_id.ToString() : "—";
+            if (_slot != null)
+            {
+                _slot.text = info.slot.ToString();
+                _slot.tooltip = "Viewer column in the recording, 0-based. For the initial fleet this equals the drone id.";
+            }
+            if (_trace != null)
+            {
+                _trace.text = info.trace_id.ToString();
+                _trace.tooltip = info.IsFriendly
+                    ? $"Simulator entity id, 1-based. Drone {info.drone_id} is sim #{info.trace_id} — that is why this number is one higher than the log column."
+                    : "Simulator entity id, 1-based. Hostiles and civilians have no brain id.";
+            }
+            if (_drone != null)
+            {
+                _drone.text = info.drone_id >= 0 ? info.drone_id.ToString() : "—";
+                _drone.tooltip = info.drone_id >= 0
+                    ? "Brain id, 0-based. Same number as Logs and as 'Drone N' in the aircraft list."
+                    : "Not a fleet drone — no log channel.";
+            }
             if (_lifetime != null) _lifetime.text = FormatLifetime(info);
             if (_killRadius != null)
             {
@@ -570,7 +595,7 @@ namespace SwarmViewer
         {
             if (_ctx == null || rec == null || _boundSlot < 0) return;
 
-            _ctx.Clock.SeekBefore(rec.time, eventLeadIn);
+            _ctx.Clock.SeekJustBefore(rec.time);
 
             var sel = _ctx.Selection;
             sel.SelectOnly(_boundSlot);

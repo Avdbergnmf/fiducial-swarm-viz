@@ -39,7 +39,7 @@
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
                 <ui:Label name="eventsHeader" text="Events" picking-mode="Ignore" class="scene-state-section-title" />
-                <ui:Label text="click a row to jump" picking-mode="Ignore" class="scene-state-section-hint" />
+                <ui:Label text="click a row to jump one frame before" picking-mode="Ignore" class="scene-state-section-hint" />
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
                 <ui:TextField name="eventsFilter" placeholder-text="Filter kind, text, drone…" class="scene-state-filter" />

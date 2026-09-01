@@ -27,7 +27,7 @@ namespace SwarmViewer
 
         [SerializeField] UIDocument uiDocument;
         [SerializeField] EntityInspectorView inspector;
-        [Tooltip("Seconds before an event or log line to land when its row is clicked.")]
+        [Tooltip("Seconds before a log line to land when its row is clicked. Events jump one recorded frame earlier so the craft is still there.")]
         [SerializeField] float eventLeadIn = 2f;
 
         ViewerContext _ctx;
@@ -271,10 +271,18 @@ namespace SwarmViewer
                 _aircraftKindChips.Changed += () => { if (_aircraftVisible) RebuildAircraft(); };
             if (_aircraftStatusChips != null)
                 _aircraftStatusChips.Changed += () => { if (_aircraftVisible) RebuildAircraft(); };
-            if (_aircraftColName != null) _aircraftColName.clicked += () => SortAircraft(AircraftSort.Name);
+            if (_aircraftColName != null)
+            {
+                _aircraftColName.clicked += () => SortAircraft(AircraftSort.Name);
+                _aircraftColName.tooltip = "Brain id for friendlies (Drone 0…n−1), same number as the Logs column. Hostiles and civilians use the simulator entity id (1-based).";
+            }
             if (_aircraftColKind != null) _aircraftColKind.clicked += () => SortAircraft(AircraftSort.Kind);
             if (_aircraftColCalled != null) _aircraftColCalled.clicked += () => SortAircraft(AircraftSort.Called);
-            if (_aircraftColSlot != null) _aircraftColSlot.clicked += () => SortAircraft(AircraftSort.Slot);
+            if (_aircraftColSlot != null)
+            {
+                _aircraftColSlot.clicked += () => SortAircraft(AircraftSort.Slot);
+                _aircraftColSlot.tooltip = "Viewer column in the recording, 0-based. For the initial fleet this equals the drone id. It is not the simulator entity id (that is one higher).";
+            }
             if (_aircraftColSpeed != null) _aircraftColSpeed.clicked += () => SortAircraft(AircraftSort.Speed);
             if (_aircraftColStatus != null) _aircraftColStatus.clicked += () => SortAircraft(AircraftSort.Status);
             if (_aircraftBeliefBtn != null) _aircraftBeliefBtn.clicked += ToggleAircraftBeliefs;
@@ -724,6 +732,8 @@ namespace SwarmViewer
                 var name = new Label(info.Label);
                 name.AddToClassList("scene-state-drone-name");
                 name.pickingMode = PickingMode.Ignore;
+                name.tooltip = info.IdBlurb;
+                row.tooltip = info.IdBlurb;
 
                 var kind = new Label(KindName(info.Kind));
                 kind.AddToClassList("scene-state-drone-kind");
@@ -1121,7 +1131,7 @@ namespace SwarmViewer
         void JumpToEvent(EventInfo e)
         {
             if (_ctx == null || e == null) return;
-            _ctx.Clock.SeekBefore(e.t, eventLeadIn);
+            _ctx.Clock.SeekJustBefore(e.t);
 
             if (e.slots == null || e.slots.Length == 0) return;
             int first = -1;

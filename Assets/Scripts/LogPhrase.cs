@@ -108,6 +108,14 @@ namespace SwarmViewer
                 "rng    range from us to it\n" +
                 "close  relative horizontal closing speed between us and it (both velocities)\n" +
                 "ttg    time until it reaches the asset cylinder",
+            "abort" =>
+                "close  relative horizontal closing on the target when we broke off\n" +
+                "rng    range from us to it\n" +
+                "ttg    time until it reaches the asset cylinder\n" +
+                "held   seconds we had been committed\n" +
+                "now    class at abort (lost has no track)\n" +
+                "Reasons: lost (vanished), timeout (12 s budget), not-hostile (class flipped),\n" +
+                "not-closing (stern chase after 6 s), duplicate (another friendly already closer).",
             "near" or "ram" =>
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
@@ -166,20 +174,37 @@ namespace SwarmViewer
                 Evidence(Num(raw, "score=")));
         }
 
-        // "abort trk=%u <reason>"
+        // "abort trk=%u <reason> close=%.1f rng=%.0f ttg=%.1f held=%.1f now=%s"
         static string Abort(string raw)
         {
             var tok = raw.Split(' ');
             string reason = tok.Length > 2 ? tok[2] : "";
-            return Join($"Broke off {Track(Int(raw, "trk="), false)}", reason switch
+            string now = Word(raw, "now=");
+            float held = Num(raw, "held=");
+            float close = Num(raw, "close=");
+            float rng = Num(raw, "rng=");
+            float ttg = Num(raw, "ttg=");
+            string heldS = float.IsNaN(held) ? "" : $"after {held:F1} s committed";
+
+            string why = reason switch
             {
-                "lost" => "the track disappeared",
-                "timeout" => "ran out of time on the intercept",
-                "not-hostile" => "it no longer reads as hostile",
-                "not-closing" => "the range stopped shrinking",
+                "lost" => "the track vanished from sensors — destroyed, dropped, or out of range. Chasing a ghost parks the drone until the next arrival",
+                "timeout" => "the 12 s intercept budget ran out (one spawn interval). We were not going to catch it",
+                "not-hostile" => string.IsNullOrEmpty(now)
+                    ? "it no longer reads as hostile, so spending the airframe would hit a civilian or a mate"
+                    : $"it now reads as {ClassWord(now)}, so spending the airframe would be the wrong kill",
+                "not-closing" => "the range stopped shrinking after 6 s — a stern chase against the same 6.7 m/s² bound does not converge",
+                "duplicate" => "another friendly is already closer and flying at it. One drone per hostile: a second is traffic that spoils ProNav",
                 "" => "",
                 _ => reason,
-            });
+            };
+
+            return Join($"Broke off {Track(Int(raw, "trk="), false)}",
+                why,
+                heldS,
+                Range(rng),
+                Closing(close, "us"),
+                float.IsNaN(ttg) ? "" : $"cylinder in {ttg:F1} s");
         }
 
         // "<near|ram> trk=%u class=%s rng=%.1f close=%.1f"

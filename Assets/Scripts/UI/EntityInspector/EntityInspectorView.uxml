@@ -48,15 +48,15 @@
                     <ui:Label name="inspectorKind" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
                 <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Slot" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label text="Slot" picking-mode="Ignore" class="inspector-key" tooltip="Viewer column in the recording, 0-based. Equals drone id for the initial fleet." />
                     <ui:Label name="inspectorSlot" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
                 <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Trace id" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label text="Trace id" picking-mode="Ignore" class="inspector-key" tooltip="Simulator entity id, 1-based. Drone 0 is sim #1. This is the number that used to appear in event text, one higher than the log column." />
                     <ui:Label name="inspectorTrace" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
                 <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Drone id" picking-mode="Ignore" class="inspector-key" />
+                    <ui:Label text="Drone id" picking-mode="Ignore" class="inspector-key" tooltip="Brain id, 0-based. Same number as the Logs column and as Drone N in the aircraft list." />
                     <ui:Label name="inspectorDrone" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
                 <ui:VisualElement class="inspector-row" picking-mode="Ignore">
@@ -88,7 +88,7 @@
             <ui:VisualElement class="inspector-section" picking-mode="Ignore">
                 <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
                     <ui:Label name="inspectorEventsHeader" text="Events" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
-                    <ui:Label text="click to jump" picking-mode="Ignore" class="inspector-section-hint" />
+                    <ui:Label text="click to jump one frame before" picking-mode="Ignore" class="inspector-section-hint" />
                 </ui:VisualElement>
                 <ui:ScrollView name="inspectorEventsScroll" class="inspector-scroll inspector-scroll--events" />
             </ui:VisualElement>

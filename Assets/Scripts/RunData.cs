@@ -18,6 +18,7 @@ namespace SwarmViewer
         public readonly DroneLogIndex LogsByDrone;
         public readonly BeliefIndex Beliefs;
         public readonly RunParams Params;
+        public readonly CommitIndex Commits;
 
         readonly float[] _geometry;      // frame-major: [(frame * slots + slot) * stride]
         readonly int _slots, _stride;
@@ -48,6 +49,7 @@ namespace SwarmViewer
             meta.events.Sort((a, b) => a.t.CompareTo(b.t));
             meta.beliefs.Sort((a, b) => a.t.CompareTo(b.t));
             meta.logs.Sort((a, b) => a.t.CompareTo(b.t));
+            RelabelEvents();
 
             EventsBySlot = new EntityEventIndex(meta.events, meta.slot_count);
             LogsByDrone = new DroneLogIndex(meta.logs);
@@ -68,6 +70,43 @@ namespace SwarmViewer
             }
 
             Params = RunParams.From(this);
+            Commits = new CommitIndex(this);
+        }
+
+        /// <summary>
+        /// Sidecar event text used sim entity ids (1-based). Logs and the
+        /// aircraft list use brain drone ids (0-based). Rewrite spawn/death/
+        /// collision lines to the same names as the list so clicking "Drone 15"
+        /// and reading "friendly 16 gone" is not two crafts.
+        /// </summary>
+        void RelabelEvents()
+        {
+            var ents = Meta.entities;
+            if (ents == null || Meta.events == null) return;
+            for (int i = 0; i < Meta.events.Count; i++)
+            {
+                var e = Meta.events[i];
+                if (e?.slots == null || e.slots.Length == 0) continue;
+                string kind = e.kind ?? "";
+                if (kind != "spawn" && kind != "death" && kind != "intercept"
+                    && kind != "friendly collision" && kind != "civilian collision"
+                    && kind != "collision")
+                    continue;
+
+                var names = new string[e.slots.Length];
+                for (int s = 0; s < e.slots.Length; s++)
+                {
+                    int slot = e.slots[s];
+                    names[s] = (uint)slot < (uint)ents.Count ? ents[slot].Label : $"#{slot}";
+                }
+                string who = string.Join(", ", names);
+                e.text = kind switch
+                {
+                    "spawn" => who + " appears",
+                    "death" => who + " gone",
+                    _ => kind + ": " + who,
+                };
+            }
         }
 
         /// <summary>Uses the meta value when present, otherwise <paramref name="fallback"/>.</summary>

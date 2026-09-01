@@ -114,6 +114,18 @@ namespace SwarmViewer
 
         public void SeekToEvent(EventInfo e, float leadIn = 2f) => SeekBefore(e.t, leadIn);
 
+        /// <summary>
+        /// Last recorded frame still before t. Death and collision events are
+        /// stamped on the first frame the craft is gone; landing on that frame
+        /// makes them unselectable. One trace step back keeps them pickable.
+        /// </summary>
+        public void SeekJustBefore(float t)
+        {
+            Pause();
+            float step = _run.TraceHz > 0.5f ? 1f / _run.TraceHz : 0.1f;
+            Seek(t - step);
+        }
+
         /// <summary>Pumped once per frame by VisualizerRoot.</summary>
         public void Tick(float deltaTime)
         {

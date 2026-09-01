@@ -1,4 +1,4 @@
-// Diagnostic overlay: range rings, motion arrows, radio links, picket ring.
+// Diagnostic overlay: range rings, motion arrows, radio links, intercepts, picket ring.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
 // Aircraft, Events and Logs, so one component owns the windows instead of two
@@ -25,6 +25,7 @@ namespace SwarmViewer
         Attitude = 1 << 6,
         Links = 1 << 7,
         Picket = 1 << 8,
+        Intercept = 1 << 9,
     }
 
     public sealed class CueOverlay : MonoBehaviour, IRunView
@@ -74,6 +75,10 @@ namespace SwarmViewer
             new(CueMask.Links, "Radio links",
                 "A line between two friendlies who can hear each other right now. The radio is a broadcast: anyone in range may get the frame. These lines are that reachability, not a transcript of what crossed, and not a relay graph — this brain does not forward. With a selection, only that craft's links.",
                 "links[] in the trace: drone ids a, b and a closed interval [t_start, t_end], from the simulator's add/remove deltas. Recorded edges, not distance inferred from comm_radius. Payloads are not in the recording; heartbeats, hostile reports and claims stay inside the brains."),
+
+            new(CueMask.Intercept, "Intercept",
+                "A red line from a drone that has committed to the craft it is spending itself on, for as long as that intercept is still on. All active intercepts, not only the selection.",
+                "Reconstructed from commit / abort / picket log lines. The brain's trk= is observer-local and does not name a world entity, so the other end is the craft this drone had declared enemy at commit time (nearest alive hostile if it had not declared yet)."),
 
             new(CueMask.Picket, "Picket ring",
                 "The ring the brain holds around the asset.",
@@ -163,6 +168,7 @@ namespace SwarmViewer
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
                 CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 },
+                CueMask.Intercept => _ctx.Run.Commits is { Spans.Count: > 0 },
                 _ => true,
             };
         }
@@ -184,6 +190,8 @@ namespace SwarmViewer
                 CueMask.Separate => p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G4} m" : "",
                 CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
                 CueMask.Links => _ctx.Run.Meta?.links is { Count: > 0 } l ? $"{l.Count} link records" : "",
+                CueMask.Intercept => _ctx.Run.Commits is { Spans.Count: > 0 } c
+                    ? $"{c.Spans.Count} intercept{(c.Spans.Count == 1 ? "" : "s")}" : "",
                 _ => "",
             };
         }
@@ -246,6 +254,8 @@ namespace SwarmViewer
 
             if (On(CueMask.Links))
                 DrawLinks(snaps, t);
+            if (On(CueMask.Intercept))
+                DrawIntercepts(snaps, t);
             if (On(CueMask.Picket) && p.Has(p.RingRadius))
                 DrawPicket(p);
 
@@ -304,6 +314,23 @@ namespace SwarmViewer
                 if (filter && !_ctx.Selection.IsSelected(sa) && !_ctx.Selection.IsSelected(sb))
                     continue;
                 _lines.Segment(snaps[sa].Position, snaps[sb].Position, color, 0.1f);
+            }
+        }
+
+        void DrawIntercepts(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
+        {
+            var spans = _ctx.Run.Commits?.Spans;
+            if (spans == null || spans.Count == 0) return;
+            var color = new Color(1f, 0.2f, 0.18f, 0.95f);
+            for (int i = 0; i < spans.Count; i++)
+            {
+                var span = spans[i];
+                if (!span.ActiveAt(t)) continue;
+                int a = span.DroneSlot;
+                int b = span.TargetSlot;
+                if ((uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count) continue;
+                if (!snaps[a].Alive || !snaps[b].Alive) continue;
+                _lines.Segment(snaps[a].Position, snaps[b].Position, color, 0.22f);
             }
         }
 

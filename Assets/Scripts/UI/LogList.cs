@@ -188,7 +188,13 @@ namespace SwarmViewer
 
             row.Add(Cell($"{line.t:F1}s", "scene-state-cell-time"));
             if (ShowDrone)
-                row.Add(Cell($"Drone {line.drone}", "scene-state-cell-log-drone"));
+            {
+                var drone = Cell($"Drone {line.drone}", "scene-state-cell-log-drone");
+                drone.tooltip = line.drone < 0
+                    ? "Log overflow: the rest of the run is silent."
+                    : "Brain id, 0-based. Same number as Aircraft → Drone N. The simulator entity id is one higher (drone 15 is sim #16).";
+                row.Add(drone);
+            }
 
             var text = Cell(_raw ? (line.text ?? "") : line.Pretty, "scene-state-cell-text");
             text.AddToClassList("scene-state-cell--wrap");

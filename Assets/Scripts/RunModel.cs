@@ -31,6 +31,17 @@ namespace SwarmViewer
 
         public bool IsFriendly => drone_id >= 0;
         public string Label => IsFriendly ? $"Drone {drone_id}" : $"{Kind} {trace_id}";
+
+        /// <summary>
+        /// The three ids on one craft, in English. Logs and the aircraft list
+        /// use drone_id (0-based). The recording's entity id is 1-based, so
+        /// drone 15 is sim #16 — that is the off-by-one, not a different craft.
+        /// </summary>
+        public string IdBlurb => IsFriendly
+            ? $"Drone {drone_id} is the brain id (0-based). Logs, radio, and this list all use it.\n" +
+              $"Viewer slot {slot} is the compact index in the recording.\n" +
+              $"Sim entity {trace_id} is 1-based. Drone {drone_id} is sim #{trace_id}."
+            : $"{Kind} {trace_id} is the simulator entity (1-based). Slot {slot}. Not a fleet drone — no log channel.";
     }
 
     [Serializable]

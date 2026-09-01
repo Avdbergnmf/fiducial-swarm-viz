@@ -1,0 +1,136 @@
+// Intercept spans reconstructed from sparse commit/abort/picket logs.
+//
+// The brain's trk= is observer-local and does not name a world entity, so the
+// line is associated by that drone's Enemy declaration at commit time (fallback:
+// nearest alive hostile). Drawing lives in CueOverlay; this is the lookup.
+
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace SwarmViewer
+{
+    public readonly struct CommitSpan
+    {
+        public readonly int DroneId;
+        public readonly int DroneSlot;
+        public readonly int TargetSlot;
+        public readonly float T0;
+        public readonly float T1;
+
+        public CommitSpan(int droneId, int droneSlot, int targetSlot, float t0, float t1)
+        {
+            DroneId = droneId;
+            DroneSlot = droneSlot;
+            TargetSlot = targetSlot;
+            T0 = t0;
+            T1 = t1;
+        }
+
+        public bool ActiveAt(float t) => t >= T0 - 0.001f && t < T1 - 0.001f;
+    }
+
+    public sealed class CommitIndex
+    {
+        readonly List<CommitSpan> _spans = new();
+
+        public IReadOnlyList<CommitSpan> Spans => _spans;
+
+        public CommitIndex(RunData run)
+        {
+            if (run?.Meta?.logs == null) return;
+
+            // drone_id -> open commit (target slot, t0)
+            var open = new Dictionary<int, (int target, float t0)>();
+            var declared = new List<(int slot, BeliefClass cls)>();
+
+            for (int i = 0; i < run.Meta.logs.Count; i++)
+            {
+                var line = run.Meta.logs[i];
+                if (line == null) continue;
+                string verb = LogPhrase.Verb(line.text);
+                if (verb != "commit" && verb != "abort" && verb != "picket") continue;
+
+                int drone = line.drone;
+                if (verb == "commit")
+                {
+                    if (open.TryGetValue(drone, out var prev))
+                        Close(run, drone, prev.target, prev.t0, line.t);
+                    int target = ResolveTarget(run, drone, line.t, declared);
+                    open[drone] = (target, line.t);
+                }
+                else if (open.TryGetValue(drone, out var cur))
+                {
+                    Close(run, drone, cur.target, cur.t0, line.t);
+                    open.Remove(drone);
+                }
+            }
+
+            foreach (var kv in open)
+                Close(run, kv.Key, kv.Value.target, kv.Value.t0, run.Duration);
+        }
+
+        void Close(RunData run, int droneId, int targetSlot, float t0, float t1)
+        {
+            int droneSlot = run.SlotOfDrone(droneId);
+            if (droneSlot < 0 || targetSlot < 0) return;
+            if (t1 <= t0) t1 = t0 + 0.05f;
+            t1 = Mathf.Min(t1, EndAlive(run, droneSlot), EndAlive(run, targetSlot));
+            if (t1 <= t0) return;
+            _spans.Add(new CommitSpan(droneId, droneSlot, targetSlot, t0, t1));
+        }
+
+        static float EndAlive(RunData run, int slot)
+        {
+            var info = run.Info(slot);
+            // last_frame is the last recorded pose still alive. They are gone
+            // on the next frame, which is also when death events are stamped.
+            int last = info.last_frame;
+            if (last < 0) return run.Duration;
+            return run.TimeOfFrame(Mathf.Min(last + 1, run.FrameCount - 1));
+        }
+
+        static int ResolveTarget(RunData run, int droneId, float t,
+            List<(int slot, BeliefClass cls)> declared)
+        {
+            int self = run.SlotOfDrone(droneId);
+            if (self < 0) return -1;
+            float frame = run.FrameOf(t);
+            if (!run.Sample(frame, self, out Vector3 origin, out _, out _)) return -1;
+
+            run.Beliefs.FillObserver(droneId, t, declared);
+            int best = Nearest(run, frame, origin, declared, BeliefClass.Enemy);
+            if (best >= 0) return best;
+
+            float cap = 80f;
+            if (run.Params != null && run.Params.Has(run.Params.SenseRadius))
+                cap = run.Params.SenseRadius * 1.25f;
+            float capSq = cap * cap;
+            float bestD = capSq;
+            best = -1;
+            for (int s = 0; s < run.SlotCount; s++)
+            {
+                if (run.Info(s).Kind != EntityKind.Hostile) continue;
+                if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
+                float d = (p - origin).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = s; }
+            }
+            return best;
+        }
+
+        static int Nearest(RunData run, float frame, Vector3 origin,
+            List<(int slot, BeliefClass cls)> declared, BeliefClass want)
+        {
+            int best = -1;
+            float bestD = float.PositiveInfinity;
+            for (int i = 0; i < declared.Count; i++)
+            {
+                if (declared[i].cls != want) continue;
+                int s = declared[i].slot;
+                if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
+                float d = (p - origin).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = s; }
+            }
+            return best;
+        }
+    }
+}
