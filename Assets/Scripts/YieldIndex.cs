@@ -2,7 +2,8 @@
 //
 // The brain does not write yield (D3 / D16). These lines are reconstructed
 // from intercept spans and params fsep= at load, then merged into meta.logs
-// so the Logs window and inspector chips see a real verb.
+// so the Logs window and inspector chips see a real verb. Keep-out is the
+// remaining flight to the predicted ram (D17), not interceptor→hostile.
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -121,7 +122,10 @@ namespace SwarmViewer
                 int b = span.TargetSlot;
                 if (!run.IsAlive(frame, a) || !run.IsAlive(frame, b)) continue;
                 if (!run.Sample(frame, a, out Vector3 from, out _, out _)) continue;
-                if (!run.Sample(frame, b, out Vector3 to, out _, out _)) continue;
+                if (!run.Sample(frame, b, out Vector3 to, out _, out Vector3 toVel)) continue;
+                Vector3 end = CorridorHorizon(from, to, toVel);
+                float hx = end.x - from.x, hz = end.z - from.z;
+                if (hx * hx + hz * hz < 1f) continue;
 
                 for (int s = 0; s < run.SlotCount; s++)
                 {
@@ -130,7 +134,7 @@ namespace SwarmViewer
                     if (!run.IsAlive(frame, s)) continue;
                     if (IsIntercepting(commits, s, t)) continue;
                     if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
-                    if (!ClosestOnSegmentXZ(p, from, to, out _, out float dist)) continue;
+                    if (!ClosestOnSegmentXZ(p, from, end, out _, out float dist)) continue;
                     if (dist > clear + ExitSlack) continue;
                     dst.Add((s, a, b, dist));
                 }
@@ -179,6 +183,32 @@ namespace SwarmViewer
                     return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Remaining intercept flight, not the chord to the hostile's current
+        /// pose. Keep in step with policy.cpp CorridorHorizon (D17): cruise 14,
+        /// closing floor 1, 0.5 s catch slack, abort cap 12 s.
+        /// </summary>
+        public static Vector3 CorridorHorizon(Vector3 from, Vector3 hostile, Vector3 hostileVel)
+        {
+            const float cruise = 14f;
+            const float minClosing = 1f;
+            const float slack = 0.5f;
+            const float maxTime = 12f;
+
+            float dx = hostile.x - from.x;
+            float dz = hostile.z - from.z;
+            float range = Mathf.Sqrt(dx * dx + dz * dz);
+            if (range < 1f) return hostile;
+            float inv = 1f / range;
+            float dirx = dx * inv, dirz = dz * inv;
+            float ivx = dirx * cruise, ivz = dirz * cruise;
+            float closing = -((hostileVel.x - ivx) * dirx + (hostileVel.z - ivz) * dirz);
+            if (closing < minClosing) return from;
+            float tMeet = Mathf.Min(range / closing + slack, maxTime);
+            float along = Mathf.Min(cruise * tMeet, range);
+            return new Vector3(from.x + dirx * along, from.y, from.z + dirz * along);
         }
 
         public static bool ClosestOnSegmentXZ(Vector3 p, Vector3 a, Vector3 b,

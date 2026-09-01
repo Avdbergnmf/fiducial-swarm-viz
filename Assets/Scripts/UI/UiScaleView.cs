@@ -97,6 +97,16 @@ namespace SwarmViewer
                 if (save)
                     settings.Save();
             }
+
+            // Scale With Screen Size shrinks the panel's coordinate space.
+            // Floating left/top are in that space; reflow after layout so
+            // windows stay in the viewport instead of walking off the right.
+            var root = uiDocument != null ? uiDocument.rootVisualElement : null;
+            if (root != null)
+            {
+                root.schedule.Execute(FloatingPanel.ReflowAll);
+                root.schedule.Execute(FloatingPanel.ReflowAll).ExecuteLater(16);
+            }
         }
 
         void ApplyToLivePanel(float userScale)

@@ -84,8 +84,8 @@ namespace SwarmViewer
                 "Reconstructed from commit / abort / picket log lines. The brain's trk= is observer-local and does not name a world entity, so the other end is the craft this drone had declared enemy at commit time (nearest alive hostile if it had not declared yet)."),
 
             new(CueMask.Yield, "Yield",
-                "An amber line from a picket onto an intercept it is sitting in. That is the drone stepping off the corridor so it does not cancel the interceptor's ProNav. The same moments appear as yield rows in Logs.",
-                "Reconstructed from intercept spans plus params fsep=, then written into the log list as yield / yield clear so you can filter them. The brain does not write this verb. Drawn against the intercept you already see when the picket's position is inside that margin."),
+                "An amber line from a picket onto the remaining intercept flight it is sitting in. That is the drone stepping off so it does not cancel the interceptor's ProNav. The same moments appear as yield rows in Logs.",
+                "Reconstructed from intercept spans plus params fsep=, then written into the log list as yield / yield clear so you can filter them. The brain does not write this verb. The keep-out is interceptor → predicted ram (cruise × time-to-meet, D17), not the whole red line to the hostile's current pose."),
 
             new(CueMask.Pings, "Pings",
                 "A short fading line when a drone's log names another craft: a classification call, a drop, wreckage, a close pass, the last metres of a ram, or a duplicate abort to the other interceptor.",
@@ -411,7 +411,9 @@ namespace SwarmViewer
                 if ((uint)s >= (uint)snaps.Count || (uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count)
                     continue;
                 if (!snaps[s].Alive || !snaps[a].Alive || !snaps[b].Alive) continue;
-                if (!YieldIndex.ClosestOnSegmentXZ(snaps[s].Position, snaps[a].Position, snaps[b].Position,
+                Vector3 end = YieldIndex.CorridorHorizon(
+                    snaps[a].Position, snaps[b].Position, snaps[b].Velocity);
+                if (!YieldIndex.ClosestOnSegmentXZ(snaps[s].Position, snaps[a].Position, end,
                         out Vector3 hit, out _))
                     continue;
                 _lines.Segment(snaps[s].Position, hit, color, 0.16f);

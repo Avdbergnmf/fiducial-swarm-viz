@@ -1,8 +1,13 @@
 // Title-bar drag and edge/corner resize for a position:absolute overlay panel.
 // Geometry is remembered per panel under its UXML name, so every window that
 // uses this class keeps its size and place across runs without opting in.
+//
+// left/top are panel pixels. UI scale shrinks that coordinate space (smaller
+// reference resolution), so a window that sat on the right walks off the
+// viewport unless we remap with the parent and pull it back on screen.
 
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -24,6 +29,8 @@ namespace SwarmViewer
         public const float MinHeight = 220f;
         const float KeepOnScreen = 48f;
 
+        static readonly List<FloatingPanel> Live = new();
+
         public event Action Hidden;
 
         VisualElement _panel;
@@ -35,6 +42,8 @@ namespace SwarmViewer
         bool _restorePending;
         Rect _rect;
         bool _hasRect;
+        float _layoutW;
+        float _layoutH;
 
         bool _dragging;
         bool _resizing;
@@ -71,6 +80,21 @@ namespace SwarmViewer
                 closeBtn.clicked += Hide;
 
             AddGrips();
+            Live.Add(this);
+            var parent = _panel.parent;
+            if (parent != null)
+                parent.RegisterCallback<GeometryChangedEvent>(OnParentGeometry);
+            RememberParentSize();
+        }
+
+        /// <summary>
+        /// Shift every window with the panel coordinate space. Call after UI
+        /// scale changes; GeometryChanged on the parent also drives this.
+        /// </summary>
+        public static void ReflowAll()
+        {
+            for (int i = 0; i < Live.Count; i++)
+                Live[i]?.Reflow();
         }
 
         public void Show()
@@ -86,8 +110,12 @@ namespace SwarmViewer
             {
                 _restorePending = false;
                 if (ViewerSettings.Load().TryGetPanelRect(_key, out var saved))
-                    ApplyRect(saved.x, saved.y, saved.width, saved.height);
+                    ApplyRect(saved.x, saved.y, saved.width, saved.height, fullyOnScreen: true);
+                else
+                    Reflow();
             }
+            else
+                Reflow();
         }
 
         public void Hide()
@@ -266,7 +294,64 @@ namespace SwarmViewer
                 ViewerSettings.Load().SetPanelRect(_key, _rect);
         }
 
-        void ApplyRect(float left, float top, float width, float height)
+        void OnParentGeometry(GeometryChangedEvent evt)
+        {
+            if (evt.newRect.width < 32f || evt.newRect.height < 32f) return;
+            Reflow();
+        }
+
+        void RememberParentSize()
+        {
+            if (!TryParentSize(out float pw, out float ph)) return;
+            _layoutW = pw;
+            _layoutH = ph;
+        }
+
+        bool TryParentSize(out float pw, out float ph)
+        {
+            pw = 0f;
+            ph = 0f;
+            var parent = _panel != null ? _panel.parent : null;
+            if (parent == null) return false;
+            pw = parent.resolvedStyle.width;
+            ph = parent.resolvedStyle.height;
+            return pw >= 32f && ph >= 32f;
+        }
+
+        void Reflow()
+        {
+            if (_panel == null) return;
+            if (!TryParentSize(out float nw, out float nh)) return;
+
+            if (!_hasRect)
+            {
+                if (_shown) CaptureResolvedRect();
+                _layoutW = nw;
+                _layoutH = nh;
+                if (!_hasRect) return;
+            }
+
+            float sx = _layoutW > 32f ? nw / _layoutW : 1f;
+            float sy = _layoutH > 32f ? nh / _layoutH : 1f;
+            if (Mathf.Abs(sx - 1f) < 0.002f && Mathf.Abs(sy - 1f) < 0.002f)
+                return;
+
+            ApplyRect(_rect.x * sx, _rect.y * sy, _rect.width, _rect.height, fullyOnScreen: true);
+            if (_hasRect)
+                ViewerSettings.Load().SetPanelRect(_key, _rect);
+        }
+
+        void CaptureResolvedRect()
+        {
+            float left = Resolved(_panel.resolvedStyle.left, 14f);
+            float top = Resolved(_panel.resolvedStyle.top, 52f);
+            float width = Mathf.Max(MinWidth, Resolved(_panel.resolvedStyle.width, MinWidth));
+            float height = Mathf.Max(MinHeight, Resolved(_panel.resolvedStyle.height, MinHeight));
+            _rect = new Rect(left, top, width, height);
+            _hasRect = true;
+        }
+
+        void ApplyRect(float left, float top, float width, float height, bool fullyOnScreen = false)
         {
             width = Mathf.Max(MinWidth, width);
             height = Mathf.Max(MinHeight, height);
@@ -277,8 +362,16 @@ namespace SwarmViewer
             if (pw < 32f) pw = 1920f;
             if (ph < 32f) ph = 1080f;
 
-            left = Mathf.Clamp(left, KeepOnScreen - width, Mathf.Max(KeepOnScreen, pw - KeepOnScreen));
-            top = Mathf.Clamp(top, 0f, Mathf.Max(0f, ph - KeepOnScreen));
+            if (fullyOnScreen)
+            {
+                left = width <= pw ? Mathf.Clamp(left, 0f, pw - width) : 0f;
+                top = height <= ph ? Mathf.Clamp(top, 0f, ph - height) : 0f;
+            }
+            else
+            {
+                left = Mathf.Clamp(left, KeepOnScreen - width, Mathf.Max(KeepOnScreen, pw - KeepOnScreen));
+                top = Mathf.Clamp(top, 0f, Mathf.Max(0f, ph - KeepOnScreen));
+            }
 
             _panel.style.left = left;
             _panel.style.top = top;
@@ -288,6 +381,8 @@ namespace SwarmViewer
             // Kept here rather than read back from resolvedStyle, which lags a layout pass.
             _rect = new Rect(left, top, width, height);
             _hasRect = true;
+            _layoutW = pw;
+            _layoutH = ph;
         }
 
         static float Resolved(float value, float fallback) =>
