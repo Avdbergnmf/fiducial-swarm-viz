@@ -26,6 +26,7 @@ namespace SwarmViewer
         readonly FilterChips _verbs;
         readonly List<VisualElement> _rows = new();
         readonly List<LogLine> _shown = new();
+        IVisualElementScheduledItem _scrollToNow;
 
         ViewerContext _ctx;
         IReadOnlyList<LogLine> _logs;
@@ -64,6 +65,8 @@ namespace SwarmViewer
 
         public void Rebuild()
         {
+            _scrollToNow?.Pause();
+            _scrollToNow = null;
             _rows.Clear();
             _shown.Clear();
             _highlightDirty = true;
@@ -138,7 +141,16 @@ namespace SwarmViewer
             }
 
             if (FollowNow && nowChanged && nowRow != null)
-                _scroll.schedule.Execute(() => _scroll.ScrollTo(nowRow));
+            {
+                var row = nowRow;
+                _scrollToNow?.Pause();
+                _scrollToNow = _scroll.schedule.Execute(() =>
+                {
+                    _scrollToNow = null;
+                    if (row.parent == _scroll.contentContainer)
+                        _scroll.ScrollTo(row);
+                });
+            }
         }
 
         void ToggleRaw()
@@ -184,7 +196,7 @@ namespace SwarmViewer
             row.Add(text);
 
             row.RegisterCallback<ClickEvent>(OnClicked);
-            _scroll.Add(row);
+            _scroll.contentContainer.Add(row);
             _rows.Add(row);
         }
 
@@ -227,7 +239,7 @@ namespace SwarmViewer
             empty.AddToClassList("scene-state-empty");
             empty.AddToClassList("inspector-empty");
             empty.pickingMode = PickingMode.Ignore;
-            _scroll.Add(empty);
+            _scroll.contentContainer.Add(empty);
         }
 
         static Label Cell(string text, string extraClass)
