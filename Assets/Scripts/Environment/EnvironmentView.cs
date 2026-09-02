@@ -120,6 +120,7 @@ namespace SwarmViewer
                 _assetInstance.transform.position = new Vector3(assetPos.x, floorY + height * 0.5f, assetPos.z);
                 _assetInstance.transform.localScale = new Vector3(
                     assetRadius * 2f, height * 0.5f, assetRadius * 2f);
+                VolumeFixtureRegistry.Ensure();
                 TintAsset();
             }
 

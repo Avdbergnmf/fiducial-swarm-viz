@@ -8,20 +8,19 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: PickVolumeIndicator
-  m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
+  m_Shader: {fileID: 4800000, guid: 923385daae495694488e537f64141a16, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
+  m_ValidKeywords: []
+  m_InvalidKeywords:
   - _ALPHAPREMULTIPLY_ON
   - _SPECULAR_SETUP
   - _SURFACE_TYPE_TRANSPARENT
-  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 3000
-  stringTagMap:
-    RenderType: Transparent
+  stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
   - DepthOnly
@@ -103,14 +102,25 @@ Material:
     - _DstBlend: 10
     - _DstBlendAlpha: 10
     - _EnvironmentReflections: 1
+    - _Fill: 0.01
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _HexIntensity: 0
+    - _HexScale: 0
+    - _HexSpacing: 0
+    - _HexSpeed: 0
+    - _HexThickness: 0
+    - _IntersectBoost: 3
+    - _IntersectPower: 5
+    - _IntersectWidth: 0
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1
+    - _RimBoost: 2
+    - _RimPower: 20
     - _Smoothness: 0
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -121,9 +131,11 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 1, g: 0.86847365, b: 0, a: 0.11764706}
-    - _Color: {r: 1, g: 0.86847365, b: 0, a: 0.11764706}
+    - _BaseColor: {r: 0.7294118, g: 0.8, b: 0.9019608, a: 0.85}
+    - _Color: {r: 0.7294118, g: 0.8, b: 0.9019608, a: 0.85}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _SelfMeta: {r: 0, g: 0, b: 0, a: 0}
+    - _SelfPosRad: {r: 0, g: 0, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

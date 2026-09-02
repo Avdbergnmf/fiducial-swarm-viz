@@ -120,6 +120,7 @@ namespace SwarmViewer
             t.localPosition = Vector3.zero;
             t.localRotation = Quaternion.identity;
             t.localScale = Vector3.one * (r * 2f);
+            VolumeFixtureRegistry.Ensure();
             _pickVolumeRend = _pickVolumeGo.GetComponent<MeshRenderer>();
             _pickVolumeRend.shadowCastingMode = ShadowCastingMode.Off;
             _pickVolumeRend.receiveShadows = false;
@@ -157,6 +158,7 @@ namespace SwarmViewer
             t.localPosition = Vector3.zero;
             t.localRotation = Quaternion.identity;
             t.localScale = Vector3.one * (radiusMetres * 2f);
+            VolumeFixtureRegistry.Ensure();
             TintKillSphere(_killRadiusGo);
             foreach (var col in _killRadiusGo.GetComponentsInChildren<Collider>())
                 col.enabled = false;
@@ -232,17 +234,25 @@ namespace SwarmViewer
                 _pickVolumeRend.sharedMaterial = ghost;
         }
 
+        static Shader _volumeShader;
+
         static Material GhostOf(Material source)
         {
             if (source == null) return null;
             if (PickGhosts.TryGetValue(source, out var ghost) && ghost != null)
                 return ghost;
 
+            if (_volumeShader == null)
+                _volumeShader = Shader.Find("Custom/VolumeFixture");
+
             ghost = new Material(source)
             {
                 name = source.name + " (pick ghost)",
                 hideFlags = HideFlags.HideAndDontSave
             };
+            if (_volumeShader != null)
+                ghost.shader = _volumeShader;
+
             MakeTransparentGhost(ghost, PickVolumeAlpha);
             PickGhosts[source] = ghost;
             return ghost;
