@@ -40,7 +40,6 @@ namespace SwarmViewer
         Button _logsOpenBtn;
         Button _cuesOpenBtn;
         Button _cuesMuteBtn;
-        CameraCompass _cameraCompass;
 
         FloatingPanel _aircraftFloat;
         FloatingPanel _eventsFloat;
@@ -180,12 +179,6 @@ namespace SwarmViewer
             _logsOpenBtn = UiQuery.Named<Button>(_root, "logsOpenBtn");
             _cuesOpenBtn = UiQuery.Named<Button>(_root, "cuesOpenBtn");
             _cuesMuteBtn = UiQuery.Named<Button>(_root, "cuesMuteBtn");
-            var compassRoot = UiQuery.Named<VisualElement>(_root, "cameraCompassRoot");
-            if (compassRoot != null && compassRoot.childCount == 0)
-            {
-                _cameraCompass = new CameraCompass();
-                compassRoot.Add(_cameraCompass);
-            }
 
             var aircraftPanel = UiQuery.Named<VisualElement>(_root, "aircraftPanel");
             var eventsPanel = UiQuery.Named<VisualElement>(_root, "eventsPanel");
@@ -522,6 +515,7 @@ namespace SwarmViewer
                 int index = i;
                 var spec = CueOverlay.Specs[i];
                 var btn = new Button();
+                UiQuery.HitSelf(btn);
                 btn.AddToClassList("filter-chip");
                 btn.AddToClassList("cue-chip");
                 btn.Add(CueLegend.Swatch(spec.Color));
@@ -663,6 +657,7 @@ namespace SwarmViewer
                 var spec = CueOverlay.PingKinds[i];
                 bool on = cues.PingKindOn(spec.Kind);
                 var btn = new Button();
+                UiQuery.HitSelf(btn);
                 btn.AddToClassList("filter-chip");
                 btn.AddToClassList("cue-chip");
                 Color hue = muted ? Palette.Gray(spec.Color) : spec.Color;

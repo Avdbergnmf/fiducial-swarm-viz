@@ -22,6 +22,29 @@ namespace SwarmViewer
             return el;
         }
 
+        /// <summary>
+        /// UITK Buttons put a TextElement over the chrome, so :hover on the
+        /// Button never matches. Ignore-picking the children makes the Button
+        /// itself the hit target. Call on each new Button; <see cref="ButtonsReceiveHover"/>
+        /// covers a whole UXML tree.
+        /// </summary>
+        public static void HitSelf(Button btn)
+        {
+            if (btn == null) return;
+            for (int i = 0; i < btn.childCount; i++)
+                btn[i].pickingMode = PickingMode.Ignore;
+        }
+
+        public static void ButtonsReceiveHover(VisualElement root)
+        {
+            if (root == null) return;
+            if (root is Button btn)
+                HitSelf(btn);
+            int n = root.childCount;
+            for (int i = 0; i < n; i++)
+                ButtonsReceiveHover(root[i]);
+        }
+
         public static void DumpTree(VisualElement root)
         {
             if (root == null)

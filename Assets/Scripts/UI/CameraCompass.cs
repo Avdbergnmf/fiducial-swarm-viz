@@ -1,126 +1,148 @@
+// Circular heading dial for the main camera: one ring, one north needle.
+// Collapse is the +/– in the corner; the dial itself does not eat clicks.
+
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SwarmViewer
 {
-    public sealed class CameraCompass : VisualElement
+    public sealed class CameraCompass : MonoBehaviour
     {
-        const float Radius = 26f;
-        bool _collapsed;
+        [SerializeField] UIDocument uiDocument;
+
+        Camera _camera;
+        VisualElement _root;
+        VisualElement _dial;
         Button _toggle;
-        Label _northLabel;
+        Vector2 _north = new(0f, -1f);
+        bool _collapsed;
+        bool _wired;
 
-        public CameraCompass()
+        void OnEnable() => TryWire();
+        void Start() => TryWire();
+
+        void OnDisable()
         {
-            name = "cameraCompass";
-            pickingMode = PickingMode.Position;
-            style.width = 76f;
-            style.height = 76f;
-            style.backgroundColor = new Color(0.06f, 0.08f, 0.11f, 0.86f);
-            style.borderTopLeftRadius = 6f;
-            style.borderTopRightRadius = 6f;
-            style.borderBottomLeftRadius = 6f;
-            style.borderBottomRightRadius = 6f;
-            style.borderTopWidth = 1f;
-            style.borderBottomWidth = 1f;
-            style.borderLeftWidth = 1f;
-            style.borderRightWidth = 1f;
-            style.borderTopColor = new Color(1f, 1f, 1f, 0.14f);
-            style.borderBottomColor = new Color(1f, 1f, 1f, 0.14f);
-            style.borderLeftColor = new Color(1f, 1f, 1f, 0.14f);
-            style.borderRightColor = new Color(1f, 1f, 1f, 0.14f);
+            if (_dial != null)
+            {
+                _dial.generateVisualContent -= Paint;
+                _dial.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            }
+            if (_toggle != null)
+                _toggle.clicked -= Toggle;
+            _wired = false;
+        }
 
-            _toggle = new Button(Toggle) { text = "-" };
-            _toggle.name = "cameraCompassToggle";
-            _toggle.tooltip = "Hide compass";
-            _toggle.pickingMode = PickingMode.Position;
-            _toggle.style.position = Position.Absolute;
-            _toggle.style.top = 3f;
-            _toggle.style.right = 3f;
-            _toggle.style.width = 16f;
-            _toggle.style.height = 16f;
-            _toggle.style.paddingLeft = 0f;
-            _toggle.style.paddingRight = 0f;
-            _toggle.style.paddingTop = 0f;
-            _toggle.style.paddingBottom = 0f;
-            _toggle.style.fontSize = 11f;
-            Add(_toggle);
+        void LateUpdate()
+        {
+            if (!_wired)
+            {
+                TryWire();
+                if (!_wired) return;
+            }
 
-            _northLabel = new Label("N") { name = "cameraCompassNorth" };
-            _northLabel.pickingMode = PickingMode.Ignore;
-            _northLabel.style.position = Position.Absolute;
-            _northLabel.style.fontSize = 11f;
-            _northLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            _northLabel.style.color = new Color(0.95f, 0.88f, 0.58f, 0.95f);
-            Add(_northLabel);
+            if (_camera == null)
+                _camera = GetComponent<Camera>() ?? Camera.main;
+            if (_camera == null || _collapsed) return;
 
-            generateVisualContent += Paint;
-            schedule.Execute(Refresh).Every(33);
-            Refresh();
+            Vector3 forward = Vector3.ProjectOnPlane(_camera.transform.forward, Vector3.up);
+            if (forward.sqrMagnitude < 1e-5f) return;
+            forward.Normalize();
+            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+            Vector3 worldNorth = Vector3.forward;
+            Vector2 next = new(
+                Vector3.Dot(worldNorth, right),
+                -Vector3.Dot(worldNorth, forward));
+            if (next.sqrMagnitude < 1e-5f) return;
+            next.Normalize();
+
+            if ((_north - next).sqrMagnitude < 1e-6f) return;
+            _north = next;
+            _dial.MarkDirtyRepaint();
+        }
+
+        void TryWire()
+        {
+            if (_wired) return;
+            if (uiDocument == null)
+                uiDocument = FindAnyObjectByType<UIDocument>();
+            if (uiDocument == null) return;
+
+            var documentRoot = uiDocument.rootVisualElement;
+            if (documentRoot == null) return;
+
+            _root = UiQuery.Named<VisualElement>(documentRoot, "cameraCompassRoot");
+            _dial = UiQuery.Named<VisualElement>(documentRoot, "cameraCompassDial");
+            _toggle = UiQuery.Named<Button>(documentRoot, "cameraCompassToggle");
+            if (_root == null || _dial == null || _toggle == null)
+                return;
+
+            _camera = GetComponent<Camera>() ?? Camera.main;
+            _dial.generateVisualContent += Paint;
+            _dial.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            _toggle.clicked += Toggle;
+            UiQuery.HitSelf(_toggle);
+            _collapsed = ViewerSettings.Load().compassCollapsed;
+            _wired = true;
+            ApplyCollapsed();
+            _dial.MarkDirtyRepaint();
         }
 
         void Toggle()
         {
             _collapsed = !_collapsed;
-            _toggle.text = _collapsed ? "+" : "-";
-            _toggle.tooltip = _collapsed ? "Show compass" : "Hide compass";
-            style.width = _collapsed ? 22f : 76f;
-            style.height = _collapsed ? 22f : 76f;
-            if (parent != null)
+            var settings = ViewerSettings.Load();
+            if (settings.compassCollapsed != _collapsed)
             {
-                parent.style.width = _collapsed ? 22f : 76f;
-                parent.style.height = _collapsed ? 22f : 76f;
+                settings.compassCollapsed = _collapsed;
+                settings.Save();
             }
-            MarkDirtyRepaint();
+            ApplyCollapsed();
         }
 
-        void Refresh()
+        void ApplyCollapsed()
         {
-            MarkDirtyRepaint();
+            if (_root == null || _toggle == null) return;
+            _root.EnableInClassList("camera-compass-root--collapsed", _collapsed);
+            _toggle.text = _collapsed ? "+" : "–";
+            _toggle.tooltip = _collapsed ? "Show compass" : "Hide compass";
+            UiQuery.HitSelf(_toggle);
+            if (!_collapsed)
+                _dial?.MarkDirtyRepaint();
         }
+
+        void OnGeometryChanged(GeometryChangedEvent _) => _dial?.MarkDirtyRepaint();
 
         void Paint(MeshGenerationContext context)
         {
-            if (_collapsed) return;
-            var camera = Camera.main;
-            if (camera == null) return;
+            if (_collapsed || _dial == null) return;
+            Rect rect = _dial.contentRect;
+            if (rect.width < 8f || rect.height < 8f) return;
 
-            var rect = contentRect;
-            Vector2 center = new Vector2(rect.width * 0.5f, rect.height * 0.56f);
+            Vector2 center = rect.center;
+            float radius = Mathf.Min(rect.width, rect.height) * 0.5f - 2f;
+            Vector2 tip = center + _north * radius;
+            Vector2 perp = new(-_north.y, _north.x);
+            Vector2 left = center - _north * (radius * 0.28f) + perp * (radius * 0.22f);
+            Vector2 right = center - _north * (radius * 0.28f) - perp * (radius * 0.22f);
             var painter = context.painter2D;
-            DrawCircle(painter, center, Radius, new Color(1f, 1f, 1f, 0.04f), false);
 
-            Vector3 northLocal = camera.transform.InverseTransformDirection(Vector3.forward);
-            Vector2 direction = new Vector2(northLocal.x, -northLocal.y);
-            if (direction.sqrMagnitude < 0.001f) return;
-            direction.Normalize();
-            Vector2 perpendicular = new Vector2(-direction.y, direction.x);
-            Vector2 tip = center + direction * (Radius - 4f);
-            Vector2 left = tip - direction * 8f + perpendicular * 4f;
-            Vector2 right = tip - direction * 8f - perpendicular * 4f;
+            painter.strokeColor = new Color(1f, 1f, 1f, 0.22f);
+            painter.lineWidth = 1.25f;
+            DrawCircle(painter, center, radius);
 
-            painter.strokeColor = new Color(1f, 1f, 1f, 0.32f);
-            painter.lineWidth = 1f;
-            painter.BeginPath();
-            painter.MoveTo(center);
-            painter.LineTo(tip);
-            painter.Stroke();
-
-            painter.fillColor = new Color(0.9f, 0.82f, 0.48f, 0.95f);
+            painter.fillColor = new Color(0.95f, 0.82f, 0.38f, 0.95f);
             painter.BeginPath();
             painter.MoveTo(tip);
             painter.LineTo(left);
             painter.LineTo(right);
             painter.ClosePath();
             painter.Fill();
-
-            _northLabel.style.left = center.x + direction.x * (Radius + 1f) - 4f;
-            _northLabel.style.top = center.y - direction.y * (Radius + 1f) - 7f;
         }
 
-        static void DrawCircle(Painter2D painter, Vector2 center, float radius, Color color, bool fill)
+        static void DrawCircle(Painter2D painter, Vector2 center, float radius)
         {
-            const int segments = 32;
+            const int segments = 48;
             painter.BeginPath();
             for (int i = 0; i <= segments; i++)
             {
@@ -130,17 +152,7 @@ namespace SwarmViewer
                 else painter.LineTo(point);
             }
             painter.ClosePath();
-            if (fill)
-            {
-                painter.fillColor = color;
-                painter.Fill();
-            }
-            else
-            {
-                painter.strokeColor = color;
-                painter.lineWidth = 1f;
-                painter.Stroke();
-            }
+            painter.Stroke();
         }
     }
 }

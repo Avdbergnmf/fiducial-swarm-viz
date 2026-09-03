@@ -393,6 +393,7 @@ namespace SwarmViewer
             {
                 float value = values[i];
                 var btn = new Button(() => pick(value)) { text = label(value) };
+                UiQuery.HitSelf(btn);
                 btn.AddToClassList("timeline-button");
                 btn.AddToClassList("timeline-flyout-btn");
                 if (i == values.Length - 1)

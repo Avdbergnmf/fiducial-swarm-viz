@@ -40,6 +40,7 @@ namespace SwarmViewer
                     _selected.Add(key);
 
                 var btn = new Button { text = key };
+                UiQuery.HitSelf(btn);
                 btn.AddToClassList("filter-chip");
                 btn.EnableInClassList("filter-chip--on", on);
                 if (colorOf != null)

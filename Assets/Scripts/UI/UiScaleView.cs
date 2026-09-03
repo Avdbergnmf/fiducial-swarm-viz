@@ -65,6 +65,7 @@ namespace SwarmViewer
 
             _downBtn.RegisterCallback<ClickEvent>(_ => Nudge(-ViewerSettings.UiScaleStep));
             _upBtn.RegisterCallback<ClickEvent>(_ => Nudge(ViewerSettings.UiScaleStep));
+            UiQuery.ButtonsReceiveHover(root);
             _wired = true;
         }
 

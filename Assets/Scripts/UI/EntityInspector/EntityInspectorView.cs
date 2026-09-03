@@ -314,6 +314,7 @@ namespace SwarmViewer
         Card WireCard(VisualElement panel, int slot)
         {
             var c = new Card { Slot = slot, Panel = panel };
+            UiQuery.ButtonsReceiveHover(panel);
             c.KindDot = UiQuery.Named<VisualElement>(panel, "inspectorKindDot");
             c.Title = UiQuery.Named<Label>(panel, "inspectorTitle");
             c.Subtitle = UiQuery.Named<Label>(panel, "inspectorSubtitle");

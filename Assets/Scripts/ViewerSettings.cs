@@ -31,6 +31,8 @@ namespace SwarmViewer
         public bool legendCraftCollapsed;
         public bool legendSceneCollapsed;
         public bool legendCuesCollapsed;
+        /// <summary>Main-view north dial. Independent of the colour legend.</summary>
+        public bool compassCollapsed;
         /// <summary>Legacy: when the old Ghosts cue was on, draw on every living craft.</summary>
         public bool pickVolumesAll;
         /// <summary>Legacy scale-bar master switch. Migrated into cueMask + pickVolumeShow, then cleared.</summary>

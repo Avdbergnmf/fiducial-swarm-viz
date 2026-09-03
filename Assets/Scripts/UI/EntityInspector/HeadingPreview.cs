@@ -37,52 +37,6 @@ namespace SwarmViewer
             north.style.fontSize = 10f;
             north.style.unityFontStyleAndWeight = FontStyle.Bold;
             Add(north);
-
-            var compass = new VisualElement();
-            compass.name = "headingPreviewCompass";
-            compass.pickingMode = PickingMode.Ignore;
-            compass.style.position = Position.Absolute;
-            compass.style.left = 4f;
-            compass.style.bottom = 4f;
-            compass.style.flexDirection = FlexDirection.Row;
-            compass.style.alignItems = Align.Center;
-
-            var compassNorth = new Label("N");
-            compassNorth.pickingMode = PickingMode.Ignore;
-            compassNorth.style.color = new Color(1f, 1f, 1f, 0.72f);
-            compassNorth.style.fontSize = 9f;
-            compassNorth.style.unityFontStyleAndWeight = FontStyle.Bold;
-            compass.Add(compassNorth);
-
-            var compassLine = new Label("^");
-            compassLine.pickingMode = PickingMode.Ignore;
-            compassLine.style.color = new Color(1f, 1f, 1f, 0.55f);
-            compassLine.style.fontSize = 9f;
-            compassLine.style.marginLeft = 1f;
-            compass.Add(compassLine);
-
-            var compassToggle = new Button();
-            compassToggle.text = "-";
-            compassToggle.tooltip = "Hide compass";
-            compassToggle.pickingMode = PickingMode.Position;
-            compassToggle.style.width = 14f;
-            compassToggle.style.height = 14f;
-            compassToggle.style.marginLeft = 3f;
-            compassToggle.style.paddingLeft = 0f;
-            compassToggle.style.paddingRight = 0f;
-            compassToggle.style.paddingTop = 0f;
-            compassToggle.style.paddingBottom = 0f;
-            compassToggle.style.fontSize = 10f;
-            compassToggle.clicked += () =>
-            {
-                bool visible = compassNorth.style.display != DisplayStyle.None;
-                compassNorth.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
-                compassLine.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
-                compassToggle.text = visible ? "+" : "-";
-                compassToggle.tooltip = visible ? "Show compass" : "Hide compass";
-            };
-            compass.Add(compassToggle);
-            Add(compass);
             tooltip = "Top-down of this craft. Click to select it in the scene.";
         }
 
