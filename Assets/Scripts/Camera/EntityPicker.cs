@@ -1,6 +1,7 @@
 // Raycasts against the entity picking layer to handle hover highlights, click
 // selection (plain / Shift multi-select), drag-box selection (origins inside
-// the rectangle), double-click inspector, and empty double-click camera resets.
+// the rectangle), double-click inspector, and double-click on a log ping line
+// (screen-space slack) to open both drones' inspectors on that log.
 // Pick volume is a fat sphere (SceneBuilder.pickColliderRadius). Overlaps go
 // to the origin closest to the ray; a miss still selects within pickPixelSlack.
 //
@@ -38,21 +39,27 @@ namespace SwarmViewer
         [SerializeField] OrbitCameraController orbitCamera;
         [SerializeField] UIDocument uiDocument;
         [SerializeField] EntityInspectorView inspector;
+        [SerializeField] CueOverlay cues;
 
         ViewerContext _ctx;
         Camera _cam;
         VisualElement _marqueeBox;
 
         EntityView _hoveredEntity;
-        float _lastEmptyClickTime;
         float _lastEntityClickTime;
         int _lastEntityClickSlot = -1;
+        float _lastPingClickTime;
+        int _lastPingIndex = -1;
 
         bool _pressing;
         bool _marquee;
         Vector2 _pressStart;
         Vector2 _pressNow;
         EntityView _pressHit;
+        bool _pressIsPing;
+        RelationPing _pressPing;
+        int _pressPingIndex = -1;
+        readonly List<int> _pingSel = new();
         readonly List<int> _boxHits = new();
         readonly List<EntityView> _boxViews = new();
         readonly List<EntityView> _marqueeHovered = new();
@@ -77,6 +84,8 @@ namespace SwarmViewer
                 var found = FindObjectsByType<EntityInspectorView>(FindObjectsInactive.Include);
                 if (found.Length > 0) inspector = found[0];
             }
+            if (cues == null)
+                cues = GetComponent<CueOverlay>() ?? FindAnyObjectByType<CueOverlay>();
 
             EnsureMarqueeBox();
 
@@ -89,7 +98,11 @@ namespace SwarmViewer
 
         void OnEnable() => EnsureMarqueeBox();
 
-        void OnDisable() => CancelPress();
+        void OnDisable()
+        {
+            CancelPress();
+            cues?.SetHoverPing(-1);
+        }
 
         void Update()
         {
@@ -110,6 +123,7 @@ namespace SwarmViewer
                 {
                     _marquee = true;
                     ClearHover();
+                    cues?.SetHoverPing(-1);
                 }
 
                 SyncMarqueeVisual();
@@ -129,11 +143,16 @@ namespace SwarmViewer
             if (IsPointerOverUI(mousePos))
             {
                 ClearHover();
+                cues?.SetHoverPing(-1);
                 return;
             }
 
             EntityView hitEntity = PickEntity(mousePos);
+            bool pingHit = TryPreferPing(mousePos, hitEntity, out RelationPing ping, out int pingIndex, out _);
+            if (pingHit)
+                hitEntity = null;
             UpdateHover(hitEntity);
+            cues?.SetHoverPing(pingHit ? pingIndex : -1);
 
             if (mouse.leftButton.wasPressedThisFrame)
             {
@@ -142,6 +161,9 @@ namespace SwarmViewer
                 _pressStart = mousePos;
                 _pressNow = mousePos;
                 _pressHit = hitEntity;
+                _pressIsPing = pingHit;
+                _pressPing = ping;
+                _pressPingIndex = pingHit ? pingIndex : -1;
             }
         }
 
@@ -149,6 +171,9 @@ namespace SwarmViewer
         {
             bool box = _marquee;
             EntityView hit = _pressHit;
+            bool wasPing = _pressIsPing;
+            RelationPing pressPing = _pressPing;
+            int pressPingIndex = _pressPingIndex;
             Vector2 a = _pressStart;
             Vector2 b = _pressNow;
             CancelPress();
@@ -166,10 +191,12 @@ namespace SwarmViewer
                 else
                     _ctx.Selection.Replace(_boxHits);
                 _lastEntityClickSlot = -1;
+                _lastPingIndex = -1;
                 return;
             }
 
-            if (hit != null) HandleEntityClick(hit);
+            if (wasPing) HandlePingClick(pressPing, pressPingIndex);
+            else if (hit != null) HandleEntityClick(hit);
             else HandleEmptyClick();
         }
 
@@ -178,6 +205,8 @@ namespace SwarmViewer
             _pressing = false;
             _marquee = false;
             _pressHit = null;
+            _pressIsPing = false;
+            _pressPingIndex = -1;
             ClearMarqueeHover();
             SyncMarqueeVisual();
         }
@@ -370,32 +399,55 @@ namespace SwarmViewer
                             now - _lastEntityClickTime < doubleClickThreshold;
             _lastEntityClickTime = now;
             _lastEntityClickSlot = slot;
-            _lastEmptyClickTime = 0f;
+            _lastPingIndex = -1;
 
-            // Click-again-to-deselect fights double-click. Empty click / Esc clears.
-            if (sel.Count != 1 || sel.Primary != slot)
-                sel.SelectOnly(slot);
+            sel.SelectOnly(slot);
 
             if (isDouble)
                 inspector?.Open();
         }
 
-        void HandleEmptyClick()
+        void HandlePingClick(RelationPing ping, int pingIndex)
         {
             _lastEntityClickSlot = -1;
             float now = Time.unscaledTime;
-            if (now - _lastEmptyClickTime < doubleClickThreshold)
-            {
-                _ctx.Selection.Clear();
-                if (orbitCamera != null)
-                    orbitCamera.ResetToDefaultView();
-                _lastEmptyClickTime = 0f;
-            }
-            else
-            {
-                _ctx.Selection.Clear();
-                _lastEmptyClickTime = now;
-            }
+            bool isDouble = pingIndex == _lastPingIndex &&
+                            now - _lastPingClickTime < doubleClickThreshold;
+            _lastPingClickTime = now;
+            _lastPingIndex = pingIndex;
+
+            _pingSel.Clear();
+            _pingSel.Add(ping.FromSlot);
+            if (ping.ToSlot >= 0 && ping.ToSlot != ping.FromSlot)
+                _pingSel.Add(ping.ToSlot);
+            _ctx.Selection.Replace(_pingSel);
+
+            if (isDouble)
+                inspector?.OpenPing(ping.FromSlot, ping.ToSlot, ping.Line);
+        }
+
+        bool TryPreferPing(Vector2 mousePos, EntityView entity,
+            out RelationPing ping, out int pingIndex, out float pingPixels)
+        {
+            ping = default;
+            pingIndex = -1;
+            pingPixels = float.MaxValue;
+            if (cues == null || _cam == null) return false;
+            if (!cues.TryPickPing(_cam, mousePos, pickPixelSlack, out ping, out pingIndex, out pingPixels))
+                return false;
+            if (entity == null) return true;
+            Vector3 sp = _cam.WorldToScreenPoint(entity.transform.position);
+            if (sp.z < 0.1f) return true;
+            float entityPixels = Vector2.Distance(mousePos, new Vector2(sp.x, sp.y));
+            // Near a craft, keep the drone click. Mid-line belongs to the ping.
+            return pingPixels + 8f < entityPixels;
+        }
+
+        void HandleEmptyClick()
+        {
+            _lastEntityClickSlot = -1;
+            _lastPingIndex = -1;
+            _ctx.Selection.Clear();
         }
 
         /// <summary>

@@ -97,6 +97,13 @@ namespace SwarmViewer
                 Live[i]?.Reflow();
         }
 
+        /// <summary>Hide every floating window. Shift+Esc.</summary>
+        public static void HideAll()
+        {
+            for (int i = Live.Count - 1; i >= 0; i--)
+                Live[i]?.Hide();
+        }
+
         public void Show()
         {
             if (_panel == null) return;

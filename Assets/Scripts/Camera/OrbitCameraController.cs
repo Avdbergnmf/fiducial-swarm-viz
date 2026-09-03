@@ -172,6 +172,11 @@ namespace SwarmViewer
 
             if (keyboard != null && !typing)
             {
+                bool chord = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+                             || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
+                if (!chord && keyboard.rKey.wasPressedThisFrame)
+                    ResetToDefaultView();
+
                 float keyDt = Time.unscaledDeltaTime;
                 bool orbited = false;
                 if (keyboard.leftArrowKey.isPressed) { _yaw -= keyOrbitSpeed * keyDt; orbited = true; }

@@ -808,6 +808,12 @@
     border-left-color: rgb(65, 140, 245);
 }
 
+.scene-state-event--pin {
+    opacity: 1;
+    background-color: rgba(240, 190, 70, 0.28);
+    border-left-color: rgb(240, 190, 70);
+}
+
 .scene-state-cell {
     font-size: 11px;
     color: rgb(220, 220, 220);

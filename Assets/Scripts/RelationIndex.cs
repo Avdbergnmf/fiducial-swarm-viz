@@ -27,13 +27,15 @@ namespace SwarmViewer
         public readonly int ToSlot;
         public readonly float T;
         public readonly RelationKind Kind;
+        public readonly LogLine Line;
 
-        public RelationPing(int fromSlot, int toSlot, float t, RelationKind kind)
+        public RelationPing(int fromSlot, int toSlot, float t, RelationKind kind, LogLine line)
         {
             FromSlot = fromSlot;
             ToSlot = toSlot;
             T = t;
             Kind = kind;
+            Line = line;
         }
     }
 
@@ -65,7 +67,7 @@ namespace SwarmViewer
                         continue;
                     int other = OtherInterceptor(run, from, line.t);
                     if (other >= 0)
-                        _pings.Add(new RelationPing(from, other, line.t, RelationKind.Duplicate));
+                        _pings.Add(new RelationPing(from, other, line.t, RelationKind.Duplicate, line));
                     continue;
                 }
 
@@ -75,7 +77,7 @@ namespace SwarmViewer
                     int mate = run.SlotOfDrone(id);
                     if (mate >= 0 && mate != from)
                         _pings.Add(new RelationPing(from, mate, line.t,
-                            verb == "gone" ? RelationKind.Gone : RelationKind.Live));
+                            verb == "gone" ? RelationKind.Gone : RelationKind.Live, line));
                     continue;
                 }
 
@@ -99,7 +101,7 @@ namespace SwarmViewer
                         : ResolveNamed(run, line.drone, from, line.t, ClassToken(verb, line.text));
                 }
                 if (to < 0 || to == from) continue;
-                _pings.Add(new RelationPing(from, to, line.t, kind));
+                _pings.Add(new RelationPing(from, to, line.t, kind, line));
             }
         }
 

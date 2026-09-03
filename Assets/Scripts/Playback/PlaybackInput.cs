@@ -151,7 +151,10 @@ namespace SwarmViewer
                 clock.Seek(0f);
 
             if (keyboard.escapeKey.wasPressedThisFrame)
-                _ctx.Selection.Clear();
+            {
+                if (shift) FloatingPanel.HideAll();
+                else _ctx.Selection.Clear();
+            }
 
             bool ctrl = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
                         || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
@@ -176,7 +179,7 @@ namespace SwarmViewer
                 SelectAllAlive();
 
             if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
-                GetComponent<EntityInspectorView>()?.TogglePrimary();
+                GetComponent<EntityInspectorView>()?.OpenSelected();
 
             if (keyboard.slashKey.wasPressedThisFrame || keyboard.hKey.wasPressedThisFrame)
                 GetComponent<LegendView>()?.ToggleCollapsed();

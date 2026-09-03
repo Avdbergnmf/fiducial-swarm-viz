@@ -131,7 +131,11 @@ namespace SwarmViewer
 
         public void SelectOnly(int slot)
         {
-            if (_slots.Count == 1 && _slots[0] == slot) return;
+            if (_slots.Count == 1 && _slots[0] == slot)
+            {
+                Fire();
+                return;
+            }
             RecordBeforeChange();
             _slots.Clear();
             _set.Clear();
@@ -210,7 +214,11 @@ namespace SwarmViewer
                         break;
                     }
                 }
-                if (same) return;
+                if (same)
+                {
+                    Fire();
+                    return;
+                }
             }
 
             RecordBeforeChange();

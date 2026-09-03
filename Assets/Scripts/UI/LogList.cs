@@ -32,6 +32,8 @@ namespace SwarmViewer
         IReadOnlyList<LogLine> _logs;
         bool _raw;
         LogLine _now;
+        LogLine _pin;
+        LogLine _forceLine;
         bool _highlightDirty = true;
 
         public LogList(ScrollView scroll, Label header, TextField filter,
@@ -85,9 +87,10 @@ namespace SwarmViewer
             {
                 var line = _logs[i];
                 if (line == null) continue;
-                if (Allow != null && !Allow(line)) continue;
-                if (_verbs != null && !_verbs.Allows(LogPhrase.Verb(line.text))) continue;
-                if (!Matches(line, query)) continue;
+                bool forced = ReferenceEquals(line, _forceLine);
+                if (!forced && Allow != null && !Allow(line)) continue;
+                if (!forced && _verbs != null && !_verbs.Allows(LogPhrase.Verb(line.text))) continue;
+                if (!forced && !Matches(line, query)) continue;
                 _shown.Add(line);
             }
 
@@ -133,24 +136,57 @@ namespace SwarmViewer
                 var row = _rows[i];
                 if (row.userData is not LogLine line) continue;
                 bool isNow = ReferenceEquals(line, now);
+                bool isPin = ReferenceEquals(line, _pin);
                 bool future = line.t > t + 0.001f;
-                row.EnableInClassList("scene-state-event--now", isNow);
-                row.EnableInClassList("scene-state-event--past", !isNow && !future);
-                row.EnableInClassList("scene-state-event--future", !isNow && future);
+                row.EnableInClassList("scene-state-event--now", isNow && !isPin);
+                row.EnableInClassList("scene-state-event--pin", isPin);
+                row.EnableInClassList("scene-state-event--past", !isNow && !isPin && !future);
+                row.EnableInClassList("scene-state-event--future", !isNow && !isPin && future);
                 if (isNow) nowRow = row;
             }
 
-            if (FollowNow && nowChanged && nowRow != null)
+            if (FollowNow && nowChanged && _pin == null && nowRow != null)
+                ScheduleScroll(nowRow);
+        }
+
+        public void Reveal(LogLine line)
+        {
+            if (line == null || _scroll == null) return;
+            bool inSource = false;
+            if (_logs != null)
             {
-                var row = nowRow;
-                _scrollToNow?.Pause();
-                _scrollToNow = _scroll.schedule.Execute(() =>
+                for (int i = 0; i < _logs.Count; i++)
                 {
-                    _scrollToNow = null;
-                    if (row.parent == _scroll.contentContainer)
-                        _scroll.ScrollTo(row);
-                });
+                    if (!ReferenceEquals(_logs[i], line)) continue;
+                    inSource = true;
+                    break;
+                }
             }
+            if (!inSource) return;
+
+            _pin = line;
+            _forceLine = line;
+            _highlightDirty = true;
+            Rebuild();
+            VisualElement pinRow = null;
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                if (_rows[i].userData is LogLine rowLine && ReferenceEquals(rowLine, line))
+                    pinRow = _rows[i];
+            }
+            if (pinRow != null)
+                ScheduleScroll(pinRow);
+        }
+
+        void ScheduleScroll(VisualElement row)
+        {
+            _scrollToNow?.Pause();
+            _scrollToNow = _scroll.schedule.Execute(() =>
+            {
+                _scrollToNow = null;
+                if (row.parent == _scroll.contentContainer)
+                    _scroll.ScrollTo(row);
+            });
         }
 
         void ToggleRaw()
@@ -209,7 +245,12 @@ namespace SwarmViewer
         void OnClicked(ClickEvent evt)
         {
             if (evt.currentTarget is VisualElement row && row.userData is LogLine line)
+            {
+                _pin = null;
+                _forceLine = null;
+                _highlightDirty = true;
                 Jump(line);
+            }
             evt.StopPropagation();
         }
 

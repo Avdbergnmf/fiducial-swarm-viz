@@ -1,4 +1,4 @@
-// Draggable per-entity inspectors. Enter toggles a window for the primary
+// Draggable per-entity inspectors. Enter opens a window for every selected
 // craft; double-click opens one. Windows stay on their drone — changing the
 // primary does not retarget them, so several can be up at once.
 
@@ -126,19 +126,27 @@ namespace SwarmViewer
             OpenSlot(slot);
         }
 
-        /// <summary>Enter: inspector for the primary, or close that drone's window only.</summary>
-        public void TogglePrimary()
+        /// <summary>Enter: a window for every selected craft. Does not close any.</summary>
+        public void OpenSelected()
         {
             if (_ctx?.Selection == null) return;
-            int slot = _ctx.Selection.Primary;
-            if (slot < 0) return;
-            var card = FindCard(slot);
-            if (card != null && card.Window != null && card.Window.IsShown)
-            {
-                card.Window.Hide();
-                return;
-            }
-            OpenSlot(slot);
+            var slots = _ctx.Selection.Slots;
+            for (int i = 0; i < slots.Count; i++)
+                OpenSlot(slots[i]);
+        }
+
+        /// <summary>
+        /// Inspectors for both ends of a log ping, then scroll the writer's
+        /// log to that line. The subject inspector opens even if it has no log.
+        /// </summary>
+        public void OpenPing(int fromSlot, int toSlot, LogLine line)
+        {
+            if (toSlot >= 0 && toSlot != fromSlot)
+                OpenSlot(toSlot);
+            OpenSlot(fromSlot);
+            FindCard(fromSlot)?.Logs?.Reveal(line);
+            if (toSlot >= 0 && toSlot != fromSlot)
+                FindCard(toSlot)?.Logs?.Reveal(line);
         }
 
         public void Close() => DiscardAll();

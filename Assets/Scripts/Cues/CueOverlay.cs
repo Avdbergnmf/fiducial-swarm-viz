@@ -153,6 +153,65 @@ namespace SwarmViewer
         public event Action MaskChanged;
         public CueMask Mask => _mask;
         public bool Muted => _muted;
+        int _hoverPing = -1;
+
+        public void SetHoverPing(int index)
+        {
+            if (_hoverPing == index) return;
+            _hoverPing = index;
+            Refresh();
+        }
+
+        /// <summary>
+        /// Nearest visible ping line in screen space. Same hold / aliveness
+        /// rules as drawing. <paramref name="pixels"/> is the distance to the
+        /// segment, not to either drone.
+        /// </summary>
+        public bool TryPickPing(Camera cam, Vector2 mousePos, float slackPx,
+            out RelationPing ping, out int index, out float pixels)
+        {
+            ping = default;
+            index = -1;
+            pixels = slackPx;
+            if (cam == null || _ctx?.Clock == null || !On(CueMask.Pings)) return false;
+            var snaps = _ctx?.State?.Entities;
+            var pings = _ctx.Run?.Relations?.Pings;
+            if (snaps == null || pings == null || pings.Count == 0) return false;
+            float t = _ctx.Clock.Time;
+
+            int best = -1;
+            float bestD = slackPx;
+            for (int i = 0; i < pings.Count; i++)
+            {
+                if (!TryPingEnds(pings[i], snaps, t, out Vector3 pa, out Vector3 pb))
+                    continue;
+                Vector3 sa = cam.WorldToScreenPoint(pa);
+                Vector3 sb = cam.WorldToScreenPoint(pb);
+                if (sa.z < 0.1f || sb.z < 0.1f) continue;
+                float d = DistPointToSegment(mousePos, new Vector2(sa.x, sa.y), new Vector2(sb.x, sb.y));
+                if (d < bestD)
+                {
+                    bestD = d;
+                    best = i;
+                }
+            }
+
+            if (best < 0) return false;
+            ping = pings[best];
+            index = best;
+            pixels = bestD;
+            return true;
+        }
+
+        static float DistPointToSegment(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float lenSq = ab.sqrMagnitude;
+            if (lenSq < 1e-4f) return Vector2.Distance(p, a);
+            float u = Mathf.Clamp01(Vector2.Dot(p - a, ab) / lenSq);
+            return Vector2.Distance(p, a + ab * u);
+        }
+
         public bool PickHoverOn => (_pickShow & PickHover) != 0;
         public bool PickSelectedOn => (_pickShow & PickSelected) != 0;
         public bool PickUnselectedOn => (_pickShow & PickUnselected) != 0;
@@ -182,6 +241,7 @@ namespace SwarmViewer
             Unhook();
             _ctx = ctx;
             _bySlot = null;
+            _hoverPing = -1;
             _mask = LoadMask(out _pickShow, out _sphereMask);
             Hook();
             Refresh();
@@ -699,27 +759,39 @@ namespace SwarmViewer
         {
             var pings = _ctx.Run.Relations?.Pings;
             if (pings == null || pings.Count == 0) return;
-            float hold = RelationIndex.PingHold;
 
             for (int i = 0; i < pings.Count; i++)
             {
                 var ping = pings[i];
-                float age = t - ping.T;
-                if (age < -0.02f || age > hold) continue;
-                int a = ping.FromSlot;
-                int b = ping.ToSlot;
-                if ((uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count) continue;
-                bool ring = ping.Kind == RelationKind.Gone || ping.Kind == RelationKind.Live;
-                if (!TryCuePos(snaps, a, out Vector3 pa)) continue;
-                if (!TryCuePos(snaps, b, out Vector3 pb)) continue;
-                if (!ring && (!snaps[a].Alive || !snaps[b].Alive)) continue;
+                if (!TryPingEnds(ping, snaps, t, out Vector3 pa, out Vector3 pb)) continue;
 
-                float k = 1f - age / hold;
+                float age = t - ping.T;
+                float k = 1f - age / RelationIndex.PingHold;
                 if (k < 0.08f) k = 0.08f;
+                bool hover = i == _hoverPing;
+                if (hover) k = Mathf.Max(k, 0.85f);
                 Color ca = Palette.A(Palette.Ping(ping.Kind), k);
                 Color cb = Palette.A(Palette.Ping(ping.Kind), k * 0.35f);
-                _lines.Segment(pa, pb, ca, cb, 0.28f * k, 0.08f);
+                _lines.Segment(pa, pb, ca, cb, (hover ? 0.5f : 0.28f) * k, hover ? 0.16f : 0.08f);
             }
+        }
+
+        bool TryPingEnds(RelationPing ping,
+            System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t,
+            out Vector3 pa, out Vector3 pb)
+        {
+            pa = default;
+            pb = default;
+            float age = t - ping.T;
+            if (age < -0.02f || age > RelationIndex.PingHold) return false;
+            int a = ping.FromSlot;
+            int b = ping.ToSlot;
+            if ((uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count) return false;
+            bool ring = ping.Kind == RelationKind.Gone || ping.Kind == RelationKind.Live;
+            if (!TryCuePos(snaps, a, out pa)) return false;
+            if (!TryCuePos(snaps, b, out pb)) return false;
+            if (!ring && (!snaps[a].Alive || !snaps[b].Alive)) return false;
+            return true;
         }
 
         bool TryCuePos(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps,
