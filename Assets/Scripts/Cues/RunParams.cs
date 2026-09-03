@@ -19,6 +19,7 @@ namespace SwarmViewer
         public float FriendlyMargin;
         public float RingRadius;
         public float RingAltitude;
+        public float FixSigma;
         public float ObservedComm;
         public bool CommFromLinks;
 
@@ -60,6 +61,7 @@ namespace SwarmViewer
                 TryKey(text, "fsep", ref p.FriendlyMargin);
                 TryKey(text, "ring", ref p.RingRadius);
                 TryKey(text, "alt", ref p.RingAltitude);
+                TryKey(text, "fix", ref p.FixSigma);
                 return;
             }
         }

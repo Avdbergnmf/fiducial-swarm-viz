@@ -17,6 +17,8 @@ namespace SwarmViewer
         Near,
         Ram,
         Duplicate,
+        Gone,
+        Live,
     }
 
     public readonly struct RelationPing
@@ -67,6 +69,16 @@ namespace SwarmViewer
                     continue;
                 }
 
+                if (verb == "gone" || verb == "live")
+                {
+                    int id = LogPhrase.IntField(line.text, "id=");
+                    int mate = run.SlotOfDrone(id);
+                    if (mate >= 0 && mate != from)
+                        _pings.Add(new RelationPing(from, mate, line.t,
+                            verb == "gone" ? RelationKind.Gone : RelationKind.Live));
+                    continue;
+                }
+
                 RelationKind kind;
                 if (verb == "call") kind = RelationKind.Call;
                 else if (verb == "drop") kind = RelationKind.Drop;
@@ -97,7 +109,9 @@ namespace SwarmViewer
                 !LogPhrase.TryNumber(raw, "e=", out float e))
                 return -1;
             float frame = run.FrameOf(t);
-            Vector3 at = SwarmCoord.Ned(n, e);
+            float down = 0f;
+            if (LogPhrase.TryNumber(raw, "alt=", out float alt)) down = -alt;
+            Vector3 at = SwarmCoord.Ned(n, e, down);
             float capSq = 40f * 40f;
             int best = -1;
             float bestD = capSq;
@@ -105,7 +119,9 @@ namespace SwarmViewer
             {
                 if (s == fromSlot) continue;
                 if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
-                float d = (p - at).sqrMagnitude;
+                float dx = p.x - at.x;
+                float dz = p.z - at.z;
+                float d = dx * dx + dz * dz;
                 if (d < bestD) { bestD = d; best = s; }
             }
             return best;

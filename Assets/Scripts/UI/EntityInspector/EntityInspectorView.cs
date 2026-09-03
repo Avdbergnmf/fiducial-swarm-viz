@@ -40,6 +40,7 @@ namespace SwarmViewer
         Label _sense;
         Label _comm;
         Label _sep;
+        Label _fix;
         VisualElement _compromisedRow;
         Label _compromised;
         Button _beliefsOpenBtn;
@@ -187,6 +188,7 @@ namespace SwarmViewer
             _sense = UiQuery.Named<Label>(_root, "inspectorSense");
             _comm = UiQuery.Named<Label>(_root, "inspectorComm");
             _sep = UiQuery.Named<Label>(_root, "inspectorSep");
+            _fix = UiQuery.Named<Label>(_root, "inspectorFix");
             _compromisedRow = UiQuery.Named<VisualElement>(_root, "inspectorCompromisedRow");
             _compromised = UiQuery.Named<Label>(_root, "inspectorCompromised");
             _beliefsOpenBtn = UiQuery.Named<Button>(_root, "inspectorBeliefsBtn");
@@ -371,6 +373,19 @@ namespace SwarmViewer
             }
             if (_sep != null)
                 _sep.text = p != null && p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G} m" : "—";
+            if (_fix != null)
+            {
+                if (p != null && p.Has(p.FixSigma))
+                {
+                    _fix.text = $"{p.FixSigma:G} m";
+                    _fix.tooltip = "Own-position 1-sigma (params fix=). About 35 cm — too small to draw as a sphere, so it lives here.";
+                }
+                else
+                {
+                    _fix.text = "—";
+                    _fix.tooltip = "params fix= was not logged on this run.";
+                }
+            }
 
             bool compromised = info.compromised_from >= 0;
             if (_compromisedRow != null)

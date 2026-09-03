@@ -87,7 +87,10 @@ namespace SwarmViewer
                 if (killRadiusPrefab != null)
                 {
                     var marker = Instantiate(killRadiusPrefab, view.transform);
-                    view.AttachKillRadius(marker, radius);
+                    // Parent is airframe-scaled. Local metres have to divide by
+                    // that scale or the sphere is 5x the simulator's kill_radius
+                    // (same correction as the pick collider).
+                    view.AttachKillRadius(marker, radius / sAbs);
                 }
 
                 var events = view.GetComponent<EntityEvents>() ?? view.gameObject.AddComponent<EntityEvents>();

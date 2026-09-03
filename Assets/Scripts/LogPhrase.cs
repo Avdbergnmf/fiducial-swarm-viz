@@ -33,8 +33,15 @@ namespace SwarmViewer
         {
             value = 0f;
             if (string.IsNullOrEmpty(s) || string.IsNullOrEmpty(key)) return false;
-            int i = s.IndexOf(key, StringComparison.Ordinal);
-            if (i < 0) return false;
+            int i = 0;
+            while (true)
+            {
+                i = s.IndexOf(key, i, StringComparison.Ordinal);
+                if (i < 0) return false;
+                // "n=" must not match inside "vn="; keys are space-delimited.
+                if (i == 0 || s[i - 1] == ' ') break;
+                i += key.Length;
+            }
             i += key.Length;
 
             int start = i;
@@ -94,6 +101,8 @@ namespace SwarmViewer
                     case "near":
                     case "ram": return Proximity(raw);
                     case "picket": return "In position on the picket ring.";
+                    case "gone": return Gone(raw);
+                    case "live": return Live(raw);
                     case "yield": return Yield(raw);
                     case "params": return Params(raw);
                     case "drone": return Boot(raw);
@@ -130,7 +139,9 @@ namespace SwarmViewer
                 "rng    range from us to it\n" +
                 "close  relative horizontal closing speed between us and it (both velocities)\n" +
                 "ttg    time until it reaches the cylinder\n" +
-                "n, e   NED of the target at commit (hearsay intercepts are out of sense range)\n" +
+                "n, e   NED of the believed target at commit (hearsay intercepts are out of sense range)\n" +
+                "alt    altitude (−z) of that pose\n" +
+                "vn, ve horizontal NED velocity of the believed target; the viewer coasts on this until the next sample\n" +
                 "peer   committed on a radio report, not a local track",
             "abort" =>
                 "close  relative horizontal closing on the target when we broke off\n" +
@@ -143,7 +154,16 @@ namespace SwarmViewer
             "near" or "ram" =>
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
+                "n, e, alt  believed NED pose of the tracked craft\n" +
+                "vn, ve believed horizontal velocity; the Aim cue coasts on this\n" +
                 "Bands are 12 m, 6 m and 3 m; one line per band crossed.",
+            "gone" =>
+                "id     brain id of a mate we just latched as a nearby death (D37).\n" +
+                "Silence inside radio of their last heartbeat. The ring slides toward that hole.\n" +
+                "Leaving the stale bubble does not resurrect them; a heartbeat does (live).",
+            "live" =>
+                "id     brain id of a mate whose heartbeat cleared a gone latch.\n" +
+                "The ring shifts back if they flew into range again.",
             "yield" =>
                 "Reconstructed in the viewer from intercept geometry and params fsep=.\n" +
                 "The brain does not write this verb (log budget; D3 / D16).\n" +
@@ -197,7 +217,7 @@ namespace SwarmViewer
                 Evidence(Num(raw, "score=")));
         }
 
-        // "commit trk=%u score=%.2f miss=%.1f rng=%.0f close=%.1f ttg=%.1f n=%.0f e=%.0f[ peer]"
+        // "commit trk=%u score=%.2f miss=%.1f rng=%.0f close=%.1f ttg=%.1f n=%.1f e=%.1f alt=%.1f vn=%.1f ve=%.1f[ peer]"
         static string Commit(string raw)
         {
             float ttg = Num(raw, "ttg=");
@@ -212,6 +232,7 @@ namespace SwarmViewer
                 Closing(Num(raw, "close="), "us"),
                 reach,
                 Evidence(Num(raw, "score=")),
+                BelievedPose(raw),
                 peer ? "on a radio report — this drone had not seen it yet" : "");
         }
 
@@ -248,7 +269,7 @@ namespace SwarmViewer
                 float.IsNaN(ttg) ? "" : $"cylinder in {ttg:F1} s");
         }
 
-        // "<near|ram> trk=%u class=%s rng=%.1f close=%.1f"
+        // "<near|ram> trk=%u class=%s rng=%.1f close=%.1f n=%.1f e=%.1f alt=%.1f vn=%.1f ve=%.1f"
         static string Proximity(string raw)
         {
             bool ram = Verb(raw) == "ram";
@@ -263,7 +284,22 @@ namespace SwarmViewer
 
             return Join(head,
                 ram && !float.IsNaN(rng) ? Metres(rng) + " out" : "",
-                Closing(Num(raw, "close="), "us"));
+                Closing(Num(raw, "close="), "us"),
+                BelievedPose(raw));
+        }
+
+        static string Gone(string raw)
+        {
+            int id = Int(raw, "id=");
+            string who = id >= 0 ? $"drone {id}" : "a neighbour";
+            return $"Presumed {who} gone — closing the gap";
+        }
+
+        static string Live(string raw)
+        {
+            int id = Int(raw, "id=");
+            string who = id >= 0 ? $"drone {id}" : "a neighbour";
+            return $"{who} is back on the radio — shifting back";
         }
 
         // "yield interceptor=%u target=… dist=%.1f"
@@ -292,7 +328,7 @@ namespace SwarmViewer
             return s.Trim();
         }
 
-        // "params sense=… comm=… maxv=… maxa=… tilt=… lat=… sep=… fsep=… ring=… alt=…"
+        // "params sense=… comm=… maxv=… maxa=… tilt=… lat=… sep=… fsep=… ring=… alt=… fix=…"
         static string Params(string raw) => Join("Boot parameters",
             Field(raw, "sense=", "sense", "m"),
             Field(raw, "comm=", "radio", "m"),
@@ -302,7 +338,8 @@ namespace SwarmViewer
             Field(raw, "sep=", "separation", "m"),
             Field(raw, "fsep=", "friendly keep-out", "m"),
             Field(raw, "ring=", "picket ring", "m"),
-            Field(raw, "alt=", "ring altitude", "m"));
+            Field(raw, "alt=", "ring altitude", "m"),
+            Field(raw, "fix=", "own fix σ", "m"));
 
         // "drone %u/%u up, lateral limit %.2f m/s^2, kill r %.1f, tier %u"
         static string Boot(string raw)
@@ -353,6 +390,22 @@ namespace SwarmViewer
 
         static string Evidence(float score) =>
             float.IsNaN(score) ? "" : $"evidence {score:F2}";
+
+        static string BelievedPose(string raw)
+        {
+            float n = Num(raw, "n=");
+            float e = Num(raw, "e=");
+            if (float.IsNaN(n) || float.IsNaN(e)) return "";
+            float alt = Num(raw, "alt=");
+            string at = float.IsNaN(alt)
+                ? $"believed N {n:F0} E {e:F0}"
+                : $"believed N {n:F0} E {e:F0} alt {alt:F0}";
+            float vn = Num(raw, "vn=");
+            float ve = Num(raw, "ve=");
+            if (float.IsNaN(vn) || float.IsNaN(ve)) return at;
+            float spd = (float)Math.Sqrt(vn * vn + ve * ve);
+            return at + $" at {spd:F0} m/s";
+        }
 
         // The brain writes commit's rng at whole-metre precision, so F1 here
         // would invent a digit it never had.

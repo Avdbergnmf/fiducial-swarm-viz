@@ -32,6 +32,7 @@ namespace SwarmViewer
         public static readonly Color Intercept = Rgb(255, 51, 46);
         public static readonly Color Yield = Rgb(255, 184, 46);
         public static readonly Color Picket = Rgb(208, 208, 220);
+        public static readonly Color Aim = Rgb(255, 90, 210);
 
         public static Color Kind(EntityKind kind) => kind switch
         {
@@ -67,6 +68,7 @@ namespace SwarmViewer
             CueMask.Yield => Yield,
             CueMask.Pings => Rgb(255, 255, 255),
             CueMask.Ghosts => Hover,
+            CueMask.Aim => Aim,
             _ => Color.white,
         };
 
@@ -86,6 +88,8 @@ namespace SwarmViewer
             RelationKind.Near => Velocity,
             RelationKind.Ram => Intercept,
             RelationKind.Duplicate => Compromised,
+            RelationKind.Gone => Comm,
+            RelationKind.Live => Links,
             _ => Color.white,
         };
 

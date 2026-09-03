@@ -19,6 +19,7 @@ namespace SwarmViewer
         public readonly BeliefIndex Beliefs;
         public readonly RunParams Params;
         public readonly CommitIndex Commits;
+        public readonly AimIndex Aims;
         public readonly YieldIndex Yields;
         public readonly HearIndex Hear;
         public readonly RelationIndex Relations;
@@ -73,6 +74,7 @@ namespace SwarmViewer
 
             Params = RunParams.From(this);
             Commits = new CommitIndex(this);
+            Aims = new AimIndex(this);
             Yields = new YieldIndex(this);
             Hear = new HearIndex(this);
             LogsByDrone = new DroneLogIndex(meta.logs);

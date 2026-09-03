@@ -1,12 +1,12 @@
 {
-  "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/ablation",
+  "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/evidence-bar/0.5",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\worst",
   "uiScale": 1.30000007,
-  "cueMask": 11809,
+  "cueMask": 28193,
   "panelRects": {
     "aircraftPanel": "-111,108,960,472",
-    "cuesPanel": "179,128,1045,282",
-    "inspectorPanel": "546,136,909,596",
+    "cuesPanel": "355,38,1045,282",
+    "inspectorPanel": "355,52,910,595",
     "eventsPanel": "1173,261,579,421",
     "beliefsPanel": "864,227,555,522",
     "logsPanel": "17,0,680,359",

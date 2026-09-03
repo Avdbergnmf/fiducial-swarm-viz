@@ -148,6 +148,10 @@ namespace SwarmViewer
         /// <summary>
         /// Parents a pre-instantiated kill-radius sphere. Prefab is assumed 1 m in
         /// diameter (Unity default sphere); we scale to 2 * radius.
+        /// <paramref name="radiusMetres"/> is in the parent's local metres —
+        /// SceneBuilder divides world kill_radius by airframe scale.
+        /// A hit is the other craft's origin inside this sphere, not two
+        /// shells merely touching.
         /// </summary>
         public void AttachKillRadius(GameObject instance, float radiusMetres)
         {

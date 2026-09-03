@@ -97,42 +97,70 @@ namespace SwarmViewer
             float frame = run.FrameOf(t);
             if (!run.Sample(frame, self, out Vector3 origin, out _, out _)) return -1;
 
+            run.Beliefs.FillObserver(droneId, t, declared);
+
+            // Believed NED on the commit line. Associate in the horizontal plane:
+            // the old 3D nearest-to-(east, 0, north) preferred a 30 m picket over
+            // a 40 m hostile once every commit started carrying n=/e=.
             if (LogPhrase.TryNumber(raw, "n=", out float n) &&
                 LogPhrase.TryNumber(raw, "e=", out float e))
             {
-                int hit = NearestPoint(run, frame, SwarmCoord.Ned(n, e), 40f);
+                float down = 0f;
+                if (LogPhrase.TryNumber(raw, "alt=", out float alt)) down = -alt;
+                Vector3 want = SwarmCoord.Ned(n, e, down);
+                int hit = NearestHorizontal(run, frame, want, self, declared,
+                    BeliefClass.Enemy, 40f);
+                if (hit >= 0) return hit;
+                hit = NearestHostileHorizontal(run, frame, want, self, 40f);
                 if (hit >= 0) return hit;
             }
 
-            run.Beliefs.FillObserver(droneId, t, declared);
             int best = Nearest(run, frame, origin, declared, BeliefClass.Enemy);
             if (best >= 0) return best;
 
             float cap = 80f;
             if (run.Params != null && run.Params.Has(run.Params.SenseRadius))
                 cap = run.Params.SenseRadius * 1.25f;
+            return NearestHostileHorizontal(run, frame, origin, self, cap);
+        }
+
+        static float HorizSq(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x;
+            float dz = a.z - b.z;
+            return dx * dx + dz * dz;
+        }
+
+        static int NearestHorizontal(RunData run, float frame, Vector3 origin, int self,
+            List<(int slot, BeliefClass cls)> declared, BeliefClass want, float cap)
+        {
             float capSq = cap * cap;
+            int best = -1;
             float bestD = capSq;
-            best = -1;
-            for (int s = 0; s < run.SlotCount; s++)
+            for (int i = 0; i < declared.Count; i++)
             {
-                if (run.Info(s).Kind != EntityKind.Hostile) continue;
+                if (declared[i].cls != want) continue;
+                int s = declared[i].slot;
+                if (s == self) continue;
                 if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
-                float d = (p - origin).sqrMagnitude;
+                float d = HorizSq(p, origin);
                 if (d < bestD) { bestD = d; best = s; }
             }
             return best;
         }
 
-        static int NearestPoint(RunData run, float frame, Vector3 origin, float cap)
+        static int NearestHostileHorizontal(RunData run, float frame, Vector3 origin,
+            int self, float cap)
         {
             float capSq = cap * cap;
             int best = -1;
             float bestD = capSq;
             for (int s = 0; s < run.SlotCount; s++)
             {
+                if (s == self) continue;
+                if (run.Info(s).Kind != EntityKind.Hostile) continue;
                 if (!run.Sample(frame, s, out Vector3 p, out _, out _)) continue;
-                float d = (p - origin).sqrMagnitude;
+                float d = HorizSq(p, origin);
                 if (d < bestD) { bestD = d; best = s; }
             }
             return best;
