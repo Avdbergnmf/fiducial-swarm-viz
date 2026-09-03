@@ -142,7 +142,7 @@ namespace SwarmViewer
                 "ttg    time until it reaches the cylinder\n" +
                 "n, e   NED of the believed target at commit (hearsay intercepts are out of sense range)\n" +
                 "alt    altitude (−z) of that pose\n" +
-                "vn, ve horizontal NED velocity of the believed target; the viewer coasts on this until the next sample\n" +
+                "vn, ve horizontal NED velocity of the believed target; shown as logged data, not used to move the aim marker\n" +
                 "peer   committed on a radio report, not a local track",
             "abort" =>
                 "close  relative horizontal closing on the target when we broke off\n" +
@@ -156,7 +156,7 @@ namespace SwarmViewer
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
                 "n, e, alt  believed NED pose of the tracked craft\n" +
-                "vn, ve believed horizontal velocity; the Aim cue coasts on this\n" +
+                "vn, ve believed horizontal velocity; the Aim cue leaves the marker at the logged pose\n" +
                 "Bands are 12 m, 6 m and 3 m; one line per band crossed.",
             "gone" =>
                 "id     brain id of a mate we just latched as a nearby death (D37).\n" +

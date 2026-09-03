@@ -77,7 +77,8 @@ namespace SwarmViewer
 
         /// <summary>
         /// Believed target pose for this drone at t, while a commit span is
-        /// still open. Latest sample at or before t, coasted on vn/ve.
+        /// still open. Latest sample at or before t; the marker stays at the
+        /// pose the brain actually logged until another sample replaces it.
         /// age is seconds since that sample — the overlay fades it out.
         /// </summary>
         public bool TryAt(RunData run, int droneId, float t, out Vector3 pos, out float age)
@@ -103,11 +104,6 @@ namespace SwarmViewer
             age = dt;
             float n = s.North;
             float e = s.East;
-            if (s.HasVel)
-            {
-                n += s.Vn * dt;
-                e += s.Ve * dt;
-            }
 
             float down = 0f;
             if (!float.IsNaN(s.Alt)) down = -s.Alt;
