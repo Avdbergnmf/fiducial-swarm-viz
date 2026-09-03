@@ -151,7 +151,8 @@ namespace SwarmViewer
                 "held   seconds we had been committed\n" +
                 "now    class at abort (lost has no track)\n" +
                 "Reasons: lost (vanished), timeout (12 s budget), not-hostile (class flipped),\n" +
-                "not-closing (stern chase after 6 s), duplicate (another friendly already closer).",
+                "not-closing (stern chase after 6 s), duplicate (another friendly already closer),\n" +
+                "not-threat (early chase: cylinder LOS gone, or a level overflight that never dived).",
             "near" or "ram" =>
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
@@ -263,6 +264,7 @@ namespace SwarmViewer
                     : $"it now reads as {ClassWord(now)}, so spending the airframe would be the wrong kill",
                 "not-closing" => "the range stopped shrinking after 6 s — a stern chase against the same 6.7 m/s² bound does not converge",
                 "duplicate" => "another friendly is already closer and flying at it. One drone per hostile: a second is traffic that spoils ProNav",
+                "not-threat" => "early chase dropped: the ground track no longer crosses the cylinder, or it never dived and reads as a civilian overflight",
                 "" => "",
                 _ => reason,
             };
