@@ -2,9 +2,10 @@
 // yield, log pings, picket ring, pick-volume ghosts.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
-// Aircraft, Events and Logs, so one component owns the windows instead of two
+// Aircraft, Events, Score and Logs, so one component owns the windows instead of two
 // racing to wire the same UIDocument. A new cue is a CueSpec row plus a few
-// lines in DrawEntity. Numbers come from RunParams, and a cue whose number this
+// lines in DrawEntity. Radius cues share DrawRadius (equator ring, optional
+// sphere). Numbers come from RunParams, and a cue whose number this
 // run does not carry reports itself unavailable rather than guessing one.
 
 using System;
@@ -50,7 +51,7 @@ namespace SwarmViewer
         public static readonly CueSpec[] Specs =
         {
             new(CueMask.Kill, "Kill radius",
-                "A sphere at the hard collision distance around each selected craft. Two spheres touching is a hit.",
+                "The hard collision distance around each selected craft. Sphere is the hex volume (two shells touching is a hit); otherwise a ring at the same radius. Never both.",
                 "The trace header field kill_radius. This is the simulator's rule, not something the brain chose."),
 
             new(CueMask.Ghosts, "Ghosts",
@@ -58,15 +59,15 @@ namespace SwarmViewer
                 "The viewer's pick volume (SceneBuilder pickColliderRadius), not a recorded field. Colour is the airframe material in the current view mode."),
 
             new(CueMask.Sense, "Sense range",
-                "A flat ring at the craft's own altitude: how far it can see. Selected friendlies only.",
+                "How far a selected friendly can see. Sphere is the hex volume; otherwise a ring at the craft's altitude. Never both.",
                 "The brain's boot params log line, sense=. If a run never logged it the cue stays unavailable rather than drawing a radius from memory."),
 
             new(CueMask.Comm, "Comm range",
-                "A flat ring at the craft's altitude: how far it can talk. Selected friendlies only.",
+                "How far a selected friendly can talk. Sphere is the hex volume; otherwise a ring at the craft's altitude. Never both.",
                 "params comm= when the brain logged it. Otherwise measured — the longest distance any recorded link actually spanned — which is a floor on the true range, not the range itself. The footer marks that case."),
 
             new(CueMask.Separate, "Separation",
-                "A ring at the spacing the brain tries to keep from unknown traffic. Selected friendlies only. Known mates use a larger keep-out (fsep=) that this cue does not draw.",
+                "The spacing a selected friendly tries to keep from unknown traffic. Sphere is the hex volume; otherwise a ring. Known mates use a larger keep-out (fsep=) that this cue does not draw.",
                 "params sep=, the unknown/civilian blend — four times the kill radius. Mates use fsep=, sized to arrest cruise with the lateral bound (D8)."),
 
             new(CueMask.Velocity, "Velocity",
@@ -102,7 +103,7 @@ namespace SwarmViewer
                 "The log line itself. trk= is observer-local, so the other end is the craft this drone had declared (or the nearest alive of that class) at that time — same association as Intercept. Peer (hearsay) lines use the n=/e= pose the brain associated by geometry. Visible for 1.4 s after the log."),
 
             new(CueMask.Picket, "Picket ring",
-                "The ring the brain holds around the asset.",
+                "The radius the brain holds around the asset. Sphere is the hex volume; otherwise a ring at picket altitude. Never both.",
                 "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
         };
 
@@ -130,13 +131,19 @@ namespace SwarmViewer
         EntityPicker _picker;
         EntityView[] _bySlot;
         LinePool _lines;
+        SpherePool _spheres;
         Material _lineMat;
         CueMask _mask = DefaultMask;
+        CueMask _sphereMask = CueMask.Kill;
         bool _pickVolumesAll;
 
         public event Action MaskChanged;
         public CueMask Mask => _mask;
         public bool PickVolumesAll => _pickVolumesAll;
+
+        /// <summary>Radius cues: hex volume or equatorial ring, never both.</summary>
+        public static bool IsRadius(CueMask bit) =>
+            bit is CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket;
 
         /// <summary>Legend / detail hint: who the Ghosts cue is drawing on.</summary>
         public string GhostScope => _pickVolumesAll ? "every living craft" : "the selection";
@@ -146,7 +153,7 @@ namespace SwarmViewer
             Unhook();
             _ctx = ctx;
             _bySlot = null;
-            _mask = LoadMask(out _pickVolumesAll);
+            _mask = LoadMask(out _pickVolumesAll, out _sphereMask);
             Hook();
             Refresh();
             MaskChanged?.Invoke();
@@ -157,6 +164,7 @@ namespace SwarmViewer
             Unhook();
             if (_lineMat != null) Destroy(_lineMat);
             _lines?.Dispose();
+            _spheres?.Dispose();
         }
 
         void Hook()
@@ -206,11 +214,29 @@ namespace SwarmViewer
             MaskChanged?.Invoke();
         }
 
-        static CueMask LoadMask(out bool pickAll)
+        public bool SphereOn(CueMask bit) => (_sphereMask & bit) != 0;
+
+        public void SetSphere(CueMask bit, bool on)
+        {
+            if (!IsRadius(bit)) return;
+            CueMask next = on ? _sphereMask | bit : _sphereMask & ~bit;
+            if (next == _sphereMask) return;
+            _sphereMask = next;
+            var settings = ViewerSettings.Load();
+            settings.cueSphereMask = (int)_sphereMask;
+            settings.Save();
+            Refresh();
+            MaskChanged?.Invoke();
+        }
+
+        static CueMask LoadMask(out bool pickAll, out CueMask spheres)
         {
             var settings = ViewerSettings.Load();
             CueMask mask = settings.cueMask == 0 ? DefaultMask : (CueMask)settings.cueMask;
             pickAll = settings.pickVolumesAll;
+            spheres = settings.cueSphereMask.HasValue
+                ? (CueMask)settings.cueSphereMask.Value
+                : CueMask.Kill;
 
             // Old scale-bar Ghosts toggle: pickVolumesOn meant "show on every craft".
             if (settings.pickVolumesOn)
@@ -245,10 +271,17 @@ namespace SwarmViewer
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Hops => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Intercept => _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0,
-                CueMask.Yield => _ctx.Run.Yields != null && _ctx.Run.Yields.Spans.Count > 0,
+                CueMask.Yield => YieldAvailable(),
                 CueMask.Pings => _ctx.Run.Relations != null && _ctx.Run.Relations.Pings.Count > 0,
                 _ => true,
             };
+        }
+
+        bool YieldAvailable()
+        {
+            var p = _ctx.Run.Params;
+            return p != null && p.Has(p.FriendlyMargin)
+                && _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0;
         }
 
         /// <summary>
@@ -273,7 +306,7 @@ namespace SwarmViewer
                     ? $"{_ctx.Run.Meta.links.Count} link records" : "",
                 CueMask.Hops => HopValue(),
                 CueMask.Intercept => InterceptValue(_ctx.Run.Commits),
-                CueMask.Yield => YieldValue(_ctx.Run.Yields),
+                CueMask.Yield => YieldValue(_ctx.Run.Yields, YieldAvailable()),
                 CueMask.Pings => PingValue(_ctx.Run.Relations),
                 _ => "",
             };
@@ -287,11 +320,12 @@ namespace SwarmViewer
             return n == 1 ? "1 intercept" : n + " intercepts";
         }
 
-        static string YieldValue(YieldIndex yields)
+        static string YieldValue(YieldIndex yields, bool available)
         {
-            if (yields == null) return "";
-            int n = yields.Spans.Count;
-            if (n <= 0) return "";
+            if (!available) return "";
+            int n = yields != null ? yields.Spans.Count : 0;
+            if (n <= 0)
+                return "0 yields — no picket sat in a remaining intercept corridor";
             return n == 1 ? "1 yield" : n + " yields";
         }
 
@@ -399,27 +433,30 @@ namespace SwarmViewer
             {
                 _lines?.Begin();
                 _lines?.End();
+                _spheres?.Begin();
+                _spheres?.End();
                 return;
             }
 
             EnsureViews();
             EnsureLines();
+            EnsureSpheres();
             var p = _ctx.Run.Params;
             var snaps = _ctx.State.Entities;
             float t = _ctx.Clock.Time;
 
-            bool killOn = On(CueMask.Kill);
             bool ghostsOn = On(CueMask.Ghosts);
             if (_bySlot != null)
             {
                 for (int i = 0; i < _bySlot.Length; i++)
                 {
-                    _bySlot[i]?.SetKillCueEnabled(killOn);
+                    _bySlot[i]?.SetKillCueEnabled(false);
                     _bySlot[i]?.SetPickVolumeCueEnabled(ghostsOn, _pickVolumesAll);
                 }
             }
 
             _lines.Begin();
+            _spheres.Begin();
 
             int hover = HoverSlot();
             for (int i = 0; i < _ctx.Selection.Count; i++)
@@ -441,6 +478,7 @@ namespace SwarmViewer
             if (On(CueMask.Picket) && p.Has(p.RingRadius))
                 DrawPicket(p);
 
+            _spheres.End();
             _lines.End();
         }
 
@@ -478,14 +516,17 @@ namespace SwarmViewer
             bool friendly = info.drone_id >= 0;
             Vector3 pos = snap.Position;
 
+            if (selected && On(CueMask.Kill) && p.Has(p.KillRadius))
+                DrawRadius(CueMask.Kill, pos, p.KillRadius, Palette.A(Palette.Opaque(Palette.Kill), 0.85f), 0.22f);
+
             if (selected && friendly)
             {
                 if (On(CueMask.Sense) && p.Has(p.SenseRadius))
-                    _lines.Circle(pos, p.SenseRadius, Palette.A(Palette.Sense, 0.85f), 0.35f);
+                    DrawRadius(CueMask.Sense, pos, p.SenseRadius, Palette.A(Palette.Sense, 0.85f), 0.35f);
                 if (On(CueMask.Comm) && p.Has(p.CommDraw))
-                    _lines.Circle(pos, p.CommDraw, Palette.A(Palette.Comm, 0.85f), 0.35f);
+                    DrawRadius(CueMask.Comm, pos, p.CommDraw, Palette.A(Palette.Comm, 0.85f), 0.35f);
                 if (On(CueMask.Separate) && p.Has(p.SeparationMargin))
-                    _lines.Circle(pos, p.SeparationMargin, Palette.A(Palette.Separate, 0.95f), 0.22f);
+                    DrawRadius(CueMask.Separate, pos, p.SeparationMargin, Palette.A(Palette.Separate, 0.95f), 0.22f);
             }
 
             if (On(CueMask.Velocity) && snap.Velocity.sqrMagnitude > 0.01f)
@@ -609,7 +650,27 @@ namespace SwarmViewer
             if (asset?.position != null && asset.position.Length >= 3)
                 c = new Vector3(asset.position[0], asset.position[1], asset.position[2]);
             c.y = p.Has(p.RingAltitude) ? p.RingAltitude : c.y;
-            _lines.Circle(c, p.RingRadius, Palette.A(Palette.Picket, 0.7f), 0.4f);
+            DrawRadius(CueMask.Picket, c, p.RingRadius, Palette.A(Palette.Picket, 0.7f), 0.4f);
+        }
+
+        /// <summary>
+        /// One visualisation: hex volume if Sphere is on, equatorial ring if not.
+        /// Kill's old per-airframe mesh is left off; this pool is the one path.
+        /// </summary>
+        void DrawRadius(CueMask bit, Vector3 center, float radius, Color ring, float width)
+        {
+            if (SphereOn(bit))
+                _spheres.Show(center, radius, VolumeColor(bit));
+            else
+                _lines.Circle(center, radius, ring, width);
+        }
+
+        static Color VolumeColor(CueMask bit)
+        {
+            if (bit == CueMask.Kill) return Palette.Kill;
+            var c = Palette.Opaque(Palette.Cue(bit));
+            c.a = 0.10f;
+            return c;
         }
 
         void EnsureViews()
@@ -647,6 +708,14 @@ namespace SwarmViewer
             _lines = new LinePool(root.transform, _lineMat);
         }
 
+        void EnsureSpheres()
+        {
+            if (_spheres != null) return;
+            var root = new GameObject("CueSpheres");
+            root.transform.SetParent(transform, false);
+            _spheres = new SpherePool(root.transform);
+        }
+
         static Material MakeLineMaterial()
         {
             var shader = Shader.Find("Sprites/Default")
@@ -682,13 +751,31 @@ namespace SwarmViewer
             /// <summary>What the overlay actually draws, for the legend hint and the Cues panel.</summary>
             public string Shape => Bit switch
             {
-                CueMask.Kill => "sphere on the selection",
+                CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
                 CueMask.Ghosts => "sphere",
-                CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
                 CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
                 CueMask.Links or CueMask.Hops or CueMask.Intercept or CueMask.Yield or CueMask.Pings => "line",
                 _ => "",
             };
+        }
+
+        public string ShapeHint(CueSpec spec)
+        {
+            if (spec.Bit == CueMask.Ghosts)
+                return PickVolumesAll ? "sphere on every craft" : "sphere on the selection";
+            if (IsRadius(spec.Bit))
+                return SphereOn(spec.Bit) ? "sphere" : "ring";
+            return spec.Shape;
+        }
+
+        public string DrawnAs(CueSpec spec)
+        {
+            if (spec.Bit == CueMask.Ghosts)
+                return $"Drawn as a sphere on {GhostScope}.";
+            string shape = ShapeHint(spec);
+            if (string.IsNullOrEmpty(shape)) return "";
+            bool an = "aeiou".IndexOf(char.ToLowerInvariant(shape[0])) >= 0;
+            return $"Drawn as {(an ? "an" : "a")} {shape}.";
         }
 
         sealed class LinePool
@@ -786,6 +873,95 @@ namespace SwarmViewer
                 lr.startColor = color;
                 lr.endColor = color;
                 return lr;
+            }
+        }
+
+        /// <summary>
+        /// VolumeFixture spheres for radius cues. Same hex shell as kill / ghosts,
+        /// pooled so a new radius never means a new mesh type.
+        /// </summary>
+        sealed class SpherePool
+        {
+            readonly Transform _root;
+            readonly System.Collections.Generic.List<MeshRenderer> _all = new();
+            readonly System.Collections.Generic.Dictionary<Color, Material> _mats = new();
+            int _used;
+            static Shader _shader;
+
+            public SpherePool(Transform root)
+            {
+                _root = root;
+            }
+
+            public void Begin() => _used = 0;
+
+            public void End()
+            {
+                for (int i = 0; i < _all.Count; i++)
+                {
+                    if (_all[i] != null)
+                        _all[i].gameObject.SetActive(i < _used);
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
+                _all.Clear();
+                foreach (var kv in _mats)
+                    if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
+                _mats.Clear();
+            }
+
+            public void Show(Vector3 center, float radius, Color color)
+            {
+                var rend = Next();
+                var t = rend.transform;
+                t.position = center;
+                t.rotation = Quaternion.identity;
+                t.localScale = Vector3.one * (radius * 2f);
+                rend.sharedMaterial = MaterialOf(color);
+            }
+
+            MeshRenderer Next()
+            {
+                MeshRenderer rend;
+                if (_used < _all.Count)
+                    rend = _all[_used];
+                else
+                {
+                    var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    go.name = "cue-sphere";
+                    go.transform.SetParent(_root, false);
+                    var col = go.GetComponent<Collider>();
+                    if (col != null) UnityEngine.Object.Destroy(col);
+                    rend = go.GetComponent<MeshRenderer>();
+                    rend.shadowCastingMode = ShadowCastingMode.Off;
+                    rend.receiveShadows = false;
+                    VolumeFixtureRegistry.Ensure();
+                    _all.Add(rend);
+                }
+
+                _used++;
+                rend.gameObject.SetActive(true);
+                return rend;
+            }
+
+            Material MaterialOf(Color color)
+            {
+                if (_mats.TryGetValue(color, out var mat) && mat != null)
+                    return mat;
+
+                if (_shader == null)
+                    _shader = Shader.Find("Custom/VolumeFixture");
+                mat = new Material(_shader != null ? _shader : Shader.Find("Sprites/Default"))
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    name = "CueRadius",
+                };
+                Palette.TintVolume(mat, color);
+                _mats[color] = mat;
+                return mat;
             }
         }
     }

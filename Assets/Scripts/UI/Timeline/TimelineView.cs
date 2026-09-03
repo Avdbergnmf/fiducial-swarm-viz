@@ -17,6 +17,7 @@ namespace SwarmViewer
         [SerializeField] UIDocument uiDocument;
 
         ViewerContext _ctx;
+        ScoringView _scoring;
         VisualElement _root;
         bool _uiWired;
 
@@ -25,6 +26,7 @@ namespace SwarmViewer
         Button _stepForwardFiveButton;
         VisualElement _trackContainer;
         VisualElement _trackFill;
+        VisualElement _trackScoreMarks;
         VisualElement _trackPlayhead;
         Label _trackTooltip;
         Label _timeLabel;
@@ -46,10 +48,13 @@ namespace SwarmViewer
         public void Bind(ViewerContext ctx)
         {
             UnhookClock();
+            UnhookScoring();
             _ctx = ctx;
             TryWireUi();
             HookClock();
+            HookScoring();
             RefreshNow();
+            _trackScoreMarks?.MarkDirtyRepaint();
         }
 
         void TryWireUi()
@@ -79,6 +84,7 @@ namespace SwarmViewer
             _stepForwardFiveButton = UiQuery.Named<Button>(_root, "stepForwardFiveButton");
             _trackContainer = UiQuery.Named<VisualElement>(_root, "trackContainer");
             _trackFill = UiQuery.Named<VisualElement>(_root, "trackFill");
+            _trackScoreMarks = UiQuery.Named<VisualElement>(_root, "trackScoreMarks");
             _trackPlayhead = UiQuery.Named<VisualElement>(_root, "trackPlayhead");
             _trackTooltip = UiQuery.Named<Label>(_root, "trackTooltip");
             _timeLabel = UiQuery.Named<Label>(_root, "timeLabel");
@@ -117,6 +123,13 @@ namespace SwarmViewer
             if (_speedButton != null)
                 _speedButton.clicked += () => _ctx?.Clock.CycleSpeedNext();
 
+            if (_trackScoreMarks != null)
+            {
+                _trackScoreMarks.generateVisualContent += PaintScoreMarks;
+                _trackScoreMarks.RegisterCallback<GeometryChangedEvent>(_ =>
+                    _trackScoreMarks.MarkDirtyRepaint());
+            }
+
             if (_trackContainer != null)
             {
                 _trackContainer.RegisterCallback<PointerDownEvent>(OnTrackPointerDown);
@@ -152,6 +165,48 @@ namespace SwarmViewer
             clock.OnTimeChanged -= UpdateTimeDisplay;
             clock.OnPlayStateChanged -= UpdatePlayPauseButton;
             clock.OnSpeedChanged -= UpdateSpeedDisplay;
+        }
+
+        void HookScoring()
+        {
+            _scoring = GetComponent<ScoringView>();
+            if (_scoring != null)
+                _scoring.MarksChanged += OnScoreMarksChanged;
+        }
+
+        void UnhookScoring()
+        {
+            if (_scoring != null)
+                _scoring.MarksChanged -= OnScoreMarksChanged;
+            _scoring = null;
+        }
+
+        void OnScoreMarksChanged() => _trackScoreMarks?.MarkDirtyRepaint();
+
+        void PaintScoreMarks(MeshGenerationContext ctx)
+        {
+            var ledger = _scoring != null ? _scoring.Marks : _ctx?.Run?.Meta?.scoring?.ledger;
+            if (ledger == null || ledger.Count == 0) return;
+            float duration = _ctx.Clock != null ? _ctx.Clock.Duration : 0f;
+            if (duration < 0.01f) return;
+
+            var rect = _trackScoreMarks.contentRect;
+            if (rect.width < 2f) return;
+
+            var painter = ctx.painter2D;
+            painter.lineWidth = 2f;
+            for (int i = 0; i < ledger.Count; i++)
+            {
+                var e = ledger[i];
+                if (e == null) continue;
+                if (_scoring != null && !_scoring.AllowsKind(e.kind)) continue;
+                float x = Mathf.Clamp01(e.t / duration) * rect.width;
+                painter.strokeColor = Palette.Opaque(Palette.ScoreKind(e.kind));
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(x, 3f));
+                painter.LineTo(new Vector2(x, 11f));
+                painter.Stroke();
+            }
         }
 
         void RefreshNow()
@@ -282,6 +337,7 @@ namespace SwarmViewer
         void OnDestroy()
         {
             UnhookClock();
+            UnhookScoring();
         }
     }
 }

@@ -1,4 +1,4 @@
-// Aircraft, Events, and Logs each get their own floating window. Open from the
+// Aircraft, Events, Score, Logs, and Cues each get their own floating window. Open from the
 // matching button in the scale bar. Aircraft list supports click / Ctrl-toggle /
 // Shift-range. The Called column is what the current observer declared; Color
 // paints the 3D view that way (B is the same toggle).
@@ -541,9 +541,7 @@ namespace SwarmViewer
 
             if (_cuesDetailShape != null)
             {
-                _cuesDetailShape.text = spec.Bit == CueMask.Ghosts
-                    ? $"Drawn as a sphere on {cues.GhostScope}."
-                    : CueLegend.DrawnAs(spec);
+                _cuesDetailShape.text = cues.DrawnAs(spec);
                 _cuesDetailShape.style.display = string.IsNullOrEmpty(_cuesDetailShape.text)
                     ? DisplayStyle.None
                     : DisplayStyle.Flex;
@@ -552,6 +550,8 @@ namespace SwarmViewer
             if (_cuesDetailKey != null)
             {
                 _cuesDetailKey.Clear();
+                if (CueOverlay.IsRadius(spec.Bit))
+                    AddSphereToggle(_cuesDetailKey, cues, spec.Bit);
                 if (spec.Bit == CueMask.Ghosts)
                     AddGhostsToggle(_cuesDetailKey, cues);
                 else if (spec.Bit == CueMask.Pings)
@@ -575,6 +575,21 @@ namespace SwarmViewer
                 else
                     _cuesDetailSource.text = spec.Source + $"\nThis run: {value}.";
             }
+        }
+
+        void AddSphereToggle(VisualElement parent, CueOverlay cues, CueMask bit)
+        {
+            var toggle = new Toggle("Sphere");
+            toggle.AddToClassList("cue-detail-toggle");
+            toggle.pickingMode = PickingMode.Position;
+            toggle.tooltip = "On: the hex volume at this radius. Off: a ring at the same radius. One or the other, never both.";
+            toggle.SetValueWithoutNotify(cues.SphereOn(bit));
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                cues.SetSphere(bit, evt.newValue);
+                RefreshCueDetail(cues);
+            });
+            parent.Add(toggle);
         }
 
         void AddGhostsToggle(VisualElement parent, CueOverlay cues)

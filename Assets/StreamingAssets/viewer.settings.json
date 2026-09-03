@@ -2,17 +2,19 @@
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/ablation",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\worst",
   "uiScale": 1.30000007,
-  "cueMask": 15875,
+  "cueMask": 11809,
   "panelRects": {
     "aircraftPanel": "-111,108,960,472",
-    "cuesPanel": "305,432,1045,282",
-    "inspectorPanel": "1056,58,909,596",
-    "eventsPanel": "1123,106,579,421",
+    "cuesPanel": "179,128,1045,282",
+    "inspectorPanel": "546,136,909,596",
+    "eventsPanel": "1173,261,579,421",
     "beliefsPanel": "864,227,555,522",
     "logsPanel": "17,0,680,359",
-    "disagreePanel": "1049,148,744,460"
+    "disagreePanel": "1049,148,744,460",
+    "scorePanel": "298,138,1057,441"
   },
   "legendCollapsed": true,
   "pickVolumesAll": false,
-  "pickVolumesOn": false
+  "pickVolumesOn": false,
+  "cueSphereMask": 3
 }

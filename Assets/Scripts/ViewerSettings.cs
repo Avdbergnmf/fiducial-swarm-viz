@@ -29,6 +29,11 @@ namespace SwarmViewer
         public bool pickVolumesAll;
         /// <summary>Legacy scale-bar master switch. Migrated into cueMask + pickVolumesAll, then cleared.</summary>
         public bool pickVolumesOn;
+        /// <summary>
+        /// Radius cues that also draw a sphere. Null means the default (Kill only,
+        /// matching the old always-on kill mesh). 0 is a real choice: rings only.
+        /// </summary>
+        public int? cueSphereMask;
 
         public const float UiScaleMin = 0.8f;
         public const float UiScaleMax = 2.0f;

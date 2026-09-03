@@ -98,6 +98,14 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     border-bottom-right-radius: 0;
 }
 
+.track-score-marks {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
 .track-playhead {
     position: absolute;
     left: 0%;

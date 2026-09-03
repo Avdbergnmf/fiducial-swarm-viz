@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using Newtonsoft.Json.Linq;
 
 namespace SwarmViewer
 {
@@ -104,6 +105,55 @@ namespace SwarmViewer
         public List<TelemetrySample> telemetry = new();
 
         public SimReport report;
+        public ScoringBlock scoring;
+    }
+
+    /// <summary>
+    /// Per-event mission ledger from the sidecar (build_scoring). The running
+    /// series is cumulative mission; ledger kinds are intercept, breach,
+    /// civilian_lost, friendly_lost. Missing on older meta files.
+    /// </summary>
+    public class ScoringBlock
+    {
+        public string formula;
+        public Dictionary<string, float> weights;
+        public ScoringTotals totals;
+        public ScoringBucket attributable;
+        public ScoringBucket unattributable;
+        public List<ScoreLedgerEntry> ledger = new();
+        public List<ScoreRunningPoint> running = new();
+    }
+
+    public class ScoringTotals
+    {
+        public float mission;
+        public float ledger_sum;
+        public float? awareness, comms, total;
+        public bool verified;
+    }
+
+    public class ScoringBucket
+    {
+        public int count;
+        public float points;
+    }
+
+    public class ScoreLedgerEntry
+    {
+        public float t;
+        public int frame;
+        public string kind;
+        public float points;
+        public bool attributable = true;
+        public string text;
+        public JObject detail;
+        public int[] slots;
+    }
+
+    public class ScoreRunningPoint
+    {
+        public float t;
+        public float mission;
     }
 
     /// <summary>

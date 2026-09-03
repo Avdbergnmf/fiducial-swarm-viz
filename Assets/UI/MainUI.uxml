@@ -15,6 +15,7 @@
         <ui:VisualElement picking-mode="Ignore" class="ui-scale-sep" />
         <ui:Button name="aircraftOpenBtn" text="Aircraft" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="sceneStateOpenBtn" text="Events" picking-mode="Position" class="ui-scene-btn" />
+        <ui:Button name="scoreOpenBtn" text="Score" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="logsOpenBtn" text="Logs" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="disagreeOpenBtn" text="Disagree" picking-mode="Position" class="ui-scene-btn" />
         <ui:Button name="cuesOpenBtn" text="Cues" picking-mode="Position" class="ui-scene-btn" />

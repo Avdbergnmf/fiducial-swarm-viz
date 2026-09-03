@@ -131,5 +131,38 @@
             <ui:ScrollView name="disagreeDetailScroll" class="disagree-detail-scroll" />
         </ui:VisualElement>
 
+        <ui:VisualElement name="scorePanel" picking-mode="Position" class="scene-state-panel scene-state-panel--score">
+            <ui:VisualElement name="scoreHeaderBar" class="scene-state-header">
+                <ui:VisualElement name="scoreDragHandle" class="scene-state-drag">
+                    <ui:Label text="Score" picking-mode="Ignore" class="scene-state-title" />
+                </ui:VisualElement>
+                <ui:Button name="scoreTableBtn" text="Table" picking-mode="Position" class="scene-state-header-btn scene-state-toggle--open" tooltip="Sortable ledger. Click a row to jump one frame before." />
+                <ui:Button name="scoreGraphBtn" text="Graph" picking-mode="Position" class="scene-state-header-btn" tooltip="Running mission total. Click a dot to jump to that event." />
+                <ui:Button name="scoreCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">
+                <ui:Label name="scoreHeader" text="Score" picking-mode="Ignore" class="scene-state-section-title" />
+                <ui:Label name="scoreMix" text="" picking-mode="Ignore" class="scene-state-section-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement class="scene-state-filters" picking-mode="Ignore">
+                <ui:TextField name="scoreFilter" placeholder-text="Filter…  chips also mark the timeline" class="scene-state-filter" />
+                <ui:VisualElement name="scoreKindChips" class="filter-chips" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="scoreCols" class="scene-state-cols">
+                <ui:Button name="scoreColTime" text="Time" class="scene-state-col scene-state-col-time" />
+                <ui:Button name="scoreColKind" text="Kind" class="scene-state-col scene-state-col-score-kind" />
+                <ui:Button name="scoreColPts" text="Pts" class="scene-state-col scene-state-col-pts" />
+                <ui:Button name="scoreColText" text="Text" class="scene-state-col scene-state-col-text" />
+            </ui:VisualElement>
+            <ui:ScrollView name="scoreScroll" class="scene-state-table-scroll" />
+            <ui:VisualElement name="scoreGraphWrap" class="score-graph-wrap">
+                <ui:VisualElement name="scoreGraphHost" class="score-graph-host" picking-mode="Position" />
+                <ui:VisualElement name="scoreGraphDetail" class="score-graph-detail" picking-mode="Ignore">
+                    <ui:Label name="scoreDetailTitle" text="Click a row or a dot" picking-mode="Ignore" class="scene-state-section-title" />
+                    <ui:Label name="scoreDetailBody" text="" picking-mode="Ignore" class="score-graph-detail-body" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
     </ui:VisualElement>
 </ui:UXML>

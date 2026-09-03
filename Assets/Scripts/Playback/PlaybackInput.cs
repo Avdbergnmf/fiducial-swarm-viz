@@ -26,6 +26,8 @@ namespace SwarmViewer
             TryWire();
             GetComponent<LegendView>()?.Bind(_ctx);
             GetComponent<DisagreeView>()?.Bind(_ctx);
+            GetComponent<ScoringView>()?.Bind(_ctx);
+            GetComponent<TimelineView>()?.Bind(_ctx);
             RefreshSelButtons();
         }
 
@@ -57,6 +59,8 @@ namespace SwarmViewer
                 gameObject.AddComponent<LegendView>();
             if (GetComponent<DisagreeView>() == null)
                 gameObject.AddComponent<DisagreeView>();
+            if (GetComponent<ScoringView>() == null)
+                gameObject.AddComponent<ScoringView>();
 
             if (!_wired)
             {

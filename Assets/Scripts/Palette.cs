@@ -89,6 +89,19 @@ namespace SwarmViewer
             _ => Color.white,
         };
 
+        /// <summary>Score-ledger kinds. Same hues as the matching craft / cue.</summary>
+        public static Color ScoreKind(string kind) => kind switch
+        {
+            "intercept" => Links,
+            "breach" => Hostile,
+            "civilian_lost" => Civilian,
+            "friendly_lost" => Friendly,
+            "awareness" => Sense,
+            "comms" => Comm,
+            "detection" => Compromised,
+            _ => Unknown,
+        };
+
         /// <summary>Body colour in the current view. Compromised wins in ground truth.</summary>
         public static Color Body(ViewMode mode, EntityKind kind, BeliefClass declared, bool compromised, bool isObserver)
         {

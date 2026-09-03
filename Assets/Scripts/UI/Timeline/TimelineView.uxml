@@ -7,6 +7,7 @@
         <ui:VisualElement name="trackContainer" class="track-container">
             <ui:VisualElement name="trackBackground" class="track-background" picking-mode="Ignore" />
             <ui:VisualElement name="trackFill" class="track-fill" picking-mode="Ignore" />
+            <ui:VisualElement name="trackScoreMarks" class="track-score-marks" picking-mode="Ignore" />
             <ui:VisualElement name="trackPlayhead" class="track-playhead" picking-mode="Ignore" />
             <ui:Label name="trackTooltip" text="0.0 s" class="track-tooltip" picking-mode="Ignore" />
         </ui:VisualElement>
