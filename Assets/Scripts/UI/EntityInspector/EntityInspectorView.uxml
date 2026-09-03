@@ -52,7 +52,13 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
                         </ui:ScrollView>
                     </ui:VisualElement>
 
-                    <ui:VisualElement name="inspectorVisualSlot" class="inspector-visual-slot" picking-mode="Position" />
+                    <ui:VisualElement name="inspectorVisualColumn" class="inspector-visual-column" picking-mode="Ignore">
+                        <ui:VisualElement name="inspectorStateBanner" class="inspector-state-banner" picking-mode="Position">
+                            <ui:Label name="inspectorState" text="—" picking-mode="Ignore" class="inspector-state-name" />
+                            <ui:Label name="inspectorStateHint" text="" picking-mode="Ignore" class="inspector-state-hint" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="inspectorVisualSlot" class="inspector-visual-slot" picking-mode="Position" />
+                    </ui:VisualElement>
 
                     <ui:VisualElement class="inspector-column inspector-column--identity" picking-mode="Ignore">
                         <ui:Label text="Identity" picking-mode="Ignore" class="inspector-section-title" />
@@ -163,7 +169,7 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
                     <ui:Label text="Stance" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
                     <ui:Label text="what it is doing with itself" picking-mode="Ignore" class="inspector-section-hint" />
                 </ui:VisualElement>
-                <ui:Label name="beliefsIntent" text="—" picking-mode="Ignore" class="inspector-value inspector-value--wrap inspector-intent" />
+                <ui:Label name="beliefsIntent" text="—" picking-mode="Position" class="inspector-value inspector-value--wrap inspector-intent inspector-state" tooltip="What this drone is doing with itself. Hover for the full meaning of the mode. Click to jump to the log line that entered it." />
 
                 <ui:VisualElement class="inspector-section" picking-mode="Ignore">
                     <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">

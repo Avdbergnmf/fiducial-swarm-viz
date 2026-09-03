@@ -57,32 +57,95 @@ namespace SwarmViewer
             TryNumber(s, key, out float v) ? (int)v : -1;
 
         /// <summary>
-        /// Reconstruct Policy::Stance at time t from the sparse transition logs.
-        /// Forming / Picketing / Committed. near and ram are proximity, not stance.
+        /// Reconstruct flight mode at time t. Prefers the `state` verb (D46);
+        /// older traces fall back to commit / abort / picket (D6).
+        /// Full English: what the drone is doing, not the token.
         /// </summary>
         public static string StanceAt(IReadOnlyList<LogLine> logs, float t)
         {
-            string last = null;
-            if (logs != null)
+            var line = StanceLineAt(logs, t);
+            string token = ModeTokenAt(logs, t);
+            string body = ModeExplain(token);
+            if (line == null || Verb(line.text) != "state") return body;
+            return Join(body, StateFlags(line.text));
+        }
+
+        /// <summary>The log line that named the current mode, or null while Forming on old traces.</summary>
+        public static LogLine StanceLineAt(IReadOnlyList<LogLine> logs, float t)
+        {
+            LogLine lastState = null;
+            LogLine lastLegacy = null;
+            if (logs == null) return null;
+            for (int i = 0; i < logs.Count; i++)
             {
-                for (int i = 0; i < logs.Count; i++)
-                {
-                    if (logs[i].t > t + 0.001f) break;
-                    string v = Verb(logs[i].text);
-                    if (v == "commit" || v == "abort" || v == "picket")
-                        last = logs[i].text;
-                }
+                if (logs[i].t > t + 0.001f) break;
+                string v = Verb(logs[i].text);
+                if (v == "state") lastState = logs[i];
+                else if (v == "commit" || v == "abort" || v == "picket")
+                    lastLegacy = logs[i];
             }
+            return lastState ?? lastLegacy;
+        }
 
-            if (last == null)
-                return "Flying to its ring slot. Every drone starts Forming; it logs picket once it is within 8 m of the slot.";
+        /// <summary>Short mode name for the inspector banner: Forming, Ramming, …</summary>
+        public static string StanceTitle(IReadOnlyList<LogLine> logs, float t) =>
+            ModeTitle(ModeTokenAt(logs, t));
 
-            return Verb(last) switch
+        /// <summary>One-line caption under the banner title.</summary>
+        public static string StanceHeadline(IReadOnlyList<LogLine> logs, float t) =>
+            Headline(ModeTokenAt(logs, t));
+
+        /// <summary>Hover copy: what this mode means, plus click-to-jump.</summary>
+        public static string StanceTooltip(IReadOnlyList<LogLine> logs, float t)
+        {
+            return StanceAt(logs, t) +
+                "\n\nClick to jump to the log line that entered this mode.";
+        }
+
+        /// <summary>What the named mode is, in English. Used by the banner hover and Beliefs.</summary>
+        public static string ModeExplain(string token) => token switch
+        {
+            "forming" =>
+                "Forming: this drone just spawned (or is still en route) and is flying out to its assigned slot on the picket ring. It is not intercepting anyone. It logs picket once it is within 8 m of the slot.",
+            "picket" =>
+                "Picketing: on station. Holding its place on the ring around the asset, facing outward, watching its sector. It has not spent itself.",
+            "watch" =>
+                "Watching: still sitting on the ring, but turned toward an inbound it owns. It is classifying that inbound. It does not leave the slot until 0.1 s of path-through-the-asset-cylinder (scramble) or a Hostile call (ram).",
+            "stalk" =>
+                "Stalking: eased a little off the slot toward a compact inbound that is not yet called Hostile. Cap is 40 m from the slot, so it can still reverse home if the Hostile latch never comes.",
+            "scramble" =>
+                "Scrambling: left the ring on an early intercept before the Hostile latch. Same flight as a ram (arena springs off), but it will abort if the inbound is a civilian or a friend, if the path no longer hits the asset, or if a collision with it is now impossible.",
+            "ram" =>
+                "Ramming: spent itself. Flying to collide with a Hostile. Arena springs are off so the box cannot steer it off the shot. If closest approach is already past, or leftover miss is more than ½ a t² can close, it aborts (uncatchable) and the springs come back on station.",
+            _ => "Flight mode.",
+        };
+
+        static string Headline(string token) => token switch
+        {
+            "forming" => "Flying to its ring slot after spawn. Not chasing anyone.",
+            "picket" => "On station, facing outward, watching its sector.",
+            "watch" => "On the ring, turned toward an inbound it owns, still classifying it.",
+            "stalk" => "Easing off the slot (at most 40 m) toward a compact inbound. Can reverse home.",
+            "scramble" => "Left the ring early, before a Hostile call. Will abort if this is not a threat, or if a hit is impossible.",
+            "ram" => "Spent. Flying to collide with a Hostile. Arena springs off.",
+            _ => "Flight mode.",
+        };
+
+        static string ModeTokenAt(IReadOnlyList<LogLine> logs, float t)
+        {
+            var line = StanceLineAt(logs, t);
+            if (line == null) return "forming";
+            if (Verb(line.text) == "state")
             {
-                "picket" => "On station: holding its ring slot and watching. It has not spent itself on an intercept.",
-                "commit" => "Intercept — " + Humanize(last),
-                "abort" => "Back on the ring. " + Humanize(last) + ".",
-                _ => Humanize(last),
+                string tok = SecondToken(line.text);
+                return string.IsNullOrEmpty(tok) ? "forming" : tok;
+            }
+            return Verb(line.text) switch
+            {
+                "picket" => "picket",
+                "commit" => "ram",
+                "abort" => "picket",
+                _ => "forming",
             };
         }
 
@@ -101,6 +164,7 @@ namespace SwarmViewer
                     case "near":
                     case "ram": return Proximity(raw);
                     case "picket": return "In position on the picket ring.";
+                    case "state": return State(raw);
                     case "gone": return Gone(raw);
                     case "live": return Live(raw);
                     case "yield": return Yield(raw);
@@ -152,7 +216,8 @@ namespace SwarmViewer
                 "now    class at abort (lost has no track)\n" +
                 "Reasons: lost (vanished), timeout (12 s budget), not-hostile (class flipped),\n" +
                 "not-closing (stern chase after 6 s), duplicate (another friendly already closer),\n" +
-                "not-threat (early chase: cylinder LOS gone, or a level overflight that never dived).",
+                "not-threat (early chase: cylinder LOS gone, or a level overflight that never dived),\n" +
+                "uncatchable (leftover miss is more than ½ a t² can close, or closest approach is already past).",
             "near" or "ram" =>
                 "rng    range from us to it\n" +
                 "close  closing speed between us and it\n" +
@@ -178,6 +243,12 @@ namespace SwarmViewer
                 "range_sigma    1-sigma of measured range to the transmitter, m.\n" +
                 "               Physical; a compromised drone cannot lie about range.\n" +
                 "bearing_sigma  1-sigma of the measured bearing, rad (world NED).",
+            "state" =>
+                "The flight mode this drone entered. Forming = flying to its ring slot. Picketing = on station, facing out. Watching = on the ring, turned at an inbound it owns. Stalking = eased ≤40 m off the slot toward a compact inbound (can reverse). Scrambling = left the ring early, before a Hostile call (will abort if not a threat, or if a hit is impossible). Ramming = spent, flying to collide; arena springs off until it aborts.\n" +
+                "from     previous mode\n" +
+                "trk      the track it is facing, stalking, or ramming\n" +
+                "leashed  1 = still inside the 40 m stalk cap; 0 = turning back to station\n" +
+                "Logged on change only (D3 / D46). Click the inspector banner above the drone to jump here.",
             _ => "",
         };
 
@@ -263,6 +334,7 @@ namespace SwarmViewer
                     ? "it no longer reads as hostile, so spending the airframe would hit a civilian or a mate"
                     : $"it now reads as {ClassWord(now)}, so spending the airframe would be the wrong kill",
                 "not-closing" => "the range stopped shrinking after 6 s — a stern chase against the same 6.7 m/s² bound does not converge",
+                "uncatchable" => "a collision is now impossible: closest approach is already past, or leftover miss is more than ½ max-accel t² can close. Staying in ram would only fly through the miss with the arena springs off",
                 "duplicate" => "another friendly is already closer and flying at it. One drone per hostile: a second is traffic that spoils ProNav",
                 "not-threat" => "early chase dropped: the ground track no longer crosses the cylinder, or it never dived and reads as a civilian overflight",
                 "" => "",
@@ -353,6 +425,50 @@ namespace SwarmViewer
         static string Radio(string raw) => Join("Incoming radio measurement noise",
             Field(raw, "range_sigma=", "range σ", "m"),
             Field(raw, "bearing_sigma=", "bearing σ", "rad"));
+
+        // "state ram from=watch trk=12"
+        static string State(string raw)
+        {
+            string token = SecondToken(raw);
+            string mode = ModeTitle(token);
+            string from = Word(raw, "from=");
+            int trk = Int(raw, "trk=");
+            string head = string.IsNullOrEmpty(from)
+                ? mode
+                : $"{mode} (was {ModeTitle(from)})";
+            string track = trk > 0 ? $"track {trk}" : "";
+            return Join(head, Headline(token), track, StateFlags(raw));
+        }
+
+        static string StateFlags(string raw)
+        {
+            int leashed = Int(raw, "leashed=");
+            if (leashed == 1) return "leashed to the slot (≤40 m)";
+            if (leashed == 0 && SecondToken(raw) == "stalk")
+                return "outside the 40 m stalk cap — turning back";
+            return "";
+        }
+
+        static string ModeTitle(string token) => token switch
+        {
+            "forming" => "Forming",
+            "picket" => "Picketing",
+            "watch" => "Watching",
+            "stalk" => "Stalking",
+            "scramble" => "Scrambling",
+            "ram" => "Ramming",
+            _ => string.IsNullOrEmpty(token) ? "Forming" : token,
+        };
+
+        static string SecondToken(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "";
+            int sp = raw.IndexOf(' ');
+            if (sp < 0) return "";
+            int start = sp + 1;
+            int end = raw.IndexOf(' ', start);
+            return end < 0 ? raw.Substring(start) : raw.Substring(start, end - start);
+        }
 
         // "drone %u/%u up, lateral limit %.2f m/s^2, kill r %.1f, tier %u"
         static string Boot(string raw)

@@ -34,6 +34,9 @@ namespace SwarmViewer
         Label _altitude;
         Label _position;
         Label _heading;
+        Label _state;
+        Label _stateHint;
+        VisualElement _stateBanner;
         Label _kind;
         Label _slot;
         Label _trace;
@@ -92,7 +95,8 @@ namespace SwarmViewer
             public int Slot;
             public VisualElement Panel;
             public VisualElement KindDot;
-            public Label Title, Subtitle, Status, Speed, Accel, Altitude, Position, Heading;
+            public Label Title, Subtitle, Status, Speed, Accel, Altitude, Position, Heading, State, StateHint;
+            public VisualElement StateBanner;
             public Label Kind, SlotLbl, Trace, Drone, Lifetime, KillRadius, Sense, Comm, Sep, Fix;
             public Label RangeSigma, BearingSigma, Compromised;
             public VisualElement CompromisedRow, LogSection, LogContent, EventsContent;
@@ -215,6 +219,9 @@ namespace SwarmViewer
             _altitude = c.Altitude;
             _position = c.Position;
             _heading = c.Heading;
+            _state = c.State;
+            _stateHint = c.StateHint;
+            _stateBanner = c.StateBanner;
             _kind = c.Kind;
             _slot = c.SlotLbl;
             _trace = c.Trace;
@@ -324,6 +331,19 @@ namespace SwarmViewer
             c.Altitude = UiQuery.Named<Label>(panel, "inspectorAltitude");
             c.Position = UiQuery.Named<Label>(panel, "inspectorPosition");
             c.Heading = UiQuery.Named<Label>(panel, "inspectorHeading");
+            c.State = UiQuery.Named<Label>(panel, "inspectorState");
+            c.StateHint = UiQuery.Named<Label>(panel, "inspectorStateHint");
+            c.StateBanner = panel.Q("inspectorStateBanner");
+            var stateClick = c.StateBanner ?? (VisualElement)c.State;
+            if (stateClick != null)
+            {
+                int stateSlot = slot;
+                stateClick.RegisterCallback<ClickEvent>(evt =>
+                {
+                    JumpToStateLog(stateSlot);
+                    evt.StopPropagation();
+                });
+            }
             c.Kind = UiQuery.Named<Label>(panel, "inspectorKind");
             c.SlotLbl = UiQuery.Named<Label>(panel, "inspectorSlot");
             c.Trace = UiQuery.Named<Label>(panel, "inspectorTrace");
@@ -449,6 +469,8 @@ namespace SwarmViewer
                 _beliefsVizBtn.clicked += TogglePinnedViz;
             if (_beliefsSelectBtn != null)
                 _beliefsSelectBtn.clicked += SelectPinnedDrone;
+            if (_beliefsIntent != null)
+                _beliefsIntent.RegisterCallback<ClickEvent>(_ => JumpToStateLog(_beliefsSlot));
         }
 
         void Hook()
@@ -664,6 +686,8 @@ namespace SwarmViewer
                 _status.EnableInClassList("inspector-value--gone", !snap.Alive);
             }
 
+            RefreshStateBanner(info);
+
             bool hasPose = snap.Alive || snap.Position.sqrMagnitude > 0.01f;
             if (!hasPose)
             {
@@ -722,6 +746,48 @@ namespace SwarmViewer
                 : Vector3.zero;
             _headingViz?.Set(snap.Rotation, body, snap.Alive, hasAsset,
                              snap.Position, assetPos);
+        }
+
+        void RefreshStateBanner(EntityInfo info)
+        {
+            if (_state == null && _stateBanner == null) return;
+            if (!info.IsFriendly)
+            {
+                if (_state != null)
+                {
+                    _state.text = "—";
+                    _state.tooltip = "Only fleet drones log a flight mode.";
+                }
+                if (_stateHint != null) _stateHint.text = "";
+                if (_stateBanner != null)
+                {
+                    _stateBanner.tooltip = "Only fleet drones log a flight mode.";
+                    _stateBanner.style.display = DisplayStyle.None;
+                }
+                return;
+            }
+
+            float t = _ctx.Clock.Time;
+            var line = LogPhrase.StanceLineAt(_logs, t);
+            string tooltip = LogPhrase.StanceTooltip(_logs, t);
+            Color modeColor = Palette.Opaque(Palette.Log("state", line?.text));
+            if (_stateBanner != null) _stateBanner.style.display = DisplayStyle.Flex;
+            if (_state != null)
+            {
+                _state.text = LogPhrase.StanceTitle(_logs, t);
+                _state.tooltip = tooltip;
+                _state.style.color = modeColor;
+            }
+            if (_stateHint != null)
+            {
+                _stateHint.text = LogPhrase.StanceHeadline(_logs, t);
+                _stateHint.tooltip = tooltip;
+            }
+            if (_stateBanner != null)
+            {
+                _stateBanner.tooltip = tooltip;
+                _stateBanner.style.borderLeftColor = modeColor;
+            }
         }
 
         static void SetDash(Label label)
@@ -812,6 +878,28 @@ namespace SwarmViewer
             if (rec.otherSlots == null) return;
             for (int i = 0; i < rec.otherSlots.Length; i++)
                 sel.Add(rec.otherSlots[i]);
+        }
+
+        void JumpToStateLog(int slot)
+        {
+            if (_ctx?.Run == null || _ctx.Clock == null || slot < 0) return;
+            var info = _ctx.Run.Info(slot);
+            var logs = info.drone_id >= 0 ? _ctx.Run.LogsForDrone(info.drone_id) : null;
+            var line = LogPhrase.StanceLineAt(logs, _ctx.Clock.Time);
+            if (line == null) return;
+
+            _ctx.Clock.SeekBefore(line.t, eventLeadIn);
+            var card = FindCard(slot);
+            if (card == null)
+            {
+                OpenSlot(slot);
+                card = FindCard(slot);
+            }
+            if (card == null) return;
+            Activate(card);
+            card.LogCollapsed = false;
+            ApplyFoldState(card);
+            card.Logs?.Reveal(line);
         }
 
         void UpdateEventHighlights()
@@ -1003,7 +1091,12 @@ namespace SwarmViewer
             var info = _ctx.Run.Info(_beliefsSlot);
 
             if (_beliefsIntent != null)
+            {
                 _beliefsIntent.text = LogPhrase.StanceAt(_beliefsLogs, t);
+                _beliefsIntent.tooltip = LogPhrase.StanceTooltip(_beliefsLogs, t);
+                var line = LogPhrase.StanceLineAt(_beliefsLogs, t);
+                _beliefsIntent.style.color = Palette.Opaque(Palette.Log("state", line?.text));
+            }
 
             bool compromised = _ctx.State != null && _ctx.State.IsCompromisedNow(_beliefsSlot);
             if (_beliefsCallsHint != null)

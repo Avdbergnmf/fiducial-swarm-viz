@@ -228,9 +228,23 @@ namespace SwarmViewer
                 "gone" => Ping(RelationKind.Gone),
                 "live" => Ping(RelationKind.Live),
                 "picket" => Picket,
+                "state" => StateColor(raw),
                 "params" => Unknown,
                 _ => Unknown,
             };
+        }
+
+        static Color StateColor(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return Picket;
+            if (raw.StartsWith("state ram", System.StringComparison.Ordinal))
+                return Ping(RelationKind.Ram);
+            if (raw.StartsWith("state scramble", System.StringComparison.Ordinal))
+                return Yield;
+            if (raw.StartsWith("state stalk", System.StringComparison.Ordinal) ||
+                raw.StartsWith("state watch", System.StringComparison.Ordinal))
+                return Ping(RelationKind.Near);
+            return Picket;
         }
 
         /// <summary>Score-ledger kinds. Same hues as the matching craft / cue.</summary>
