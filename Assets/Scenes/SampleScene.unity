@@ -979,7 +979,7 @@ MonoBehaviour:
   entityPrefab: {fileID: 6425260717984280029, guid: 52f5656ab2aaa7e4fa0666f222b6ec77, type: 3}
   container: {fileID: 1212397412}
   scale: 1
-  pickColliderRadius: 5
+  pickColliderRadius: 3
   trailWidth: 0.2
   trailTime: 4
   selectedOutlineMaterial: {fileID: 2100000, guid: 46586a69ce3092744a2716e295381c89, type: 2}

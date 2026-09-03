@@ -58,7 +58,7 @@ namespace SwarmViewer
         void LateUpdate()
         {
             int n = 0;
-            var rends = FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var rends = FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude);
             for (int i = 0; i < rends.Length && n < Max; i++)
             {
                 var rend = rends[i];

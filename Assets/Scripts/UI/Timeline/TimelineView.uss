@@ -27,6 +27,7 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     padding-right: 14px;
     padding-top: 10px;
     padding-bottom: 10px;
+    overflow: visible;
 }
 
 .timeline-button {
@@ -149,4 +150,83 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 .speed-button {
     min-width: 44px;
     margin-right: 0;
+}
+
+.timeline-flyout-host {
+    position: relative;
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 6px;
+    overflow: visible;
+}
+
+#speedHost {
+    margin-right: 0;
+}
+
+.timeline-step-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.timeline-step-row .timeline-button {
+    margin-right: 6px;
+}
+
+.timeline-step-end {
+    margin-right: 0;
+}
+
+.timeline-flyout {
+    position: absolute;
+    bottom: 100%;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 8px;
+    margin-bottom: 0;
+    background-color: rgba(18, 20, 24, 0.96);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.16);
+    border-right-color: rgba(255, 255, 255, 0.16);
+    border-top-color: rgba(255, 255, 255, 0.16);
+    border-bottom-color: rgba(255, 255, 255, 0.16);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    display: none;
+}
+
+.timeline-flyout--start {
+    left: 0;
+}
+
+.timeline-flyout--end {
+    right: 0;
+}
+
+.timeline-flyout-btn {
+    min-width: 42px;
+    margin-right: 4px;
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.timeline-flyout-btn--end {
+    margin-right: 0;
+}
+
+.timeline-flyout-btn.timeline-flyout-btn--on {
+    background-color: rgba(65, 140, 245, 0.55);
+    border-left-color: rgba(65, 140, 245, 0.9);
+    border-right-color: rgba(65, 140, 245, 0.9);
+    border-top-color: rgba(65, 140, 245, 0.9);
+    border-bottom-color: rgba(65, 140, 245, 0.9);
 }

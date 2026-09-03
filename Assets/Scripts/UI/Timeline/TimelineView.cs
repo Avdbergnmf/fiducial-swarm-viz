@@ -7,6 +7,8 @@
 //   fighting Tick(). Overlay wrappers are picking-mode Ignore; this track is not,
 //   so clicks here do not fall through to entity picking.
 
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -24,6 +26,10 @@ namespace SwarmViewer
         Button _playPauseButton;
         Button _stepBackFiveButton;
         Button _stepForwardFiveButton;
+        VisualElement _stepHost;
+        VisualElement _stepFlyout;
+        VisualElement _speedHost;
+        VisualElement _speedFlyout;
         VisualElement _trackContainer;
         VisualElement _trackFill;
         VisualElement _trackScoreMarks;
@@ -31,6 +37,10 @@ namespace SwarmViewer
         Label _trackTooltip;
         Label _timeLabel;
         Button _speedButton;
+        readonly List<Button> _speedChoices = new();
+        readonly List<Button> _stepChoices = new();
+        int _speedHideGen;
+        int _stepHideGen;
 
         bool _isScrubbing;
         bool _wasPlayingBeforeScrub;
@@ -80,6 +90,8 @@ namespace SwarmViewer
             // Get all the elements by name
             _root = root;
             _playPauseButton = UiQuery.Named<Button>(_root, "playPauseButton");
+            _stepHost = UiQuery.Named<VisualElement>(_root, "stepHost");
+            _stepFlyout = UiQuery.Named<VisualElement>(_root, "stepFlyout");
             _stepBackFiveButton = UiQuery.Named<Button>(_root, "stepBackFiveButton");
             _stepForwardFiveButton = UiQuery.Named<Button>(_root, "stepForwardFiveButton");
             _trackContainer = UiQuery.Named<VisualElement>(_root, "trackContainer");
@@ -88,10 +100,16 @@ namespace SwarmViewer
             _trackPlayhead = UiQuery.Named<VisualElement>(_root, "trackPlayhead");
             _trackTooltip = UiQuery.Named<Label>(_root, "trackTooltip");
             _timeLabel = UiQuery.Named<Label>(_root, "timeLabel");
+            _speedHost = UiQuery.Named<VisualElement>(_root, "speedHost");
+            _speedFlyout = UiQuery.Named<VisualElement>(_root, "speedFlyout");
             _speedButton = UiQuery.Named<Button>(_root, "speedButton");
 
+            BuildSpeedFlyout();
+            BuildStepFlyout();
             RegisterCallbacks();
             _uiWired = true;
+            if (_ctx?.Clock != null)
+                RefreshNow();
         }
 
         void RegisterCallbacks()
@@ -115,13 +133,13 @@ namespace SwarmViewer
             }
 
             if (_stepBackFiveButton != null)
-                _stepBackFiveButton.clicked += () => _ctx?.Clock.StepSeconds(-5f);
+                _stepBackFiveButton.clicked += () => _ctx?.Clock.StepBack();
 
             if (_stepForwardFiveButton != null)
-                _stepForwardFiveButton.clicked += () => _ctx?.Clock.StepSeconds(5f);
+                _stepForwardFiveButton.clicked += () => _ctx?.Clock.StepForward();
 
-            if (_speedButton != null)
-                _speedButton.clicked += () => _ctx?.Clock.CycleSpeedNext();
+            ArmSpeedFlyout();
+            ArmStepFlyout();
 
             if (_trackScoreMarks != null)
             {
@@ -156,6 +174,7 @@ namespace SwarmViewer
             clock.OnTimeChanged += UpdateTimeDisplay;
             clock.OnPlayStateChanged += UpdatePlayPauseButton;
             clock.OnSpeedChanged += UpdateSpeedDisplay;
+            clock.OnStepChanged += UpdateStepDisplay;
         }
 
         void UnhookClock()
@@ -165,6 +184,7 @@ namespace SwarmViewer
             clock.OnTimeChanged -= UpdateTimeDisplay;
             clock.OnPlayStateChanged -= UpdatePlayPauseButton;
             clock.OnSpeedChanged -= UpdateSpeedDisplay;
+            clock.OnStepChanged -= UpdateStepDisplay;
         }
 
         void HookScoring()
@@ -216,6 +236,7 @@ namespace SwarmViewer
             UpdateTimeDisplay(clock.Time);
             UpdatePlayPauseButton(clock.IsPlaying);
             UpdateSpeedDisplay(clock.Speed);
+            UpdateStepDisplay(clock.StepSecondsAmount);
         }
 
         [ContextMenu("Dump UI Element Tree")]
@@ -331,7 +352,99 @@ namespace SwarmViewer
         void UpdateSpeedDisplay(float speed)
         {
             if (_speedButton != null)
-                _speedButton.text = $"{speed}x";
+                _speedButton.text = PlaybackClock.FormatSpeed(speed);
+            MarkChoices(_speedChoices, speed, PlaybackClock.SpeedSteps);
+        }
+
+        void UpdateStepDisplay(float seconds)
+        {
+            string label = PlaybackClock.FormatStep(seconds);
+            if (_stepBackFiveButton != null)
+                _stepBackFiveButton.text = "-" + label;
+            if (_stepForwardFiveButton != null)
+                _stepForwardFiveButton.text = "+" + label;
+            MarkChoices(_stepChoices, seconds, PlaybackClock.StepSteps);
+        }
+
+        void BuildSpeedFlyout()
+        {
+            FillFlyout(_speedFlyout, _speedChoices, PlaybackClock.SpeedSteps, PlaybackClock.FormatSpeed, v =>
+            {
+                if (_ctx?.Clock != null) _ctx.Clock.Speed = v;
+            });
+        }
+
+        void BuildStepFlyout()
+        {
+            FillFlyout(_stepFlyout, _stepChoices, PlaybackClock.StepSteps, PlaybackClock.FormatStep, v =>
+            {
+                _ctx?.Clock?.SetStepSeconds(v);
+            });
+        }
+
+        static void FillFlyout(VisualElement flyout, List<Button> store, float[] values,
+            Func<float, string> label, Action<float> pick)
+        {
+            store.Clear();
+            if (flyout == null) return;
+            flyout.Clear();
+            flyout.style.display = DisplayStyle.None;
+            for (int i = 0; i < values.Length; i++)
+            {
+                float value = values[i];
+                var btn = new Button(() => pick(value)) { text = label(value) };
+                btn.AddToClassList("timeline-button");
+                btn.AddToClassList("timeline-flyout-btn");
+                if (i == values.Length - 1)
+                    btn.AddToClassList("timeline-flyout-btn--end");
+                flyout.Add(btn);
+                store.Add(btn);
+            }
+        }
+
+        static void MarkChoices(List<Button> buttons, float current, float[] values)
+        {
+            for (int i = 0; i < buttons.Count && i < values.Length; i++)
+                buttons[i].EnableInClassList("timeline-flyout-btn--on",
+                    Mathf.Abs(values[i] - current) < 0.01f);
+        }
+
+        void ArmSpeedFlyout()
+        {
+            if (_speedHost == null || _speedFlyout == null) return;
+            _speedHost.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                _speedHideGen++;
+                _speedFlyout.style.display = DisplayStyle.Flex;
+            }, TrickleDown.TrickleDown);
+            _speedHost.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                int gen = ++_speedHideGen;
+                _speedFlyout.schedule.Execute(() =>
+                {
+                    if (gen == _speedHideGen)
+                        _speedFlyout.style.display = DisplayStyle.None;
+                }).StartingIn(160);
+            });
+        }
+
+        void ArmStepFlyout()
+        {
+            if (_stepHost == null || _stepFlyout == null) return;
+            _stepHost.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                _stepHideGen++;
+                _stepFlyout.style.display = DisplayStyle.Flex;
+            }, TrickleDown.TrickleDown);
+            _stepHost.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                int gen = ++_stepHideGen;
+                _stepFlyout.schedule.Execute(() =>
+                {
+                    if (gen == _stepHideGen)
+                        _stepFlyout.style.display = DisplayStyle.None;
+                }).StartingIn(160);
+            });
         }
 
         void OnDestroy()

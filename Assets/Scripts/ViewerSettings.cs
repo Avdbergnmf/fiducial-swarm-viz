@@ -39,6 +39,8 @@ namespace SwarmViewer
         /// matching the old always-on kill mesh). 0 is a real choice: rings only.
         /// </summary>
         public int? cueSphereMask;
+        /// <summary>J / L and the ± buttons. 0 means the default 5 s.</summary>
+        public float playbackStepSeconds;
 
         public const float UiScaleMin = 0.8f;
         public const float UiScaleMax = 2.0f;

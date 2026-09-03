@@ -1,5 +1,5 @@
 // The sole owner of current playback time in the viewer.
-// Dispatches OnTimeChanged, OnPlayStateChanged, and OnSpeedChanged to drive state evaluation across the viewer.
+// Dispatches OnTimeChanged, OnPlayStateChanged, OnSpeedChanged, and OnStepChanged.
 
 using System;
 using UnityEngine;
@@ -18,16 +18,31 @@ namespace SwarmViewer
         float _time;
         float _speed = 1f;
         bool _playing;
+        float _stepSeconds = DefaultStepSeconds;
 
         public static readonly float[] SpeedSteps = { 0.25f, 0.5f, 1f, 2f, 4f };
+        public static readonly float[] StepSteps = { 0.5f, 1f, 2.5f, 5f, 10f };
+        public const float DefaultStepSeconds = 5f;
+
+        public static string FormatSpeed(float speed) =>
+            Mathf.Abs(speed - Mathf.Round(speed)) < 0.01f ? $"{speed:0}x" : $"{speed:g}x";
+
+        public static string FormatStep(float seconds) =>
+            Mathf.Abs(seconds - Mathf.Round(seconds)) < 0.01f
+                ? $"{seconds:0}s"
+                : $"{seconds:0.#}s";
 
         public event Action<float> OnTimeChanged;
         public event Action<bool> OnPlayStateChanged;
         public event Action<float> OnSpeedChanged;
+        public event Action<float> OnStepChanged;
 
         public PlaybackClock(RunData run)
         {
             _run = run;
+            float saved = ViewerSettings.Load().playbackStepSeconds;
+            if (saved > 0.01f)
+                _stepSeconds = NearestStep(saved);
         }
 
         public float Time => _time;
@@ -82,6 +97,38 @@ namespace SwarmViewer
         public void SeekNormalised(float u) => Seek(u * _run.Duration);
         public void StepFrames(int n) { Pause(); Seek(_time + n / _run.TraceHz); }
         public void StepSeconds(float s) { Pause(); Seek(_time + s); }
+
+        public float StepSecondsAmount => _stepSeconds;
+
+        public void SetStepSeconds(float seconds)
+        {
+            float next = NearestStep(seconds);
+            if (Mathf.Approximately(_stepSeconds, next)) return;
+            _stepSeconds = next;
+            var settings = ViewerSettings.Load();
+            settings.playbackStepSeconds = next;
+            settings.Save();
+            OnStepChanged?.Invoke(_stepSeconds);
+        }
+
+        public void StepBack() => StepSeconds(-_stepSeconds);
+        public void StepForward() => StepSeconds(_stepSeconds);
+
+        static float NearestStep(float seconds)
+        {
+            float best = StepSteps[0];
+            float err = Mathf.Abs(seconds - best);
+            for (int i = 1; i < StepSteps.Length; i++)
+            {
+                float d = Mathf.Abs(seconds - StepSteps[i]);
+                if (d < err)
+                {
+                    err = d;
+                    best = StepSteps[i];
+                }
+            }
+            return best;
+        }
 
         public void CycleSpeedNext()
         {

@@ -18,7 +18,7 @@ Shader "Custom/VolumeFixture"
         _HexIntensity ("Hex Brightness Multiplier (rec: 0.0 - 2.0)", Float) = 0.5
         _HexSpacing ("Hex Cell Spacing Ratio (rec: 0.7 - 0.95)", Float) = 0.85
 
-        [Header(Contact Line (volume vs volume, metres))]
+        [Header(Contact Line)]
         _IntersectWidth ("Line Width (rec: 0.2 - 1.0)", Float) = 0.45
         _IntersectBoost ("Line Brightness (rec: 1 - 5)", Float) = 2.5
         _IntersectPower ("Line Sharpness (rec: 3 - 8)", Float) = 4.0

@@ -5,7 +5,6 @@
     <ui:Template name="SceneState" src="project://database/Assets/Scripts/UI/SceneState/SceneStateView.uxml?fileID=9197481963319205126&amp;guid=c4010a8ec38487342b739e898b54ad35&amp;type=3#SceneStateView"/>
     <Style src="project://database/Assets/UI/MainUI.uss?fileID=7433441132597879392&amp;guid=98e2338bc91864847b2a69925e32154a&amp;type=3#MainUI"/>
     <Style src="project://database/Assets/Scripts/UI/SceneState/SceneStateView.uss?fileID=7433441132597879392&amp;guid=6fda26c9b79c02341a1541a7a3e8325a&amp;type=3#SceneStateView"/>
-    <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="SceneState" name="sceneStateInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="EntityInspector" name="entityInspectorInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:Instance template="RunPicker" name="runPickerInstance" picking-mode="Ignore" class="screen-overlay"/>
@@ -39,5 +38,6 @@
         </ui:VisualElement>
         <ui:VisualElement name="legendKeys" class="legend-keys" picking-mode="Ignore" />
     </ui:VisualElement>
+    <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:VisualElement name="marqueeBox" picking-mode="Ignore" class="marquee-box" />
 </ui:UXML>

@@ -132,9 +132,9 @@ namespace SwarmViewer
                 clock.TogglePlay();
 
             if (keyboard.jKey.wasPressedThisFrame)
-                clock.StepSeconds(-5f);
+                clock.StepBack();
             if (keyboard.lKey.wasPressedThisFrame)
-                clock.StepSeconds(5f);
+                clock.StepForward();
 
             if (keyboard.commaKey.wasPressedThisFrame)
             {

@@ -21,6 +21,7 @@ namespace SwarmViewer
         VisualElement _cuesBox;
         Label _cuesTitle;
         VisualElement _keys;
+        Label _jlMeaning;
         Button _toggle;
         bool _wired;
         bool _collapsed;
@@ -57,6 +58,8 @@ namespace SwarmViewer
                 _ctx.Selection.OnViewModeChanged += OnMode;
                 _ctx.Selection.OnObserverChanged += OnObserver;
             }
+            if (_ctx?.Clock != null)
+                _ctx.Clock.OnStepChanged += OnStepChanged;
             HookCues();
         }
 
@@ -67,9 +70,13 @@ namespace SwarmViewer
                 _ctx.Selection.OnViewModeChanged -= OnMode;
                 _ctx.Selection.OnObserverChanged -= OnObserver;
             }
+            if (_ctx?.Clock != null)
+                _ctx.Clock.OnStepChanged -= OnStepChanged;
             if (_cues != null)
                 _cues.MaskChanged -= Rebuild;
         }
+
+        void OnStepChanged(float _) => UpdateJlMeaning();
 
         void OnMode(ViewMode _) => Rebuild();
         void OnObserver(int _) => Rebuild();
@@ -233,21 +240,34 @@ namespace SwarmViewer
 
         void FillKeys()
         {
-            if (_keys == null || _keys.childCount > 0) return;
-            Key(_keys, "Space", "play");
-            Key(_keys, ", .", "frame");
-            Key(_keys, "J L", "±5s");
-            Key(_keys, "B", "belief");
-            Key(_keys, "C", "cues");
-            Key(_keys, "Shift+C", "hide cues");
-            Key(_keys, "Esc", "deselect");
-            Key(_keys, "Enter", "inspector");
-            Key(_keys, "Ctrl+A", "select all (keep primary)");
-            Key(_keys, "[ ]", "prev/next");
-            Key(_keys, "?", "legend");
+            if (_keys == null) return;
+            if (_keys.childCount == 0)
+            {
+                Key(_keys, "Space", "play");
+                Key(_keys, ", .", "frame");
+                _jlMeaning = Key(_keys, "J L", "±5s");
+                Key(_keys, "B", "belief");
+                Key(_keys, "C", "cues");
+                Key(_keys, "Shift+C", "hide cues");
+                Key(_keys, "Esc", "deselect");
+                Key(_keys, "Enter", "inspector");
+                Key(_keys, "Ctrl+A", "select all (keep primary)");
+                Key(_keys, "[ ]", "prev/next");
+                Key(_keys, "?", "legend");
+            }
+            UpdateJlMeaning();
         }
 
-        static void Key(VisualElement parent, string key, string meaning)
+        void UpdateJlMeaning()
+        {
+            if (_jlMeaning == null) return;
+            float s = _ctx?.Clock != null
+                ? _ctx.Clock.StepSecondsAmount
+                : PlaybackClock.DefaultStepSeconds;
+            _jlMeaning.text = "±" + PlaybackClock.FormatStep(s);
+        }
+
+        static Label Key(VisualElement parent, string key, string meaning)
         {
             var chip = new VisualElement();
             chip.AddToClassList("legend-key");
@@ -261,6 +281,7 @@ namespace SwarmViewer
             chip.Add(k);
             chip.Add(m);
             parent.Add(chip);
+            return m;
         }
 
         static void Row(VisualElement parent, Color color, string name, string meaning)

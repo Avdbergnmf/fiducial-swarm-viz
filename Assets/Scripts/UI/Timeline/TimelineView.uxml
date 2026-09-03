@@ -2,8 +2,13 @@
     <ui:Style src="TimelineView.uss" />
     <ui:VisualElement name="timelineRoot" class="timeline-root">
         <ui:Button name="playPauseButton" text="Play" class="timeline-button" />
-        <ui:Button name="stepBackFiveButton" text="-5s" class="timeline-button" />
-        <ui:Button name="stepForwardFiveButton" text="+5s" class="timeline-button" />
+        <ui:VisualElement name="stepHost" class="timeline-flyout-host">
+            <ui:VisualElement name="stepFlyout" picking-mode="Position" class="timeline-flyout timeline-flyout--start" />
+            <ui:VisualElement class="timeline-step-row">
+                <ui:Button name="stepBackFiveButton" text="-5s" class="timeline-button" />
+                <ui:Button name="stepForwardFiveButton" text="+5s" class="timeline-button timeline-step-end" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="trackContainer" class="track-container">
             <ui:VisualElement name="trackBackground" class="track-background" picking-mode="Ignore" />
             <ui:VisualElement name="trackFill" class="track-fill" picking-mode="Ignore" />
@@ -12,6 +17,9 @@
             <ui:Label name="trackTooltip" text="0.0 s" class="track-tooltip" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:Label name="timeLabel" text="0.0 s / 0.0 s" class="time-label" />
-        <ui:Button name="speedButton" text="1x" class="timeline-button speed-button" />
+        <ui:VisualElement name="speedHost" class="timeline-flyout-host">
+            <ui:VisualElement name="speedFlyout" picking-mode="Position" class="timeline-flyout timeline-flyout--end" />
+            <ui:Button name="speedButton" text="1x" class="timeline-button speed-button" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
