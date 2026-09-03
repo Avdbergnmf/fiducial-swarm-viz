@@ -11,7 +11,7 @@ namespace SwarmViewer
     {
         public event Action Clicked;
 
-        Vector3 _vel;
+        Quaternion _rotation = Quaternion.identity;
         Color _color = Palette.Unknown;
         bool _alive;
         bool _hasAsset;
@@ -25,12 +25,70 @@ namespace SwarmViewer
             generateVisualContent += Paint;
             RegisterCallback<ClickEvent>(OnClick);
             RegisterCallback<GeometryChangedEvent>(_ => MarkDirtyRepaint());
+            var north = new Label("N");
+            north.name = "headingPreviewNorth";
+            north.pickingMode = PickingMode.Ignore;
+            north.style.position = Position.Absolute;
+            north.style.top = 2f;
+            north.style.left = 0f;
+            north.style.right = 0f;
+            north.style.unityTextAlign = TextAnchor.UpperCenter;
+            north.style.color = new Color(1f, 1f, 1f, 0.72f);
+            north.style.fontSize = 10f;
+            north.style.unityFontStyleAndWeight = FontStyle.Bold;
+            Add(north);
+
+            var compass = new VisualElement();
+            compass.name = "headingPreviewCompass";
+            compass.pickingMode = PickingMode.Ignore;
+            compass.style.position = Position.Absolute;
+            compass.style.left = 4f;
+            compass.style.bottom = 4f;
+            compass.style.flexDirection = FlexDirection.Row;
+            compass.style.alignItems = Align.Center;
+
+            var compassNorth = new Label("N");
+            compassNorth.pickingMode = PickingMode.Ignore;
+            compassNorth.style.color = new Color(1f, 1f, 1f, 0.72f);
+            compassNorth.style.fontSize = 9f;
+            compassNorth.style.unityFontStyleAndWeight = FontStyle.Bold;
+            compass.Add(compassNorth);
+
+            var compassLine = new Label("^");
+            compassLine.pickingMode = PickingMode.Ignore;
+            compassLine.style.color = new Color(1f, 1f, 1f, 0.55f);
+            compassLine.style.fontSize = 9f;
+            compassLine.style.marginLeft = 1f;
+            compass.Add(compassLine);
+
+            var compassToggle = new Button();
+            compassToggle.text = "-";
+            compassToggle.tooltip = "Hide compass";
+            compassToggle.pickingMode = PickingMode.Position;
+            compassToggle.style.width = 14f;
+            compassToggle.style.height = 14f;
+            compassToggle.style.marginLeft = 3f;
+            compassToggle.style.paddingLeft = 0f;
+            compassToggle.style.paddingRight = 0f;
+            compassToggle.style.paddingTop = 0f;
+            compassToggle.style.paddingBottom = 0f;
+            compassToggle.style.fontSize = 10f;
+            compassToggle.clicked += () =>
+            {
+                bool visible = compassNorth.style.display != DisplayStyle.None;
+                compassNorth.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+                compassLine.style.display = visible ? DisplayStyle.None : DisplayStyle.Flex;
+                compassToggle.text = visible ? "+" : "-";
+                compassToggle.tooltip = visible ? "Show compass" : "Hide compass";
+            };
+            compass.Add(compassToggle);
+            Add(compass);
             tooltip = "Top-down of this craft. Click to select it in the scene.";
         }
 
         public void Set(Vector3 velocity, Color color, bool alive)
         {
-            _vel = velocity;
+            _rotation = Quaternion.identity;
             _color = color;
             _alive = alive;
             _hasAsset = false;
@@ -38,9 +96,10 @@ namespace SwarmViewer
             MarkDirtyRepaint();
         }
 
-        public void Set(Vector3 velocity, Color color, bool alive, bool hasAsset, Vector3 craftPos, Vector3 assetPos)
+        public void Set(Quaternion rotation, Color color, bool alive,
+                        bool hasAsset, Vector3 craftPos, Vector3 assetPos)
         {
-            _vel = velocity;
+            _rotation = rotation;
             _color = color;
             _alive = alive;
             _hasAsset = hasAsset;
@@ -83,7 +142,7 @@ namespace SwarmViewer
             painter.lineWidth = 1f;
             painter.BeginPath();
             painter.MoveTo(c);
-            painter.LineTo(c + Vector2.up * (-rad * 0.92f));
+            painter.LineTo(c + Vector2.up * (rad * 0.92f));
             painter.Stroke();
 
             // Arrow pointing toward Defended Asset
@@ -114,10 +173,12 @@ namespace SwarmViewer
                 painter.Fill();
             }
 
-            // Heading & craft triangle
-            Vector2 hx = new Vector2(_vel.x, -_vel.z);
-            float speed = hx.magnitude;
-            Vector2 dir = speed > 0.05f ? hx / speed : Vector2.up * -1f;
+            // Heading & craft triangle use attitude, not velocity. The scene
+            // airframe is rotated by this same recorded quaternion.
+            Vector3 forward = _rotation * Vector3.forward;
+            Vector2 heading = new Vector2(forward.x, -forward.z);
+            float headingLength = heading.magnitude;
+            Vector2 dir = headingLength > 0.05f ? heading / headingLength : Vector2.up;
             Vector2 perp = new Vector2(-dir.y, dir.x);
 
             Color body = _alive ? _color : Palette.A(_color, 0.45f);
@@ -135,7 +196,7 @@ namespace SwarmViewer
             painter.ClosePath();
             painter.Fill();
 
-            if (speed > 0.05f)
+            if (headingLength > 0.05f)
             {
                 painter.strokeColor = Palette.A(Palette.Opaque(body), _alive ? 0.95f : 0.5f);
                 painter.lineWidth = 2f;

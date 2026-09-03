@@ -40,6 +40,7 @@ namespace SwarmViewer
         Button _logsOpenBtn;
         Button _cuesOpenBtn;
         Button _cuesMuteBtn;
+        CameraCompass _cameraCompass;
 
         FloatingPanel _aircraftFloat;
         FloatingPanel _eventsFloat;
@@ -179,6 +180,12 @@ namespace SwarmViewer
             _logsOpenBtn = UiQuery.Named<Button>(_root, "logsOpenBtn");
             _cuesOpenBtn = UiQuery.Named<Button>(_root, "cuesOpenBtn");
             _cuesMuteBtn = UiQuery.Named<Button>(_root, "cuesMuteBtn");
+            var compassRoot = UiQuery.Named<VisualElement>(_root, "cameraCompassRoot");
+            if (compassRoot != null && compassRoot.childCount == 0)
+            {
+                _cameraCompass = new CameraCompass();
+                compassRoot.Add(_cameraCompass);
+            }
 
             var aircraftPanel = UiQuery.Named<VisualElement>(_root, "aircraftPanel");
             var eventsPanel = UiQuery.Named<VisualElement>(_root, "eventsPanel");

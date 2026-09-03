@@ -719,7 +719,7 @@ namespace SwarmViewer
             Vector3 assetPos = hasAsset
                 ? new Vector3(asset.position[0], asset.position[1], asset.position[2])
                 : Vector3.zero;
-            _headingViz?.Set(snap.Velocity, body, snap.Alive, hasAsset,
+            _headingViz?.Set(snap.Rotation, body, snap.Alive, hasAsset,
                              snap.Position, assetPos);
         }
 

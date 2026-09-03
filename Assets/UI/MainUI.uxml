@@ -53,6 +53,7 @@
         </ui:VisualElement>
         <ui:VisualElement name="legendKeys" class="legend-keys" picking-mode="Ignore" />
     </ui:VisualElement>
+    <ui:VisualElement name="cameraCompassRoot" picking-mode="Ignore" class="camera-compass-root" />
     <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
     <ui:VisualElement name="marqueeBox" picking-mode="Ignore" class="marquee-box" />
 </ui:UXML>
