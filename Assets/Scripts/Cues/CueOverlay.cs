@@ -847,7 +847,8 @@ namespace SwarmViewer
                 if (k < 0.08f) k = 0.08f;
                 // SpherePool keys materials by exact colour; keep this to a few steps.
                 int q = Mathf.Clamp(Mathf.RoundToInt(k * 8f), 1, 8);
-                float a = 0.16f * (q / 8f);
+                float peak = Mathf.Max(0.02f, Palette.Aim.a);
+                float a = peak * (q / 8f);
                 _spheres.Show(ghost, r, Palette.A(Palette.Opaque(Palette.Aim), a));
             }
         }
@@ -868,8 +869,15 @@ namespace SwarmViewer
         {
             if (bit == CueMask.Kill) return Palette.Kill;
             var c = Palette.Opaque(Palette.Cue(bit));
-            c.a = 0.10f;
+            c.a = Palette.RadiusVolumeAlpha;
             return c;
+        }
+
+        /// <summary>Rebuild pooled volume materials from the live Palette.</summary>
+        public void Restyle()
+        {
+            _spheres?.InvalidateMaterials();
+            Refresh();
         }
 
         void EnsureViews()
@@ -1095,6 +1103,17 @@ namespace SwarmViewer
             }
 
             public void Begin() => _used = 0;
+
+            public void InvalidateMaterials()
+            {
+                foreach (var kv in _mats)
+                {
+                    if (kv.Value == null) continue;
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(kv.Value);
+                    else UnityEngine.Object.DestroyImmediate(kv.Value);
+                }
+                _mats.Clear();
+            }
 
             public void End()
             {

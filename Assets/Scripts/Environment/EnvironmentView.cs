@@ -167,6 +167,12 @@ namespace SwarmViewer
                 cols[i].enabled = false;
         }
 
+        public void Retint()
+        {
+            if (_assetMat != null)
+                Palette.TintVolume(_assetMat, Palette.Asset);
+        }
+
         void OnDestroy()
         {
             if (_assetMat != null) Destroy(_assetMat);

@@ -250,7 +250,7 @@ namespace SwarmViewer
                 Key(_keys, "C", "cues");
                 Key(_keys, "Shift+C", "hide cues");
                 Key(_keys, "Esc", "deselect");
-                Key(_keys, "Shift+Esc", "close windows");
+                Key(_keys, "Shift+Esc", "windows");
                 Key(_keys, "Enter", "inspectors");
                 Key(_keys, "Ctrl+A", "select all (keep primary)");
                 Key(_keys, "[ ]", "prev/next");

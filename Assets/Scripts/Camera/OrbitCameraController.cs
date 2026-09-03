@@ -203,9 +203,9 @@ namespace SwarmViewer
 
             if (!_rmbHeld || keyboard == null || typing) return;
 
-            bool chord = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+            bool blocked = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
                          || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
-            if (chord) return;
+            if (blocked) return;
 
             Vector3 move = Vector3.zero;
             if (keyboard.wKey.isPressed) move += Vector3.forward;

@@ -240,19 +240,44 @@ namespace SwarmViewer
             HideDetailChrome();
 
             _aircraftFloat = AttachWindow(aircraftPanel, "aircraftDragHandle", "aircraftCloseBtn",
-                () => { _aircraftVisible = false; SetOpen(_aircraftOpenBtn, false); });
+                () => { _aircraftVisible = false; SetOpen(_aircraftOpenBtn, false); },
+                () =>
+                {
+                    _aircraftVisible = true;
+                    SetOpen(_aircraftOpenBtn, true);
+                    RebuildAircraft();
+                    RefreshAircraftBeliefBtn();
+                });
             _eventsFloat = AttachWindow(eventsPanel, "eventsDragHandle", "eventsCloseBtn",
-                () => { _eventsVisible = false; SetOpen(_eventsOpenBtn, false); });
+                () => { _eventsVisible = false; SetOpen(_eventsOpenBtn, false); },
+                () =>
+                {
+                    _eventsVisible = true;
+                    SetOpen(_eventsOpenBtn, true);
+                    RebuildEvents();
+                });
             _logsFloat = AttachWindow(logsPanel, "logsDragHandle", "logsCloseBtn",
-                () => { _logsVisible = false; SetOpen(_logsOpenBtn, false); });
+                () => { _logsVisible = false; SetOpen(_logsOpenBtn, false); },
+                () =>
+                {
+                    _logsVisible = true;
+                    SetOpen(_logsOpenBtn, true);
+                    RebuildLogs();
+                });
             _cuesFloat = AttachWindow(cuesPanel, "cuesDragHandle", "cuesCloseBtn",
-                () => { _cuesVisible = false; SetOpen(_cuesOpenBtn, false); });
+                () => { _cuesVisible = false; SetOpen(_cuesOpenBtn, false); },
+                () =>
+                {
+                    _cuesVisible = true;
+                    SetOpen(_cuesOpenBtn, true);
+                    RefreshCueChips();
+                });
 
             RegisterCallbacks();
             _uiWired = true;
         }
 
-        FloatingPanel AttachWindow(VisualElement panel, string dragName, string closeName, Action onHidden)
+        FloatingPanel AttachWindow(VisualElement panel, string dragName, string closeName, Action onHidden, Action onShown)
         {
             if (panel == null) return null;
             var handle = UiQuery.Named<VisualElement>(_root, dragName);
@@ -260,6 +285,7 @@ namespace SwarmViewer
             var window = new FloatingPanel();
             window.Attach(panel, handle, close);
             window.Hidden += onHidden;
+            window.Shown += onShown;
             return window;
         }
 

@@ -28,6 +28,15 @@ namespace SwarmViewer
 
         public ViewerContext Context { get; private set; }
 
+        void Reset() => EnsurePalette();
+        void Awake() => EnsurePalette();
+
+        void EnsurePalette()
+        {
+            if (GetComponent<Palette>() == null)
+                gameObject.AddComponent<Palette>();
+        }
+
         /// <summary>Opt-in behaviour checks used on load and by the picker Validate button.</summary>
         public RunExpectations Expectations => runExpectations;
 

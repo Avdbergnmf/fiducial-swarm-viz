@@ -140,6 +140,12 @@ namespace SwarmViewer
                     _visible = false;
                     SetOpen(_openBtn, false);
                 };
+                _float.Shown += () =>
+                {
+                    _visible = true;
+                    SetOpen(_openBtn, true);
+                    Rebuild();
+                };
             }
 
             if (_graphHost != null && _graph == null)

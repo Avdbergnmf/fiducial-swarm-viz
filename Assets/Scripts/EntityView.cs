@@ -44,7 +44,6 @@ namespace SwarmViewer
         GameObject _pickVolumeGo;
         MeshRenderer _pickVolumeRend;
 
-        const float PickVolumeAlpha = 0.12f;
         static readonly Dictionary<Material, Material> PickGhosts = new();
         static Material _killMat;
 
@@ -259,7 +258,7 @@ namespace SwarmViewer
             if (_volumeShader != null)
                 ghost.shader = _volumeShader;
 
-            MakeTransparentGhost(ghost, PickVolumeAlpha);
+            MakeTransparentGhost(ghost, Palette.PickVolumeAlpha);
             PickGhosts[source] = ghost;
             return ghost;
         }
@@ -272,6 +271,7 @@ namespace SwarmViewer
             Color c = ReadBaseColor(mat);
             c.a = alpha;
             Palette.Tint(mat, c);
+            Palette.ApplyVolumeLook(mat);
         }
 
         /// <summary>
@@ -388,6 +388,17 @@ namespace SwarmViewer
                 outlineRenderer.sharedMaterial = selectedOutlineMaterial;
             else if (_hovered && hoverOutlineMaterial != null)
                 outlineRenderer.sharedMaterial = hoverOutlineMaterial;
+        }
+
+        public static void RetintVolumes()
+        {
+            if (_killMat != null)
+                Palette.TintVolume(_killMat, Palette.Kill);
+            foreach (var kv in PickGhosts)
+            {
+                if (kv.Value != null)
+                    MakeTransparentGhost(kv.Value, Palette.PickVolumeAlpha);
+            }
         }
 
         /// <summary>Handy while debugging the coordinate conversion: if the blue ray

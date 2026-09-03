@@ -30,8 +30,12 @@ namespace SwarmViewer
         const float KeepOnScreen = 48f;
 
         static readonly List<FloatingPanel> Live = new();
+        static readonly List<FloatingPanel> Stash = new();
+        static bool StashValid;
+        static bool Restoring;
 
         public event Action Hidden;
+        public event Action Shown;
 
         VisualElement _panel;
         VisualElement _dragHandle;
@@ -97,16 +101,68 @@ namespace SwarmViewer
                 Live[i]?.Reflow();
         }
 
+        /// <summary>
+        /// Shift+Esc: hide every open window, or restore that same set if
+        /// nothing has been opened since the last hide.
+        /// </summary>
+        public static void ToggleAll()
+        {
+            if (AnyShown())
+                HideAll();
+            else
+                RestoreStash();
+        }
+
+        static bool AnyShown()
+        {
+            for (int i = 0; i < Live.Count; i++)
+                if (Live[i] != null && Live[i]._shown) return true;
+            return false;
+        }
+
         /// <summary>Hide every floating window. Shift+Esc.</summary>
         public static void HideAll()
         {
-            for (int i = Live.Count - 1; i >= 0; i--)
-                Live[i]?.Hide();
+            Stash.Clear();
+            for (int i = 0; i < Live.Count; i++)
+            {
+                var p = Live[i];
+                if (p != null && p._shown)
+                    Stash.Add(p);
+            }
+            StashValid = Stash.Count > 0;
+            for (int i = Stash.Count - 1; i >= 0; i--)
+                Stash[i].Hide();
+        }
+
+        static void RestoreStash()
+        {
+            if (!StashValid || Stash.Count == 0) return;
+            Restoring = true;
+            try
+            {
+                for (int i = 0; i < Stash.Count; i++)
+                {
+                    var p = Stash[i];
+                    if (p == null || p._panel == null) continue;
+                    p.Show();
+                }
+            }
+            finally
+            {
+                Restoring = false;
+                Stash.Clear();
+                StashValid = false;
+            }
         }
 
         public void Show()
         {
             if (_panel == null) return;
+            bool became = !_shown;
+            if (became && !Restoring)
+                StashValid = false;
+
             _shown = true;
             _panel.style.display = DisplayStyle.Flex;
             _panel.BringToFront();
@@ -123,6 +179,9 @@ namespace SwarmViewer
             }
             else
                 Reflow();
+
+            if (became)
+                Shown?.Invoke();
         }
 
         public void Hide()
@@ -146,6 +205,8 @@ namespace SwarmViewer
         /// </summary>
         public void Detach()
         {
+            Stash.Remove(this);
+            if (Stash.Count == 0) StashValid = false;
             Hide();
             if (_panel != null)
             {
@@ -155,6 +216,7 @@ namespace SwarmViewer
             }
             Live.Remove(this);
             Hidden = null;
+            Shown = null;
             _panel = null;
             _dragHandle = null;
             _attached = false;

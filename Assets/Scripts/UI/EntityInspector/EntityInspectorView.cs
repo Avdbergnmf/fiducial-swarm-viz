@@ -420,6 +420,7 @@ namespace SwarmViewer
                 _beliefsWindow = new FloatingPanel();
                 _beliefsWindow.Attach(_beliefsPanel, _beliefsDragHandle, _beliefsCloseBtn);
                 _beliefsWindow.Hidden += OnBeliefsHidden;
+                _beliefsWindow.Shown += OnBeliefsShown;
             }
             if (_beliefsVizBtn != null)
                 _beliefsVizBtn.clicked += TogglePinnedViz;
@@ -896,8 +897,15 @@ namespace SwarmViewer
         void OnBeliefsHidden()
         {
             _beliefsVisible = false;
-            _beliefsSlot = -1;
-            _beliefsLogs = null;
+            RefreshAllBeliefsButtons();
+        }
+
+        void OnBeliefsShown()
+        {
+            _beliefsVisible = true;
+            RefreshPinnedVizBtn();
+            if (_beliefsSlot >= 0)
+                RefreshPinnedBeliefs(force: true);
             RefreshAllBeliefsButtons();
         }
 

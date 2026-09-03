@@ -152,7 +152,7 @@ namespace SwarmViewer
 
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
-                if (shift) FloatingPanel.HideAll();
+                if (shift) FloatingPanel.ToggleAll();
                 else _ctx.Selection.Clear();
             }
 
