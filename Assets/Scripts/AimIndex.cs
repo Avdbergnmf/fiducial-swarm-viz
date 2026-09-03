@@ -43,8 +43,9 @@ namespace SwarmViewer
         public int Count => _samples.Count;
 
         /// <summary>
-        /// Same hold as ping lines. Believed pose only refreshes on
-        /// commit / near / ram, then this is how long the ghost stays up.
+        /// Same hold as ping lines. Believed pose refreshes on commit / near /
+        /// ram (every 0.1 s in the last 1 s of a chase); this is how long the
+        /// ghost stays up after the last sample.
         /// </summary>
         public const float Hold = RelationIndex.PingHold;
 

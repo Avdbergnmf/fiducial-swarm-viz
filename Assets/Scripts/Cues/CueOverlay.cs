@@ -102,8 +102,8 @@ namespace SwarmViewer
                 "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
 
             new(CueMask.Aim, "Believed aim",
-                "A kill-radius sphere at the pose the selected drone believed its target was at. It only refreshes on commit / near / ram log lines, stays fixed at that logged pose, and fades out over 1.4 s (same hold as short Pings) until the next sample. Ground truth is the real craft (and the commit ping).",
-                "commit / near / ram: n=, e=, alt=, vn=, ve=. Those verbs are sparse by design (D3), not a per-tick track dump. The marker uses n=/e=/alt= only; vn=/ve= are shown in the log but do not move it. Sphere radius is kill_radius from the trace. Select a committed friendly."),
+                "A kill-radius sphere at the pose the selected drone believed its target was at. It refreshes on commit / near / ram. Near the end of a chase the brain writes those every 0.1 s for the last 1 s, so the marker tracks; earlier it stays on the last logged pose and fades over 1.4 s (same hold as short Pings). Ground truth is the real craft (and the commit ping).",
+                "commit / near / ram: n=, e=, alt=, vn=, ve=. Not a per-tick dump (D3); the last second of a pursuit is the exception (D43). The marker uses n=/e=/alt= only; vn=/ve= are shown in the log but do not move it. Sphere radius is kill_radius from the trace. Select a committed friendly."),
         };
 
         /// <summary>Ping-line kinds, in the order the legend and Cues panel list them.</summary>

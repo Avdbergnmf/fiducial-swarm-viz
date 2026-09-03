@@ -1,8 +1,8 @@
 {
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/evidence-bar/0.5",
-  "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\worst",
+  "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\best",
   "uiScale": 1.1,
-  "cueMask": 18785,
+  "cueMask": 22883,
   "panelRects": {
     "aircraftPanel": "-111,108,960,472",
     "cuesPanel": "296,685,1045,376",
@@ -13,7 +13,7 @@
     "disagreePanel": "1049,148,744,460",
     "scorePanel": "299,138,1134,667",
     "inspector-slot-7": "1000,128,523,462",
-    "inspector-slot-3": "1307,13,707,352",
+    "inspector-slot-3": "914,175,707,352",
     "inspector-slot-5": "42,80,859,535",
     "inspector-slot-13": "415,115,340,461",
     "inspector-slot-4": "1214,71,778,554",
@@ -28,7 +28,7 @@
   "legendCollapsed": false,
   "legendKeysCollapsed": true,
   "legendCraftCollapsed": true,
-  "legendSceneCollapsed": false,
+  "legendSceneCollapsed": true,
   "legendCuesCollapsed": false,
   "compassCollapsed": false,
   "pickVolumesAll": false,
