@@ -253,6 +253,9 @@ namespace SwarmViewer
                 Key(_keys, "Enter", "inspector");
                 Key(_keys, "Ctrl+A", "select all (keep primary)");
                 Key(_keys, "[ ]", "prev/next");
+                Key(_keys, "RMB", "orbit");
+                Key(_keys, "RMB+WASD", "fly");
+                Key(_keys, "MMB", "pan");
                 Key(_keys, "?", "legend");
             }
             UpdateJlMeaning();

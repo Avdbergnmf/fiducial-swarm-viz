@@ -1,10 +1,11 @@
-// RuneScape-style orbit camera: smooth tracking of the selection centroid,
-// WASD pan (only with an empty selection; Shift sprints pan), MMB / arrows orbit,
-// scroll zoom (Shift sprints zoom the same way, without raising the base speed).
-// Zoom stands down while the cursor is over a widget, so panels scroll normally.
+// Unity Scene-view camera, adapted for this viewer: MMB pans, RMB orbits,
+// WASD/QE fly only while RMB is held, scroll zooms. A selection still tracks
+// until the user actually navigates; then the lock drops and we keep going
+// from the current pose. Zoom stands down while the cursor is over a widget.
 
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 
 namespace SwarmViewer
 {
@@ -19,6 +20,8 @@ namespace SwarmViewer
         [SerializeField] float zoomSprintMultiplier = 3f;
         [SerializeField] float panSpeed = 60f;
         [SerializeField] float panSprintMultiplier = 3f;
+        [Tooltip("MMB pan scale. World travel is also proportional to distance / screen height.")]
+        [SerializeField] float panMouseSensitivity = 1f;
         [SerializeField] float followSmoothRate = 8f;
 
         [Header("Clamps")]
@@ -28,6 +31,7 @@ namespace SwarmViewer
         ViewerContext _ctx;
         Camera _cam;
         EntityPicker _picker;
+        UIDocument _uiDocument;
 
         Vector3 _targetFocus;
         Vector3 _currentFocus;
@@ -43,6 +47,9 @@ namespace SwarmViewer
         float _maxDistance = 600f;
 
         int _lastSelectionCount;
+        bool _followSelection;
+        bool _rmbHeld;
+        bool _mmbHeld;
 
         /// <summary>Per-entity camera-focus weight. Change this one constant later.</summary>
         const float FocusWeight = 1f;
@@ -55,11 +62,15 @@ namespace SwarmViewer
             _ctx = ctx;
             if (_cam == null) _cam = GetComponent<Camera>() ?? Camera.main;
             if (_picker == null) _picker = GetComponent<EntityPicker>();
+            if (_uiDocument == null) _uiDocument = GetComponent<UIDocument>();
 
             CalculateDefaultView(ctx.Run.Meta);
             ResetToDefaultView();
 
             _lastSelectionCount = 0;
+            _followSelection = false;
+            _rmbHeld = false;
+            _mmbHeld = false;
             ctx.Selection.OnSelectionChanged += HandleSelectionChanged;
         }
 
@@ -98,6 +109,7 @@ namespace SwarmViewer
             _yaw = _defaultYaw;
             _pitch = _defaultPitch;
             _distance = _defaultDistance;
+            _followSelection = false;
             UpdateCameraTransform();
         }
 
@@ -109,6 +121,7 @@ namespace SwarmViewer
                 // Empty set: detach WHERE THE CAMERA IS. Do not recentre on the asset.
                 _targetFocus = _currentFocus;
             }
+            _followSelection = count > 0;
             _lastSelectionCount = count;
         }
 
@@ -125,21 +138,47 @@ namespace SwarmViewer
         {
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
+            bool overUi = mouse != null && PointerOverUi(mouse);
+            bool typing = TextFieldFocused();
 
-            if (mouse != null && mouse.middleButton.isPressed)
+            if (mouse != null)
             {
+                if (mouse.rightButton.wasPressedThisFrame)
+                    _rmbHeld = !overUi;
+                if (mouse.rightButton.wasReleasedThisFrame || !mouse.rightButton.isPressed)
+                    _rmbHeld = false;
+
+                if (mouse.middleButton.wasPressedThisFrame)
+                    _mmbHeld = !overUi;
+                if (mouse.middleButton.wasReleasedThisFrame || !mouse.middleButton.isPressed)
+                    _mmbHeld = false;
+
                 Vector2 delta = mouse.delta.ReadValue();
-                _yaw += delta.x * yawSpeed;
-                _pitch -= delta.y * pitchSpeed;
+                bool dragged = delta.sqrMagnitude > 0.25f;
+
+                if (_rmbHeld && dragged)
+                {
+                    ReleaseFollow();
+                    _yaw += delta.x * yawSpeed;
+                    _pitch -= delta.y * pitchSpeed;
+                }
+
+                if (_mmbHeld && dragged)
+                {
+                    float s = panMouseSensitivity * _distance / Mathf.Max(200f, Screen.height);
+                    NudgeFocus((-_cam.transform.right * delta.x - _cam.transform.up * delta.y) * s);
+                }
             }
 
-            if (keyboard != null)
+            if (keyboard != null && !typing)
             {
                 float keyDt = Time.unscaledDeltaTime;
-                if (keyboard.leftArrowKey.isPressed) _yaw -= keyOrbitSpeed * keyDt;
-                if (keyboard.rightArrowKey.isPressed) _yaw += keyOrbitSpeed * keyDt;
-                if (keyboard.upArrowKey.isPressed) _pitch -= keyOrbitSpeed * keyDt;
-                if (keyboard.downArrowKey.isPressed) _pitch += keyOrbitSpeed * keyDt;
+                bool orbited = false;
+                if (keyboard.leftArrowKey.isPressed) { _yaw -= keyOrbitSpeed * keyDt; orbited = true; }
+                if (keyboard.rightArrowKey.isPressed) { _yaw += keyOrbitSpeed * keyDt; orbited = true; }
+                if (keyboard.upArrowKey.isPressed) { _pitch -= keyOrbitSpeed * keyDt; orbited = true; }
+                if (keyboard.downArrowKey.isPressed) { _pitch += keyOrbitSpeed * keyDt; orbited = true; }
+                if (orbited) ReleaseFollow();
             }
 
             _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
@@ -147,7 +186,7 @@ namespace SwarmViewer
             if (mouse != null)
             {
                 float scroll = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(scroll) > 0.01f && !PointerOverUi(mouse))
+                if (Mathf.Abs(scroll) > 0.01f && !overUi)
                 {
                     bool zoomSprint = keyboard != null &&
                         (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
@@ -157,47 +196,61 @@ namespace SwarmViewer
                 }
             }
 
-            bool tracking = _ctx != null && _ctx.Selection != null && _ctx.Selection.Count > 0;
-            if (!tracking && keyboard != null)
-            {
-                bool chord = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
-                             || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
-                if (!chord)
-                {
-                    Vector3 move = Vector3.zero;
-                    if (keyboard.wKey.isPressed) move += Vector3.forward;
-                    if (keyboard.sKey.isPressed) move += Vector3.back;
-                    if (keyboard.aKey.isPressed) move += Vector3.left;
-                    if (keyboard.dKey.isPressed) move += Vector3.right;
+            if (!_rmbHeld || keyboard == null || typing) return;
 
-                    if (move.sqrMagnitude > 0.001f)
-                    {
-                        move.Normalize();
-                        Vector3 camFwd = _cam.transform.forward;
-                        camFwd.y = 0f;
-                        camFwd.Normalize();
+            bool chord = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed
+                         || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
+            if (chord) return;
 
-                        Vector3 camRight = _cam.transform.right;
-                        camRight.y = 0f;
-                        camRight.Normalize();
+            Vector3 move = Vector3.zero;
+            if (keyboard.wKey.isPressed) move += Vector3.forward;
+            if (keyboard.sKey.isPressed) move += Vector3.back;
+            if (keyboard.aKey.isPressed) move += Vector3.left;
+            if (keyboard.dKey.isPressed) move += Vector3.right;
+            if (keyboard.eKey.isPressed) move += Vector3.up;
+            if (keyboard.qKey.isPressed) move += Vector3.down;
 
-                        bool sprint = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-                        float pan = panSpeed * (sprint ? panSprintMultiplier : 1f);
+            if (move.sqrMagnitude < 0.001f) return;
 
-                        Vector3 panDir = camFwd * move.z + camRight * move.x;
-                        _targetFocus += panDir * (pan * (_distance / 100f) * Time.unscaledDeltaTime);
-                    }
-                }
-            }
+            move.Normalize();
+            bool sprint = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+            float pan = panSpeed * (sprint ? panSprintMultiplier : 1f);
+            float step = pan * (_distance / 100f) * Time.unscaledDeltaTime;
+
+            Vector3 camFwd = _cam.transform.forward;
+            Vector3 camRight = _cam.transform.right;
+            NudgeFocus((camFwd * move.z + camRight * move.x + Vector3.up * move.y) * step);
+        }
+
+        void ReleaseFollow()
+        {
+            if (!_followSelection) return;
+            _followSelection = false;
+            _targetFocus = _currentFocus;
+        }
+
+        void NudgeFocus(Vector3 delta)
+        {
+            ReleaseFollow();
+            _targetFocus += delta;
+            _currentFocus += delta;
         }
 
         /// <summary>A wheel over a panel belongs to that panel's scroll, not to zoom.</summary>
         bool PointerOverUi(Mouse mouse) =>
             _picker != null && _picker.IsPointerOverUI(mouse.position.ReadValue());
 
+        bool TextFieldFocused()
+        {
+            if (_uiDocument == null) _uiDocument = GetComponent<UIDocument>();
+            if (_uiDocument == null || _uiDocument.rootVisualElement == null) return false;
+            var focused = _uiDocument.rootVisualElement.focusController?.focusedElement;
+            return focused is TextField || focused is TextInputBaseField<string>;
+        }
+
         void UpdateFocusPosition()
         {
-            if (TryGetSelectionFocus(out Vector3 centroid))
+            if (_followSelection && TryGetSelectionFocus(out Vector3 centroid))
                 _targetFocus = centroid;
 
             _currentFocus = Vector3.Lerp(_currentFocus, _targetFocus, Time.unscaledDeltaTime * followSmoothRate);
