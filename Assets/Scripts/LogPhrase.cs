@@ -114,9 +114,9 @@ namespace SwarmViewer
             "stalk" =>
                 "Stalking: eased a little off the slot toward a compact inbound that is not yet called Hostile. Cap is 40 m from the slot, so it can still reverse home if the Hostile latch never comes.",
             "scramble" =>
-                "Scrambling: left the ring on an early intercept before the Hostile latch. Same flight as a ram (arena springs off), but it will abort if the inbound is a civilian or a friend, if the path no longer hits the asset, or if a collision with it is now impossible.",
+                "Scrambling: left the ring on an early intercept before the Hostile latch. Flies a collision course to the predicted meeting point (arena springs off). It will abort if the inbound is a civilian or a friend, if the path no longer hits the asset, or if a collision with it is now impossible.",
             "ram" =>
-                "Ramming: spent itself. Flying to collide with a Hostile. Arena springs are off so the box cannot steer it off the shot. If closest approach is already past, or leftover miss is more than ½ a t² can close, it aborts (uncatchable) and the springs come back on station.",
+                "Ramming: spent itself. Flying a collision course to collide with a Hostile at the predicted meeting point. Arena springs are off so the box cannot steer it off the shot. If closest approach is already past, or leftover miss is more than ½ a t² can close, it aborts (uncatchable) and the springs come back on station.",
             _ => "Flight mode.",
         };
 

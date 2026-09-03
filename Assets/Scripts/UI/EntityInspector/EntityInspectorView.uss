@@ -269,7 +269,6 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 }
 
 .inspector-state {
-    cursor: link;
     color: rgb(180, 200, 230);
 }
 
@@ -353,7 +352,6 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     border-bottom-color: rgba(255, 255, 255, 0.08);
     border-left-color: rgb(180, 200, 230);
     border-right-color: rgba(255, 255, 255, 0.08);
-    cursor: link;
 }
 
 .inspector-state-banner:hover .inspector-state-name {
