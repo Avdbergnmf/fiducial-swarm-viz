@@ -1,5 +1,5 @@
-// Diagnostic overlay: range rings, motion arrows, radio links, intercepts,
-// yield, log pings, picket ring, pick-volume selection spheres.
+// Diagnostic overlay: range rings, motion arrows, radio links, log pings
+// (including commit / yield spans), picket ring, pick-volume selection spheres.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
 // Aircraft, Events, Score and Logs, so one component owns the windows instead of two
@@ -27,6 +27,8 @@ namespace SwarmViewer
         Attitude = 1 << 6,
         Links = 1 << 7,
         Picket = 1 << 8,
+        // Retired chips (commit / yield are ping kinds). Bits stay so saved cueMask
+        // values do not shift; LoadMask folds them into Pings.
         Intercept = 1 << 9,
         Yield = 1 << 10,
         Pings = 1 << 11,
@@ -91,38 +93,52 @@ namespace SwarmViewer
                 "From the selected friendly, the shortest path along the radio graph. Hop 1 is a neighbour; hop 2+ is a drone this craft can only reach if someone forwards. Track reports hop this graph, hop-limited to 4, budget-checked. Select a drone.",
                 "Reconstructed from links[] at this time. Not a transcript of which frames actually forwarded — that is the peer call lines (Pings) and the Disagree window. The example flood is not what this brain does; only TrackReport is relayed."),
 
-            new(CueMask.Intercept, "Intercept",
-                "A red line from a drone that has committed to the craft it is spending itself on, for as long as that intercept is still on. All active intercepts, not only the selection.",
-                "Reconstructed from commit / abort / picket log lines. The other end is the hostile nearest the believed n=/e=/alt= pose on that commit (horizontal, so a 30 m picket is not preferred over a 40 m inbound). Fallback: this drone's Enemy declaration, then the nearest alive hostile."),
-
-            new(CueMask.Yield, "Yield",
-                "An amber line from a picket onto the remaining intercept flight it is sitting in. That is the drone stepping off so it does not cancel the interceptor's ProNav. The same moments appear as yield rows in Logs.",
-                "Reconstructed from intercept spans plus params fsep=, then written into the log list as yield / yield clear so you can filter them. The brain does not write this verb. The keep-out is interceptor → predicted ram (cruise × time-to-meet, D17), not the whole red line to the hostile's current pose."),
-
             new(CueMask.Pings, "Pings",
-                "A short fading line when a drone's log names another craft: a classification call, a drop, wreckage, a close pass, the last metres of a ram, a duplicate abort, or a neighbour presumed gone / back on the radio.",
-                "The log line itself. trk= is observer-local, so the other end is the craft this drone had declared (or the nearest alive of that class) at that time — same association as Intercept. Peer (hearsay) lines use the n=/e= pose the brain associated by geometry. gone / live use the brain id directly. Visible for 1.4 s after the log."),
+                "A line when a log names another craft. Short verbs fade in 1.4 s; commit and yield stay up for the span. Kinds below can be switched off one by one. Click a line to select both ends; double-click opens the log.",
+                "The log line itself. trk= is observer-local, so the other end is the craft this drone had declared (or the nearest alive of that class) at that time. Peer lines use n=/e=. commit / yield use CommitIndex / YieldIndex spans. gone / live use the brain id."),
 
             new(CueMask.Picket, "Picket ring",
                 "The radius the brain holds around the asset. Sphere is the hex volume; otherwise a ring at picket altitude. Never both.",
                 "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
 
             new(CueMask.Aim, "Believed aim",
-                "A kill-radius sphere at the pose the selected drone believed its target was at. It only refreshes on commit / near / ram log lines, then coasts on vn/ve and fades out over 1.4 s (same hold as Pings) until the next sample. Ground truth is the real craft (and the red Intercept line).",
+                "A kill-radius sphere at the pose the selected drone believed its target was at. It only refreshes on commit / near / ram log lines, then coasts on vn/ve and fades out over 1.4 s (same hold as short Pings) until the next sample. Ground truth is the real craft (and the commit ping).",
                 "commit / near / ram: n=, e=, alt=, vn=, ve=. Those verbs are sparse by design (D3), not a per-tick track dump. Sphere radius is kill_radius from the trace. Select a committed friendly."),
         };
 
         /// <summary>Ping-line kinds, in the order the legend and Cues panel list them.</summary>
-        public static readonly (RelationKind Kind, string Label)[] PingKinds =
+        public static readonly PingSpec[] PingKinds =
         {
-            (RelationKind.Call, "call"),
-            (RelationKind.Drop, "drop"),
-            (RelationKind.Wreck, "wreck"),
-            (RelationKind.Near, "near"),
-            (RelationKind.Ram, "ram"),
-            (RelationKind.Duplicate, "duplicate"),
-            (RelationKind.Gone, "gone"),
-            (RelationKind.Live, "live"),
+            new(RelationKind.Call, "call",
+                "A classification call naming another craft.",
+                "call log. trk= is observer-local; the other end is the declared (or nearest) craft of that class."),
+            new(RelationKind.Drop, "drop",
+                "The track this drone just stopped naming.",
+                "drop log. Compared to the previous belief set: the slot that vanished."),
+            new(RelationKind.Wreck, "wreck",
+                "Wreckage this drone has named.",
+                "wreck log. Same association as a call."),
+            new(RelationKind.Near, "near",
+                "A close pass. Short fade.",
+                "near log. class= plus n=/e= when present."),
+            new(RelationKind.Ram, "ram",
+                "The last metres of a ram. Short fade.",
+                "ram log. Same association as near."),
+            new(RelationKind.Duplicate, "duplicate",
+                "Abort to the other interceptor on the same target.",
+                "abort … duplicate. The other end is the overlapping commit."),
+            new(RelationKind.Gone, "gone",
+                "A neighbour this drone now treats as off the radio.",
+                "gone id=. Direct brain id, not trk=."),
+            new(RelationKind.Live, "live",
+                "That neighbour is back.",
+                "live id=. Direct brain id."),
+            new(RelationKind.Commit, "commit",
+                "Interceptor to its target for as long as the intercept is on. Clickable like the short pings.",
+                "commit / abort / picket via CommitIndex. The other end is the hostile nearest the believed n=/e= pose (then Enemy declaration, then nearest alive hostile)."),
+            new(RelationKind.Yield, "yield",
+                "Picket to the interceptor while this craft sits in that intercept corridor.",
+                "Reconstructed yield rows (params fsep=). The brain does not write this verb."),
         };
 
         /// <summary>Hop-count colours, same order as Palette.Hop.</summary>
@@ -148,6 +164,7 @@ namespace SwarmViewer
         CueMask _mask = DefaultMask;
         CueMask _sphereMask = CueMask.Kill;
         int _pickShow = PickDefault;
+        int _pingKinds = -1;
         bool _muted;
 
         public event Action MaskChanged;
@@ -183,6 +200,7 @@ namespace SwarmViewer
             float bestD = slackPx;
             for (int i = 0; i < pings.Count; i++)
             {
+                if (!PingKindOn(pings[i].Kind)) continue;
                 if (!TryPingEnds(pings[i], snaps, t, out Vector3 pa, out Vector3 pb))
                     continue;
                 Vector3 sa = cam.WorldToScreenPoint(pa);
@@ -242,7 +260,7 @@ namespace SwarmViewer
             _ctx = ctx;
             _bySlot = null;
             _hoverPing = -1;
-            _mask = LoadMask(out _pickShow, out _sphereMask);
+            _mask = LoadMask(out _pickShow, out _sphereMask, out _pingKinds);
             Hook();
             Refresh();
             MaskChanged?.Invoke();
@@ -330,13 +348,49 @@ namespace SwarmViewer
             MaskChanged?.Invoke();
         }
 
-        static CueMask LoadMask(out int pickShow, out CueMask spheres)
+        public bool PingKindOn(RelationKind kind)
+        {
+            if (_pingKinds < 0) return true;
+            return (_pingKinds & (1 << (int)kind)) != 0;
+        }
+
+        public void TogglePingKind(RelationKind kind)
+        {
+            int all = PingKindsMask();
+            int cur = _pingKinds < 0 ? all : _pingKinds;
+            cur ^= 1 << (int)kind;
+            _pingKinds = cur == all ? -1 : cur;
+            var settings = ViewerSettings.Load();
+            settings.pingKindMask = _pingKinds < 0 ? null : _pingKinds;
+            settings.Save();
+            Refresh();
+            MaskChanged?.Invoke();
+        }
+
+        static int PingKindsMask()
+        {
+            int m = 0;
+            for (int i = 0; i < PingKinds.Length; i++)
+                m |= 1 << (int)PingKinds[i].Kind;
+            return m;
+        }
+
+        static CueMask LoadMask(out int pickShow, out CueMask spheres, out int pingKinds)
         {
             var settings = ViewerSettings.Load();
             CueMask mask = settings.cueMask == 0 ? DefaultMask : (CueMask)settings.cueMask;
             spheres = settings.cueSphereMask.HasValue
                 ? (CueMask)settings.cueSphereMask.Value
                 : CueMask.Kill;
+            pingKinds = settings.pingKindMask ?? -1;
+
+            if ((mask & (CueMask.Intercept | CueMask.Yield)) != 0)
+            {
+                mask |= CueMask.Pings;
+                mask &= ~(CueMask.Intercept | CueMask.Yield);
+                settings.cueMask = (int)mask;
+                settings.Save();
+            }
 
             // Old scale-bar toggle: pickVolumesOn meant "show on every craft".
             if (settings.pickVolumesOn)
@@ -388,19 +442,10 @@ namespace SwarmViewer
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Hops => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
-                CueMask.Intercept => _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0,
-                CueMask.Yield => YieldAvailable(),
                 CueMask.Pings => _ctx.Run.Relations != null && _ctx.Run.Relations.Pings.Count > 0,
                 CueMask.Aim => _ctx.Run.Aims != null && _ctx.Run.Aims.Count > 0,
                 _ => true,
             };
-        }
-
-        bool YieldAvailable()
-        {
-            var p = _ctx.Run.Params;
-            return p != null && p.Has(p.FriendlyMargin)
-                && _ctx.Run.Commits != null && _ctx.Run.Commits.Spans.Count > 0;
         }
 
         /// <summary>
@@ -424,35 +469,27 @@ namespace SwarmViewer
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0
                     ? $"{_ctx.Run.Meta.links.Count} link records" : "",
                 CueMask.Hops => HopValue(),
-                CueMask.Intercept => InterceptValue(_ctx.Run.Commits),
-                CueMask.Yield => YieldValue(_ctx.Run.Yields, YieldAvailable()),
                 CueMask.Pings => PingValue(_ctx.Run.Relations),
                 CueMask.Aim => AimValue(_ctx.Run.Aims),
                 _ => "",
             };
         }
 
-        static string InterceptValue(CommitIndex commits)
-        {
-            if (commits == null) return "";
-            int n = commits.Spans.Count;
-            if (n <= 0) return "";
-            return n == 1 ? "1 intercept" : n + " intercepts";
-        }
-
-        static string YieldValue(YieldIndex yields, bool available)
-        {
-            if (!available) return "";
-            int n = yields != null ? yields.Spans.Count : 0;
-            if (n <= 0)
-                return "0 yields — no picket sat in a remaining intercept corridor";
-            return n == 1 ? "1 yield" : n + " yields";
-        }
-
         static string PingValue(RelationIndex rel)
         {
             if (rel == null) return "";
             int n = rel.Pings.Count;
+            if (n <= 0) return "";
+            return n == 1 ? "1 ping" : n + " pings";
+        }
+
+        public string PingKindValue(RelationKind kind)
+        {
+            var pings = _ctx?.Run?.Relations?.Pings;
+            if (pings == null) return "";
+            int n = 0;
+            for (int i = 0; i < pings.Count; i++)
+                if (pings[i].Kind == kind) n++;
             if (n <= 0) return "";
             return n == 1 ? "1 ping" : n + " pings";
         }
@@ -603,10 +640,6 @@ namespace SwarmViewer
                 DrawLinks(snaps, t);
             if (On(CueMask.Hops))
                 DrawHops(snaps, t);
-            if (On(CueMask.Intercept))
-                DrawIntercepts(snaps, t);
-            if (On(CueMask.Yield))
-                DrawYields(snaps, t);
             if (On(CueMask.Pings))
                 DrawPings(snaps, t);
             if (On(CueMask.Picket) && p.Has(p.RingRadius))
@@ -713,48 +746,6 @@ namespace SwarmViewer
             }
         }
 
-        void DrawIntercepts(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
-        {
-            var spans = _ctx.Run.Commits?.Spans;
-            if (spans == null || spans.Count == 0) return;
-            var color = Palette.Intercept;
-            for (int i = 0; i < spans.Count; i++)
-            {
-                var span = spans[i];
-                if (!span.ActiveAt(t)) continue;
-                int a = span.DroneSlot;
-                int b = span.TargetSlot;
-                if ((uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count) continue;
-                if (!snaps[a].Alive || !snaps[b].Alive) continue;
-                _lines.Segment(snaps[a].Position, snaps[b].Position, color, 0.22f);
-            }
-        }
-
-        void DrawYields(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
-        {
-            var spans = _ctx.Run.Yields?.Spans;
-            if (spans == null || spans.Count == 0) return;
-            var color = Palette.Yield;
-
-            for (int i = 0; i < spans.Count; i++)
-            {
-                var span = spans[i];
-                if (!span.ActiveAt(t)) continue;
-                int s = span.PicketSlot;
-                int a = span.InterceptorSlot;
-                int b = span.TargetSlot;
-                if ((uint)s >= (uint)snaps.Count || (uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count)
-                    continue;
-                if (!snaps[s].Alive || !snaps[a].Alive || !snaps[b].Alive) continue;
-                Vector3 end = YieldIndex.CorridorHorizon(
-                    snaps[a].Position, snaps[b].Position, snaps[b].Velocity);
-                if (!YieldIndex.ClosestOnSegmentXZ(snaps[s].Position, snaps[a].Position, end,
-                        out Vector3 hit, out _))
-                    continue;
-                _lines.Segment(snaps[s].Position, hit, color, 0.16f);
-            }
-        }
-
         void DrawPings(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)
         {
             var pings = _ctx.Run.Relations?.Pings;
@@ -763,15 +754,20 @@ namespace SwarmViewer
             for (int i = 0; i < pings.Count; i++)
             {
                 var ping = pings[i];
+                if (!PingKindOn(ping.Kind)) continue;
                 if (!TryPingEnds(ping, snaps, t, out Vector3 pa, out Vector3 pb)) continue;
 
                 float age = t - ping.T;
-                float k = 1f - age / RelationIndex.PingHold;
+                float fade = Mathf.Min(ping.Hold, RelationIndex.PingHold);
+                float k = age <= ping.Hold - fade
+                    ? 1f
+                    : 1f - (age - (ping.Hold - fade)) / fade;
                 if (k < 0.08f) k = 0.08f;
                 bool hover = i == _hoverPing;
                 if (hover) k = Mathf.Max(k, 0.85f);
-                Color ca = Palette.A(Palette.Ping(ping.Kind), k);
-                Color cb = Palette.A(Palette.Ping(ping.Kind), k * 0.35f);
+                Color hue = Palette.Ping(ping.Kind);
+                Color ca = Palette.A(hue, k);
+                Color cb = Palette.A(hue, k * 0.35f);
                 _lines.Segment(pa, pb, ca, cb, (hover ? 0.5f : 0.28f) * k, hover ? 0.16f : 0.08f);
             }
         }
@@ -783,7 +779,7 @@ namespace SwarmViewer
             pa = default;
             pb = default;
             float age = t - ping.T;
-            if (age < -0.02f || age > RelationIndex.PingHold) return false;
+            if (age < -0.02f || age > ping.Hold) return false;
             int a = ping.FromSlot;
             int b = ping.ToSlot;
             if ((uint)a >= (uint)snaps.Count || (uint)b >= (uint)snaps.Count) return false;
@@ -935,6 +931,24 @@ namespace SwarmViewer
             return mat;
         }
 
+        public readonly struct PingSpec
+        {
+            public readonly RelationKind Kind;
+            public readonly string Label;
+            public readonly string Draws;
+            public readonly string Source;
+
+            public PingSpec(RelationKind kind, string label, string draws, string source)
+            {
+                Kind = kind;
+                Label = label;
+                Draws = draws;
+                Source = source;
+            }
+
+            public Color Color => Palette.Opaque(Palette.Ping(Kind));
+        }
+
         public readonly struct CueSpec
         {
             public readonly CueMask Bit;
@@ -961,7 +975,7 @@ namespace SwarmViewer
                 CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
                 CueMask.Selection or CueMask.Aim => "sphere",
                 CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
-                CueMask.Links or CueMask.Hops or CueMask.Intercept or CueMask.Yield or CueMask.Pings => "line",
+                CueMask.Links or CueMask.Hops or CueMask.Pings => "line",
                 _ => "",
             };
         }

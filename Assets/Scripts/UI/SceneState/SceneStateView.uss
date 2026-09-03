@@ -861,44 +861,6 @@
     color: rgb(190, 196, 204);
 }
 
-/* Log rows are tinted by verb so a run reads at a glance: red is a terminal
-   run, orange a close pass, blue a commitment, dim is routine chatter. */
-.scene-state-log--ram {
-    color: rgb(255, 190, 190);
-}
-
-.scene-state-log--near {
-    color: rgb(255, 180, 120);
-}
-
-.scene-state-log--abort {
-    color: rgb(240, 210, 130);
-}
-
-.scene-state-log--commit {
-    color: rgb(120, 175, 255);
-}
-
-.scene-state-log--gone {
-    color: rgb(200, 160, 255);
-}
-
-.scene-state-log--live {
-    color: rgb(140, 230, 160);
-}
-
-.scene-state-log--call {
-    color: rgb(220, 226, 235);
-}
-
-.scene-state-log--drop,
-.scene-state-log--wreck,
-.scene-state-log--picket,
-.scene-state-log--params,
-.scene-state-log--drone {
-    color: rgb(140, 146, 154);
-}
-
 .scene-state-cell-log-drone {
     width: 80px;
     flex-shrink: 0;

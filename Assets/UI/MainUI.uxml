@@ -25,16 +25,31 @@
     <ui:VisualElement name="legendRoot" picking-mode="Position" class="legend">
         <ui:VisualElement name="legendHeader" class="legend-header">
             <ui:Label name="legendMode" text="Ground truth" picking-mode="Ignore" class="legend-mode" />
-            <ui:Button name="legendToggleBtn" text="–" picking-mode="Position" class="legend-toggle" tooltip="Hide or show the colour key. ? also toggles." />
+            <ui:Button name="legendToggleBtn" text="–" picking-mode="Position" class="legend-toggle" tooltip="Hide the colour key. ? also toggles." />
         </ui:VisualElement>
         <ui:Label name="legendSentence" text="Bodies are what they actually are." picking-mode="Ignore" class="legend-sentence" />
         <ui:VisualElement name="legendBody" class="legend-body" picking-mode="Ignore">
-            <ui:Label text="Craft" picking-mode="Ignore" class="legend-section" />
+            <ui:VisualElement class="legend-section-head" picking-mode="Ignore">
+                <ui:Label text="Craft" picking-mode="Ignore" class="legend-section" />
+                <ui:Button name="legendCraftToggle" text="–" picking-mode="Position" class="legend-toggle legend-toggle--mini" tooltip="Hide craft colours." />
+            </ui:VisualElement>
             <ui:VisualElement name="legendCraft" class="legend-rows" picking-mode="Ignore" />
-            <ui:Label text="Scene" picking-mode="Ignore" class="legend-section" />
+            <ui:VisualElement class="legend-section-head" picking-mode="Ignore">
+                <ui:Label text="Scene" picking-mode="Ignore" class="legend-section" />
+                <ui:Button name="legendSceneToggle" text="–" picking-mode="Position" class="legend-toggle legend-toggle--mini" tooltip="Hide scene colours." />
+            </ui:VisualElement>
             <ui:VisualElement name="legendScene" class="legend-rows" picking-mode="Ignore" />
-            <ui:Label name="legendCuesTitle" text="Cues on now" picking-mode="Ignore" class="legend-section" />
-            <ui:VisualElement name="legendCues" class="legend-rows" picking-mode="Ignore" />
+            <ui:VisualElement name="legendCuesFold" class="legend-fold" picking-mode="Ignore">
+                <ui:VisualElement class="legend-section-head" picking-mode="Ignore">
+                    <ui:Label name="legendCuesTitle" text="Cues on now" picking-mode="Ignore" class="legend-section" />
+                    <ui:Button name="legendCuesToggle" text="–" picking-mode="Position" class="legend-toggle legend-toggle--mini" tooltip="Hide cue colours." />
+                </ui:VisualElement>
+                <ui:VisualElement name="legendCues" class="legend-rows" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="legendKeysHeader" class="legend-header legend-keys-header">
+            <ui:Label text="Shortcuts" picking-mode="Ignore" class="legend-mode" />
+            <ui:Button name="legendKeysToggleBtn" text="–" picking-mode="Position" class="legend-toggle" tooltip="Hide keyboard shortcuts." />
         </ui:VisualElement>
         <ui:VisualElement name="legendKeys" class="legend-keys" picking-mode="Ignore" />
     </ui:VisualElement>

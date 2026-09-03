@@ -19,9 +19,11 @@ namespace SwarmViewer
             return dot;
         }
 
-        /// <param name="labeled">Cues panel wants names; the compact legend uses tooltips.</param>
-        public static void AddPingKey(VisualElement parent, bool labeled) =>
-            AddKey(parent, labeled, CueOverlay.PingKinds, p => Palette.Ping(p.Kind), p => p.Label);
+        /// <param name="cues">When set, only enabled kinds are shown (legend).</param>
+        public static void AddPingKey(VisualElement parent, bool labeled, CueOverlay cues = null) =>
+            AddKey(parent, labeled, CueOverlay.PingKinds,
+                p => Palette.Ping(p.Kind), p => p.Label,
+                p => cues == null || cues.PingKindOn(p.Kind));
 
         public static void AddHopKey(VisualElement parent, bool labeled) =>
             AddKey(parent, labeled, CueOverlay.HopSteps, h => Palette.Hop(h.Hops), h => h.Label);
@@ -38,7 +40,8 @@ namespace SwarmViewer
             bool labeled,
             T[] items,
             Func<T, Color> colorOf,
-            Func<T, string> labelOf)
+            Func<T, string> labelOf,
+            Func<T, bool> include = null)
         {
             if (parent == null || items == null || items.Length == 0) return;
 
@@ -52,10 +55,12 @@ namespace SwarmViewer
                 dots.pickingMode = PickingMode.Ignore;
                 for (int i = 0; i < items.Length; i++)
                 {
+                    if (include != null && !include(items[i])) continue;
                     var dot = Swatch(colorOf(items[i]));
                     dot.tooltip = labelOf(items[i]);
                     dots.Add(dot);
                 }
+                if (dots.childCount == 0) return;
                 row.Add(dots);
                 parent.Add(row);
                 return;
@@ -64,6 +69,7 @@ namespace SwarmViewer
             parent.AddToClassList("cue-detail-key");
             for (int i = 0; i < items.Length; i++)
             {
+                if (include != null && !include(items[i])) continue;
                 var item = new VisualElement();
                 item.AddToClassList("cue-detail-key-item");
                 item.pickingMode = PickingMode.Ignore;

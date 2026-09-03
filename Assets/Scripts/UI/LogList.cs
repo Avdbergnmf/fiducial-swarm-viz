@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SwarmViewer
@@ -211,7 +212,7 @@ namespace SwarmViewer
                 }
                 names.Sort(StringComparer.OrdinalIgnoreCase);
             }
-            _verbs.SetChoices(names);
+            _verbs.SetChoices(names, Palette.Log);
         }
 
         void AddRow(LogLine line)
@@ -234,7 +235,7 @@ namespace SwarmViewer
 
             var text = Cell(_raw ? (line.text ?? "") : line.Pretty, "scene-state-cell-text");
             text.AddToClassList("scene-state-cell--wrap");
-            text.AddToClassList("scene-state-log--" + LogPhrase.Verb(line.text));
+            text.style.color = Palette.Opaque(Palette.Log(LogPhrase.Verb(line.text), line.text));
             row.Add(text);
 
             row.RegisterCallback<ClickEvent>(OnClicked);

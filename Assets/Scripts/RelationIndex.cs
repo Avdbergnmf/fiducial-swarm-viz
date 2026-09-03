@@ -19,6 +19,8 @@ namespace SwarmViewer
         Duplicate,
         Gone,
         Live,
+        Commit,
+        Yield,
     }
 
     public readonly struct RelationPing
@@ -26,14 +28,17 @@ namespace SwarmViewer
         public readonly int FromSlot;
         public readonly int ToSlot;
         public readonly float T;
+        public readonly float Hold;
         public readonly RelationKind Kind;
         public readonly LogLine Line;
 
-        public RelationPing(int fromSlot, int toSlot, float t, RelationKind kind, LogLine line)
+        public RelationPing(int fromSlot, int toSlot, float t, RelationKind kind, LogLine line,
+            float hold = 0f)
         {
             FromSlot = fromSlot;
             ToSlot = toSlot;
             T = t;
+            Hold = hold > 0.05f ? hold : RelationIndex.PingHold;
             Kind = kind;
             Line = line;
         }
@@ -60,6 +65,10 @@ namespace SwarmViewer
                 string verb = LogPhrase.Verb(line.text);
                 int from = run.SlotOfDrone(line.drone);
                 if (from < 0) continue;
+
+                // commit / yield spans are added after the log walk so they
+                // keep the intercept / yield duration instead of the 1.4 s flash.
+                if (verb == "commit" || verb == "yield") continue;
 
                 if (verb == "abort")
                 {
@@ -102,6 +111,33 @@ namespace SwarmViewer
                 }
                 if (to < 0 || to == from) continue;
                 _pings.Add(new RelationPing(from, to, line.t, kind, line));
+            }
+
+            AddSpanPings(run);
+        }
+
+        void AddSpanPings(RunData run)
+        {
+            var commits = run.Commits?.Spans;
+            if (commits != null)
+            {
+                for (int i = 0; i < commits.Count; i++)
+                {
+                    var s = commits[i];
+                    _pings.Add(new RelationPing(s.DroneSlot, s.TargetSlot, s.T0,
+                        RelationKind.Commit, s.Line, s.T1 - s.T0));
+                }
+            }
+
+            var yields = run.Yields?.Spans;
+            if (yields != null)
+            {
+                for (int i = 0; i < yields.Count; i++)
+                {
+                    var s = yields[i];
+                    _pings.Add(new RelationPing(s.PicketSlot, s.InterceptorSlot, s.T0,
+                        RelationKind.Yield, s.Line, s.T1 - s.T0));
+                }
             }
         }
 

@@ -202,8 +202,36 @@ namespace SwarmViewer
             RelationKind.Duplicate => Compromised,
             RelationKind.Gone => Comm,
             RelationKind.Live => Links,
+            RelationKind.Commit => Intercept,
+            RelationKind.Yield => Yield,
             _ => Color.white,
         };
+
+        /// <summary>Log-row / verb-chip colour. Same hues as the ping of that verb.</summary>
+        public static Color Log(string verb) => Log(verb, null);
+
+        public static Color Log(string verb, string raw)
+        {
+            if (verb == "abort" && raw != null
+                && raw.IndexOf(" duplicate", System.StringComparison.Ordinal) >= 0)
+                return Ping(RelationKind.Duplicate);
+            return verb switch
+            {
+                "call" => Ping(RelationKind.Call),
+                "drop" => Ping(RelationKind.Drop),
+                "wreck" => Ping(RelationKind.Wreck),
+                "near" => Ping(RelationKind.Near),
+                "ram" => Ping(RelationKind.Ram),
+                "commit" => Ping(RelationKind.Commit),
+                "abort" => Yield,
+                "yield" => Ping(RelationKind.Yield),
+                "gone" => Ping(RelationKind.Gone),
+                "live" => Ping(RelationKind.Live),
+                "picket" => Picket,
+                "params" => Unknown,
+                _ => Unknown,
+            };
+        }
 
         /// <summary>Score-ledger kinds. Same hues as the matching craft / cue.</summary>
         public static Color ScoreKind(string kind) => kind switch

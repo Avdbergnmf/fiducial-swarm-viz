@@ -94,6 +94,7 @@ namespace SwarmViewer
         Button[] _cueChips;
         CueOverlay _cues;
         int _cueExplained = -1;
+        int _pingExplained = -1;
 
         readonly List<AircraftRow> _aircraftRows = new();
         readonly List<int> _displayedAircraft = new();
@@ -608,7 +609,7 @@ namespace SwarmViewer
                 if (spec.Bit == CueMask.Selection)
                     AddSelectionToggles(_cuesDetailKey, cues);
                 else if (spec.Bit == CueMask.Pings)
-                    CueLegend.AddPingKey(_cuesDetailKey, labeled: true);
+                    AddPingKindChips(_cuesDetailKey, cues);
                 else if (spec.Bit == CueMask.Hops)
                     CueLegend.AddHopKey(_cuesDetailKey, labeled: true);
                 _cuesDetailKey.style.display = _cuesDetailKey.childCount > 0
@@ -616,17 +617,63 @@ namespace SwarmViewer
                     : DisplayStyle.None;
             }
 
-            if (_cuesDetailDraws != null) _cuesDetailDraws.text = spec.Draws;
+            CueOverlay.PingSpec pingSpec = default;
+            bool pingKind = spec.Bit == CueMask.Pings
+                && (uint)_pingExplained < (uint)CueOverlay.PingKinds.Length;
+            if (pingKind)
+            {
+                pingSpec = CueOverlay.PingKinds[_pingExplained];
+                bool kindOn = cues.PingKindOn(pingSpec.Kind);
+                _cuesDetailTitle.text = $"Pings · {pingSpec.Label} — {(kindOn ? "on" : "off")}";
+                if (_cuesDetailSwatch != null)
+                    Palette.Fill(_cuesDetailSwatch, cues.Muted ? Palette.Gray(pingSpec.Color) : pingSpec.Color);
+            }
+
+            if (_cuesDetailDraws != null)
+                _cuesDetailDraws.text = pingKind ? pingSpec.Draws : spec.Draws;
 
             if (_cuesDetailSource != null)
             {
-                string value = cues.ValueText(spec.Bit);
-                if (string.IsNullOrEmpty(value))
-                    _cuesDetailSource.text = spec.Source + "\nThis run: nothing recorded, so there is nothing to draw.";
+                string value = pingKind ? cues.PingKindValue(pingSpec.Kind) : cues.ValueText(spec.Bit);
+                string source = pingKind ? pingSpec.Source : spec.Source;
+                if (string.IsNullOrEmpty(value) && !pingKind)
+                    _cuesDetailSource.text = source + "\nThis run: nothing recorded, so there is nothing to draw.";
                 else if (spec.Bit == CueMask.Selection)
-                    _cuesDetailSource.text = spec.Source + $"\nShowing: {value}.";
+                    _cuesDetailSource.text = source + $"\nShowing: {value}.";
                 else
-                    _cuesDetailSource.text = spec.Source + $"\nThis run: {value}.";
+                    _cuesDetailSource.text = source + (string.IsNullOrEmpty(value) ? "" : $"\nThis run: {value}.");
+            }
+        }
+
+        void AddPingKindChips(VisualElement parent, CueOverlay cues)
+        {
+            parent.AddToClassList("cue-detail-key");
+            parent.AddToClassList("filter-chips");
+            bool muted = cues.Muted;
+            for (int i = 0; i < CueOverlay.PingKinds.Length; i++)
+            {
+                int index = i;
+                var spec = CueOverlay.PingKinds[i];
+                bool on = cues.PingKindOn(spec.Kind);
+                var btn = new Button();
+                btn.AddToClassList("filter-chip");
+                btn.AddToClassList("cue-chip");
+                Color hue = muted ? Palette.Gray(spec.Color) : spec.Color;
+                btn.Add(CueLegend.Swatch(hue));
+                var caption = new Label(spec.Label);
+                caption.AddToClassList("cue-chip-label");
+                caption.pickingMode = PickingMode.Ignore;
+                btn.Add(caption);
+                btn.EnableInClassList("filter-chip--on", on);
+                if (on)
+                    btn.style.backgroundColor = Palette.A(hue, 0.42f);
+                btn.clicked += () =>
+                {
+                    Cues.TogglePingKind(CueOverlay.PingKinds[index].Kind);
+                    _pingExplained = index;
+                    RefreshCueChips();
+                };
+                parent.Add(btn);
             }
         }
 

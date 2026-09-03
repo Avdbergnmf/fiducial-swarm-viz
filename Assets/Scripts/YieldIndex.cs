@@ -20,9 +20,10 @@ namespace SwarmViewer
         public readonly float T0;
         public readonly float T1;
         public readonly float Dist0;
+        public readonly LogLine Line;
 
         public YieldSpan(int picketSlot, int picketDrone, int interceptorSlot,
-            int targetSlot, float t0, float t1, float dist0)
+            int targetSlot, float t0, float t1, float dist0, LogLine line)
         {
             PicketSlot = picketSlot;
             PicketDrone = picketDrone;
@@ -31,6 +32,7 @@ namespace SwarmViewer
             T0 = t0;
             T1 = t1;
             Dist0 = dist0;
+            Line = line;
         }
 
         public bool ActiveAt(float t) => t >= T0 - 0.001f && t < T1 - 0.001f;
@@ -52,7 +54,7 @@ namespace SwarmViewer
             if (run.Commits.Spans.Count == 0) return;
 
             Build(run, run.Params.FriendlyMargin);
-            AppendLogs(run);
+            run.Meta.logs.Sort((a, b) => a.t.CompareTo(b.t));
         }
 
         void Build(RunData run, float clear)
@@ -146,33 +148,23 @@ namespace SwarmViewer
             if (t1 < t0 + MinHold) return;
             int drone = run.Info(picket).drone_id;
             if (drone < 0) return;
-            _spans.Add(new YieldSpan(picket, drone, inter, tgt, t0, t1, dist));
-        }
-
-        void AppendLogs(RunData run)
-        {
-            if (_spans.Count == 0) return;
-            var logs = run.Meta.logs;
-            for (int i = 0; i < _spans.Count; i++)
+            int interceptor = run.Info(inter).drone_id;
+            string target = run.Info(tgt).Label;
+            string dist0 = dist.ToString("F1", CultureInfo.InvariantCulture);
+            var start = new LogLine
             {
-                var s = _spans[i];
-                int interceptor = run.Info(s.InterceptorSlot).drone_id;
-                string target = run.Info(s.TargetSlot).Label;
-                string dist = s.Dist0.ToString("F1", CultureInfo.InvariantCulture);
-                logs.Add(new LogLine
-                {
-                    t = s.T0,
-                    drone = s.PicketDrone,
-                    text = $"yield interceptor={interceptor} target={target} dist={dist}",
-                });
-                logs.Add(new LogLine
-                {
-                    t = s.T1,
-                    drone = s.PicketDrone,
-                    text = $"yield clear interceptor={interceptor} target={target}",
-                });
-            }
-            logs.Sort((a, b) => a.t.CompareTo(b.t));
+                t = t0,
+                drone = drone,
+                text = $"yield interceptor={interceptor} target={target} dist={dist0}",
+            };
+            run.Meta.logs.Add(start);
+            run.Meta.logs.Add(new LogLine
+            {
+                t = t1,
+                drone = drone,
+                text = $"yield clear interceptor={interceptor} target={target}",
+            });
+            _spans.Add(new YieldSpan(picket, drone, inter, tgt, t0, t1, dist, start));
         }
 
         static bool IsIntercepting(IReadOnlyList<CommitSpan> spans, int slot, float t)

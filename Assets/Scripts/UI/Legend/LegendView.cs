@@ -1,5 +1,5 @@
-// On-screen colour key and shortcut strip. The one sentence at the top is the
-// view-mode contract; swatches underneath are the same hues the scene uses.
+// On-screen colour key and shortcut strip. Colour categories and shortcuts
+// each fold on their own +/– so the HUD can sit small without losing either.
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,13 +18,22 @@ namespace SwarmViewer
         VisualElement _body;
         VisualElement _craft;
         VisualElement _scene;
+        VisualElement _cuesFold;
         VisualElement _cuesBox;
         Label _cuesTitle;
         VisualElement _keys;
         Label _jlMeaning;
-        Button _toggle;
+        Button _colorsBtn;
+        Button _keysBtn;
+        Button _craftBtn;
+        Button _sceneBtn;
+        Button _cuesBtn;
         bool _wired;
-        bool _collapsed;
+        bool _colorsCollapsed;
+        bool _keysCollapsed;
+        bool _craftCollapsed;
+        bool _sceneCollapsed;
+        bool _cuesCollapsed;
 
         public void Bind(ViewerContext ctx)
         {
@@ -39,17 +48,8 @@ namespace SwarmViewer
         void Start() => TryWire();
         void OnDestroy() => Unhook();
 
-        public void ToggleCollapsed()
-        {
-            _collapsed = !_collapsed;
-            var settings = ViewerSettings.Load();
-            if (settings.legendCollapsed != _collapsed)
-            {
-                settings.legendCollapsed = _collapsed;
-                settings.Save();
-            }
-            ApplyCollapsed();
-        }
+        /// <summary>? / H. Colour key only; shortcuts have their own button.</summary>
+        public void ToggleCollapsed() => Toggle(ref _colorsCollapsed);
 
         void Hook()
         {
@@ -113,34 +113,89 @@ namespace SwarmViewer
                 _body = tree.Q("legendBody");
                 _craft = tree.Q("legendCraft");
                 _scene = tree.Q("legendScene");
+                _cuesFold = tree.Q("legendCuesFold");
                 _cuesBox = tree.Q("legendCues");
                 _cuesTitle = tree.Q<Label>("legendCuesTitle");
                 _keys = tree.Q("legendKeys");
-                _toggle = tree.Q<Button>("legendToggleBtn");
-                if (_toggle != null)
-                    _toggle.clicked += ToggleCollapsed;
-                _collapsed = ViewerSettings.Load().legendCollapsed;
+                _colorsBtn = tree.Q<Button>("legendToggleBtn");
+                _keysBtn = tree.Q<Button>("legendKeysToggleBtn");
+                _craftBtn = tree.Q<Button>("legendCraftToggle");
+                _sceneBtn = tree.Q<Button>("legendSceneToggle");
+                _cuesBtn = tree.Q<Button>("legendCuesToggle");
+                WireToggle(_colorsBtn, () => Toggle(ref _colorsCollapsed));
+                WireToggle(_keysBtn, () => Toggle(ref _keysCollapsed));
+                WireToggle(_craftBtn, () => Toggle(ref _craftCollapsed));
+                WireToggle(_sceneBtn, () => Toggle(ref _sceneCollapsed));
+                WireToggle(_cuesBtn, () => Toggle(ref _cuesCollapsed));
+                LoadFolds();
                 _wired = true;
             }
 
             HookCues();
-            ApplyCollapsed();
+            ApplyFolds();
             Rebuild();
         }
 
-        void ApplyCollapsed()
+        static void WireToggle(Button btn, System.Action onClick)
         {
-            if (_body != null)
-                _body.style.display = _collapsed ? DisplayStyle.None : DisplayStyle.Flex;
-            if (_toggle != null)
-            {
-                _toggle.text = _collapsed ? "+" : "–";
-                _toggle.tooltip = _collapsed
-                    ? "Show the colour key. ? also toggles."
-                    : "Hide the colour key. ? also toggles.";
-            }
-            if (_root != null)
-                _root.EnableInClassList("legend--collapsed", _collapsed);
+            if (btn != null) btn.clicked += onClick;
+        }
+
+        void LoadFolds()
+        {
+            var s = ViewerSettings.Load();
+            _colorsCollapsed = s.legendCollapsed;
+            _keysCollapsed = s.legendKeysCollapsed ?? s.legendCollapsed;
+            _craftCollapsed = s.legendCraftCollapsed;
+            _sceneCollapsed = s.legendSceneCollapsed;
+            _cuesCollapsed = s.legendCuesCollapsed;
+        }
+
+        void Toggle(ref bool flag)
+        {
+            flag = !flag;
+            var s = ViewerSettings.Load();
+            s.legendCollapsed = _colorsCollapsed;
+            s.legendKeysCollapsed = _keysCollapsed;
+            s.legendCraftCollapsed = _craftCollapsed;
+            s.legendSceneCollapsed = _sceneCollapsed;
+            s.legendCuesCollapsed = _cuesCollapsed;
+            s.Save();
+            ApplyFolds();
+        }
+
+        void ApplyFolds()
+        {
+            Show(_sentence, !_colorsCollapsed);
+            Show(_body, !_colorsCollapsed);
+            Show(_keys, !_keysCollapsed);
+            Show(_craft, !_craftCollapsed);
+            Show(_scene, !_sceneCollapsed);
+            Show(_cuesBox, !_cuesCollapsed);
+            SetMark(_colorsBtn, _colorsCollapsed,
+                "Show the colour key. ? also toggles.",
+                "Hide the colour key. ? also toggles.");
+            SetMark(_keysBtn, _keysCollapsed,
+                "Show keyboard shortcuts.",
+                "Hide keyboard shortcuts.");
+            SetMark(_craftBtn, _craftCollapsed, "Show craft colours.", "Hide craft colours.");
+            SetMark(_sceneBtn, _sceneCollapsed, "Show scene colours.", "Hide scene colours.");
+            SetMark(_cuesBtn, _cuesCollapsed, "Show cue colours.", "Hide cue colours.");
+            _root?.EnableInClassList("legend--collapsed", _colorsCollapsed && _keysCollapsed);
+            _root?.EnableInClassList("legend--colors-collapsed", _colorsCollapsed);
+        }
+
+        static void Show(VisualElement el, bool on)
+        {
+            if (el != null)
+                el.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        static void SetMark(Button btn, bool collapsed, string showTip, string hideTip)
+        {
+            if (btn == null) return;
+            btn.text = collapsed ? "+" : "–";
+            btn.tooltip = collapsed ? showTip : hideTip;
         }
 
         void Rebuild()
@@ -171,6 +226,7 @@ namespace SwarmViewer
             FillScene(belief);
             FillCues();
             FillKeys();
+            ApplyFolds();
         }
 
         void FillCraft(bool belief)
@@ -212,7 +268,7 @@ namespace SwarmViewer
             HookCues();
             if (_cues == null)
             {
-                if (_cuesTitle != null) _cuesTitle.style.display = DisplayStyle.None;
+                Show(_cuesFold, false);
                 return;
             }
 
@@ -226,16 +282,14 @@ namespace SwarmViewer
                 Row(_cuesBox, hue, spec.Label, _cues.ShapeHint(spec));
                 shown++;
                 if (spec.Bit == CueMask.Pings)
-                    CueLegend.AddPingKey(_cuesBox, labeled: false);
+                    CueLegend.AddPingKey(_cuesBox, labeled: false, _cues);
                 if (spec.Bit == CueMask.Hops)
                     CueLegend.AddHopKey(_cuesBox, labeled: false);
             }
 
+            Show(_cuesFold, shown > 0);
             if (_cuesTitle != null)
-            {
-                _cuesTitle.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 _cuesTitle.text = shown <= 0 ? "" : muted ? "Cues hidden" : "Cues on now";
-            }
         }
 
         void FillKeys()
@@ -258,7 +312,7 @@ namespace SwarmViewer
                 Key(_keys, "RMB+WASD", "fly");
                 Key(_keys, "MMB", "pan");
                 Key(_keys, "R", "reset view");
-                Key(_keys, "?", "legend");
+                Key(_keys, "?", "colour key");
             }
             UpdateJlMeaning();
         }

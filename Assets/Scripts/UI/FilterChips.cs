@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SwarmViewer
@@ -20,7 +21,7 @@ namespace SwarmViewer
                 _root.AddToClassList("filter-chips");
         }
 
-        public void SetChoices(IReadOnlyList<string> choices)
+        public void SetChoices(IReadOnlyList<string> choices, Func<string, Color> colorOf = null)
         {
             if (_root == null) return;
 
@@ -41,6 +42,8 @@ namespace SwarmViewer
                 var btn = new Button { text = key };
                 btn.AddToClassList("filter-chip");
                 btn.EnableInClassList("filter-chip--on", on);
+                if (colorOf != null)
+                    btn.style.color = Palette.Opaque(colorOf(key));
                 string captured = key;
                 btn.clicked += () => Toggle(captured, btn);
                 _root.Add(btn);

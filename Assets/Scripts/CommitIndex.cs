@@ -16,14 +16,16 @@ namespace SwarmViewer
         public readonly int TargetSlot;
         public readonly float T0;
         public readonly float T1;
+        public readonly LogLine Line;
 
-        public CommitSpan(int droneId, int droneSlot, int targetSlot, float t0, float t1)
+        public CommitSpan(int droneId, int droneSlot, int targetSlot, float t0, float t1, LogLine line)
         {
             DroneId = droneId;
             DroneSlot = droneSlot;
             TargetSlot = targetSlot;
             T0 = t0;
             T1 = t1;
+            Line = line;
         }
 
         public bool ActiveAt(float t) => t >= T0 - 0.001f && t < T1 - 0.001f;
@@ -39,8 +41,8 @@ namespace SwarmViewer
         {
             if (run?.Meta?.logs == null) return;
 
-            // drone_id -> open commit (target slot, t0)
-            var open = new Dictionary<int, (int target, float t0)>();
+            // drone_id -> open commit (target slot, t0, commit line)
+            var open = new Dictionary<int, (int target, float t0, LogLine line)>();
             var declared = new List<(int slot, BeliefClass cls)>();
 
             for (int i = 0; i < run.Meta.logs.Count; i++)
@@ -54,29 +56,29 @@ namespace SwarmViewer
                 if (verb == "commit")
                 {
                     if (open.TryGetValue(drone, out var prev))
-                        Close(run, drone, prev.target, prev.t0, line.t);
+                        Close(run, drone, prev.target, prev.t0, line.t, prev.line);
                     int target = ResolveTarget(run, drone, line.t, line.text, declared);
-                    open[drone] = (target, line.t);
+                    open[drone] = (target, line.t, line);
                 }
                 else if (open.TryGetValue(drone, out var cur))
                 {
-                    Close(run, drone, cur.target, cur.t0, line.t);
+                    Close(run, drone, cur.target, cur.t0, line.t, cur.line);
                     open.Remove(drone);
                 }
             }
 
             foreach (var kv in open)
-                Close(run, kv.Key, kv.Value.target, kv.Value.t0, run.Duration);
+                Close(run, kv.Key, kv.Value.target, kv.Value.t0, run.Duration, kv.Value.line);
         }
 
-        void Close(RunData run, int droneId, int targetSlot, float t0, float t1)
+        void Close(RunData run, int droneId, int targetSlot, float t0, float t1, LogLine line)
         {
             int droneSlot = run.SlotOfDrone(droneId);
             if (droneSlot < 0 || targetSlot < 0) return;
             if (t1 <= t0) t1 = t0 + 0.05f;
             t1 = Mathf.Min(t1, EndAlive(run, droneSlot), EndAlive(run, targetSlot));
             if (t1 <= t0) return;
-            _spans.Add(new CommitSpan(droneId, droneSlot, targetSlot, t0, t1));
+            _spans.Add(new CommitSpan(droneId, droneSlot, targetSlot, t0, t1, line));
         }
 
         static float EndAlive(RunData run, int slot)

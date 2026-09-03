@@ -24,7 +24,13 @@ namespace SwarmViewer
         /// than a nested object so one window stays one readable line in the file.
         /// </summary>
         public Dictionary<string, string> panelRects = new();
+        /// <summary>Colour key (craft / scene / cues). ? toggles this.</summary>
         public bool legendCollapsed;
+        /// <summary>Shortcut strip. Null means follow legendCollapsed (old files hid both).</summary>
+        public bool? legendKeysCollapsed;
+        public bool legendCraftCollapsed;
+        public bool legendSceneCollapsed;
+        public bool legendCuesCollapsed;
         /// <summary>Legacy: when the old Ghosts cue was on, draw on every living craft.</summary>
         public bool pickVolumesAll;
         /// <summary>Legacy scale-bar master switch. Migrated into cueMask + pickVolumeShow, then cleared.</summary>
@@ -41,6 +47,8 @@ namespace SwarmViewer
         public int? cueSphereMask;
         /// <summary>J / L and the ± buttons. 0 means the default 5 s.</summary>
         public float playbackStepSeconds;
+        /// <summary>Which ping kinds are drawn. Null = all. 0 = none.</summary>
+        public int? pingKindMask;
 
         public const float UiScaleMin = 0.8f;
         public const float UiScaleMax = 2.0f;
