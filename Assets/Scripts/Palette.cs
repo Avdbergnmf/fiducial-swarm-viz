@@ -67,7 +67,7 @@ namespace SwarmViewer
             CueMask.Intercept => Intercept,
             CueMask.Yield => Yield,
             CueMask.Pings => Rgb(255, 255, 255),
-            CueMask.Ghosts => Hover,
+            CueMask.Selection => Hover,
             CueMask.Aim => Aim,
             _ => Color.white,
         };
@@ -117,6 +117,12 @@ namespace SwarmViewer
 
         public static Color Rgb(int r, int g, int b, float a = 1f) =>
             new Color(r / 255f, g / 255f, b / 255f, a);
+
+        public static Color Gray(Color c)
+        {
+            float g = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+            return new Color(g, g, g, c.a);
+        }
 
         public static Color A(Color c, float a)
         {

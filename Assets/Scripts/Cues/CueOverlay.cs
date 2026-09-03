@@ -1,5 +1,5 @@
 // Diagnostic overlay: range rings, motion arrows, radio links, intercepts,
-// yield, log pings, picket ring, pick-volume ghosts.
+// yield, log pings, picket ring, pick-volume selection spheres.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
 // Aircraft, Events, Score and Logs, so one component owns the windows instead of two
@@ -31,7 +31,7 @@ namespace SwarmViewer
         Yield = 1 << 10,
         Pings = 1 << 11,
         Hops = 1 << 12,
-        Ghosts = 1 << 13,
+        Selection = 1 << 13,
         Aim = 1 << 14,
     }
 
@@ -55,8 +55,8 @@ namespace SwarmViewer
                 "A sphere of kill_radius around the selected craft's origin. A hit is the other craft's origin inside this sphere — not two shells touching (that would be 2× the real radius). Hex volume and ring are the same radius. Never both.",
                 "The trace header field kill_radius. Collision is |p_a − p_b| < kill_radius at 100 Hz. The recording is 10 Hz, so a real ram's last frame is often still ~2 m apart."),
 
-            new(CueMask.Ghosts, "Ghosts",
-                "The fat pick sphere around a craft, tinted with its class / belief colour — the same mesh hover uses. The checkbox below chooses the selection or every living craft. Hover still shows a sphere under the pointer when this cue is off.",
+            new(CueMask.Selection, "Selection",
+                "The fat pick sphere around a craft, tinted with its class / belief colour. The checkboxes choose hover, selected, and unselected. Turning this cue off hides all three, including hover — that sphere used to stay up on its own and get in the way.",
                 "The viewer's pick volume (SceneBuilder pickColliderRadius), not a recorded field. Colour is the airframe material in the current view mode."),
 
             new(CueMask.Sense, "Sense range",
@@ -108,8 +108,8 @@ namespace SwarmViewer
                 "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
 
             new(CueMask.Aim, "Believed aim",
-                "A glowing ghost at the pose the selected drone believed its target was at, plus a line from the drone to that ghost. Ground truth is the real craft (and the red Intercept line). This is the offset: own fix plus the track it had associated, coasted on the logged velocity until the next commit/near/ram sample.",
-                "commit / near / ram log lines: n=, e=, alt=, vn=, ve=. Available when those fields were logged. Select a committed friendly."),
+                "A kill-radius sphere at the pose the selected drone believed its target was at. It only refreshes on commit / near / ram log lines, then coasts on vn/ve and fades out over 1.4 s (same hold as Pings) until the next sample. Ground truth is the real craft (and the red Intercept line).",
+                "commit / near / ram: n=, e=, alt=, vn=, ve=. Those verbs are sparse by design (D3), not a per-tick track dump. Sphere radius is kill_radius from the trace. Select a committed friendly."),
         };
 
         /// <summary>Ping-line kinds, in the order the legend and Cues panel list them.</summary>
@@ -140,27 +140,49 @@ namespace SwarmViewer
         LinePool _lines;
         SpherePool _spheres;
         Material _lineMat;
+        public const int PickHover = 1;
+        public const int PickSelected = 2;
+        public const int PickUnselected = 4;
+        public const int PickDefault = PickHover | PickSelected;
+
         CueMask _mask = DefaultMask;
         CueMask _sphereMask = CueMask.Kill;
-        bool _pickVolumesAll;
+        int _pickShow = PickDefault;
+        bool _muted;
 
         public event Action MaskChanged;
         public CueMask Mask => _mask;
-        public bool PickVolumesAll => _pickVolumesAll;
+        public bool Muted => _muted;
+        public bool PickHoverOn => (_pickShow & PickHover) != 0;
+        public bool PickSelectedOn => (_pickShow & PickSelected) != 0;
+        public bool PickUnselectedOn => (_pickShow & PickUnselected) != 0;
 
         /// <summary>Radius cues: hex volume or equatorial ring, never both.</summary>
         public static bool IsRadius(CueMask bit) =>
             bit is CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket;
 
-        /// <summary>Legend / detail hint: who the Ghosts cue is drawing on.</summary>
-        public string GhostScope => _pickVolumesAll ? "every living craft" : "the selection";
+        /// <summary>Legend / detail hint: who the Selection cue is drawing on.</summary>
+        public string SelectionScope
+        {
+            get
+            {
+                bool h = PickHoverOn, s = PickSelectedOn, u = PickUnselectedOn;
+                if (s && u) return h ? "every living craft, and hover" : "every living craft";
+                if (s && h) return "the selection, and hover";
+                if (s) return "the selection";
+                if (u && h) return "unselected craft, and hover";
+                if (u) return "unselected craft";
+                if (h) return "hover only";
+                return "nothing — all three boxes are off";
+            }
+        }
 
         public void Bind(ViewerContext ctx)
         {
             Unhook();
             _ctx = ctx;
             _bySlot = null;
-            _mask = LoadMask(out _pickVolumesAll, out _sphereMask);
+            _mask = LoadMask(out _pickShow, out _sphereMask);
             Hook();
             Refresh();
             MaskChanged?.Invoke();
@@ -210,12 +232,24 @@ namespace SwarmViewer
             MaskChanged?.Invoke();
         }
 
-        public void SetPickVolumesAll(bool all)
+        /// <summary>
+        /// Hide every overlay without touching which chips are on. Show restores
+        /// that same set. Session only — not written to settings.
+        /// </summary>
+        public void ToggleMute()
         {
-            if (_pickVolumesAll == all) return;
-            _pickVolumesAll = all;
+            _muted = !_muted;
+            Refresh();
+            MaskChanged?.Invoke();
+        }
+
+        public void SetPickShow(int flag, bool on)
+        {
+            int next = on ? _pickShow | flag : _pickShow & ~flag;
+            if (next == _pickShow) return;
+            _pickShow = next;
             var settings = ViewerSettings.Load();
-            settings.pickVolumesAll = all;
+            settings.pickVolumeShow = _pickShow;
             settings.Save();
             Refresh();
             MaskChanged?.Invoke();
@@ -236,29 +270,46 @@ namespace SwarmViewer
             MaskChanged?.Invoke();
         }
 
-        static CueMask LoadMask(out bool pickAll, out CueMask spheres)
+        static CueMask LoadMask(out int pickShow, out CueMask spheres)
         {
             var settings = ViewerSettings.Load();
             CueMask mask = settings.cueMask == 0 ? DefaultMask : (CueMask)settings.cueMask;
-            pickAll = settings.pickVolumesAll;
             spheres = settings.cueSphereMask.HasValue
                 ? (CueMask)settings.cueSphereMask.Value
                 : CueMask.Kill;
 
-            // Old scale-bar Ghosts toggle: pickVolumesOn meant "show on every craft".
+            // Old scale-bar toggle: pickVolumesOn meant "show on every craft".
             if (settings.pickVolumesOn)
             {
-                mask |= CueMask.Ghosts;
-                pickAll = true;
+                mask |= CueMask.Selection;
                 settings.pickVolumesOn = false;
                 settings.pickVolumesAll = true;
+                settings.cueMask = (int)mask;
+                settings.Save();
+            }
+
+            if (settings.pickVolumeShow.HasValue)
+            {
+                pickShow = settings.pickVolumeShow.Value;
+            }
+            else
+            {
+                // Hover used to draw even with the cue off. Lift that into the
+                // Selection chip so it can be turned off, and keep hover on.
+                pickShow = PickHover;
+                if ((mask & CueMask.Selection) != 0)
+                    pickShow |= PickSelected;
+                if (settings.pickVolumesAll)
+                    pickShow |= PickSelected | PickUnselected;
+                mask |= CueMask.Selection;
+                settings.pickVolumeShow = pickShow;
                 settings.cueMask = (int)mask;
                 settings.Save();
             }
             return mask;
         }
 
-        bool On(CueMask bit) => (_mask & bit) != 0 && Available(bit);
+        bool On(CueMask bit) => !_muted && (_mask & bit) != 0 && Available(bit);
 
         /// <summary>Switched on, availability aside. For the chip's lit state.</summary>
         public bool IsOn(CueMask bit) => (_mask & bit) != 0;
@@ -298,8 +349,8 @@ namespace SwarmViewer
         /// </summary>
         public string ValueText(CueMask bit)
         {
-            if (bit == CueMask.Ghosts)
-                return GhostScope;
+            if (bit == CueMask.Selection)
+                return SelectionScope;
             var p = _ctx?.Run?.Params;
             if (p == null) return "";
             return bit switch
@@ -419,15 +470,23 @@ namespace SwarmViewer
         public string FooterText()
         {
             var p = _ctx?.Run?.Params;
-            if (p == null) return "";
-            string comm = !p.Has(p.CommDraw) ? ""
-                : p.CommFromLinks ? $"comm {p.CommDraw:G4} m (links)"
-                : $"comm {p.CommDraw:G4} m";
-            string sense = p.Has(p.SenseRadius) ? $"sense {p.SenseRadius:G4} m" : "";
-            string sep = p.Has(p.SeparationMargin) ? $"sep {p.SeparationMargin:G4} m" : "";
-            string ring = p.Has(p.RingRadius) ? $"picket {p.RingRadius:G4} m" : "";
-            string fsep = p.Has(p.FriendlyMargin) ? $"fsep {p.FriendlyMargin:G4} m" : "";
-            return JoinNonEmpty(" · ", sense, comm, sep, fsep, ring);
+            string distances = "";
+            if (p != null)
+            {
+                string comm = !p.Has(p.CommDraw) ? ""
+                    : p.CommFromLinks ? $"comm {p.CommDraw:G4} m (links)"
+                    : $"comm {p.CommDraw:G4} m";
+                string sense = p.Has(p.SenseRadius) ? $"sense {p.SenseRadius:G4} m" : "";
+                string sep = p.Has(p.SeparationMargin) ? $"sep {p.SeparationMargin:G4} m" : "";
+                string ring = p.Has(p.RingRadius) ? $"picket {p.RingRadius:G4} m" : "";
+                string fsep = p.Has(p.FriendlyMargin) ? $"fsep {p.FriendlyMargin:G4} m" : "";
+                distances = JoinNonEmpty(" · ", sense, comm, sep, fsep, ring);
+            }
+            if (_muted)
+                return string.IsNullOrEmpty(distances)
+                    ? "Cues hidden — Show restores the chips that were on."
+                    : "Cues hidden · " + distances;
+            return distances;
         }
 
         static string JoinNonEmpty(string sep, params string[] parts)
@@ -460,13 +519,13 @@ namespace SwarmViewer
             var snaps = _ctx.State.Entities;
             float t = _ctx.Clock.Time;
 
-            bool ghostsOn = On(CueMask.Ghosts);
+            bool selOn = On(CueMask.Selection);
             if (_bySlot != null)
             {
                 for (int i = 0; i < _bySlot.Length; i++)
                 {
                     _bySlot[i]?.SetKillCueEnabled(false);
-                    _bySlot[i]?.SetPickVolumeCueEnabled(ghostsOn, _pickVolumesAll);
+                    _bySlot[i]?.SetPickVolumeCueEnabled(selOn, PickHoverOn, PickSelectedOn, PickUnselectedOn);
                 }
             }
 
@@ -695,9 +754,12 @@ namespace SwarmViewer
             var sel = _ctx.Selection;
             if (sel == null || sel.Count == 0) return;
 
-            var glow = Palette.A(Palette.Aim, 0.18f);
-            var core = Palette.A(Palette.Opaque(Palette.Aim), 0.55f);
-            var line = Palette.Opaque(Palette.Aim);
+            float r = _ctx.Run.KillRadius;
+            if (r < 0.01f && _ctx.Run.Params != null)
+                r = _ctx.Run.Params.KillRadius;
+            if (r < 0.01f) return;
+
+            float hold = AimIndex.Hold;
 
             for (int i = 0; i < sel.Count; i++)
             {
@@ -706,10 +768,15 @@ namespace SwarmViewer
                 if (!snaps[slot].Alive) continue;
                 int drone = _ctx.Run.Info(slot).drone_id;
                 if (drone < 0) continue;
-                if (!aims.TryAt(_ctx.Run, drone, t, out Vector3 ghost)) continue;
-                _spheres.Show(ghost, 6f, glow);
-                _spheres.Show(ghost, 2.2f, core);
-                _lines.Segment(snaps[slot].Position, ghost, line, 0.2f);
+                if (!aims.TryAt(_ctx.Run, drone, t, out Vector3 ghost, out float age)) continue;
+                if (age > hold) continue;
+
+                float k = 1f - age / hold;
+                if (k < 0.08f) k = 0.08f;
+                // SpherePool keys materials by exact colour; keep this to a few steps.
+                int q = Mathf.Clamp(Mathf.RoundToInt(k * 8f), 1, 8);
+                float a = 0.16f * (q / 8f);
+                _spheres.Show(ghost, r, Palette.A(Palette.Opaque(Palette.Aim), a));
             }
         }
 
@@ -812,7 +879,7 @@ namespace SwarmViewer
             public string Shape => Bit switch
             {
                 CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
-                CueMask.Ghosts or CueMask.Aim => "sphere",
+                CueMask.Selection or CueMask.Aim => "sphere",
                 CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
                 CueMask.Links or CueMask.Hops or CueMask.Intercept or CueMask.Yield or CueMask.Pings => "line",
                 _ => "",
@@ -821,10 +888,10 @@ namespace SwarmViewer
 
         public string ShapeHint(CueSpec spec)
         {
-            if (spec.Bit == CueMask.Ghosts)
-                return PickVolumesAll ? "sphere on every craft" : "sphere on the selection";
+            if (spec.Bit == CueMask.Selection)
+                return SelectionScope;
             if (spec.Bit == CueMask.Aim)
-                return "glowing ghost";
+                return "kill-radius sphere";
             if (IsRadius(spec.Bit))
                 return SphereOn(spec.Bit) ? "sphere" : "ring";
             return spec.Shape;
@@ -832,8 +899,8 @@ namespace SwarmViewer
 
         public string DrawnAs(CueSpec spec)
         {
-            if (spec.Bit == CueMask.Ghosts)
-                return $"Drawn as a sphere on {GhostScope}.";
+            if (spec.Bit == CueMask.Selection)
+                return $"Drawn as a sphere on {SelectionScope}.";
             string shape = ShapeHint(spec);
             if (string.IsNullOrEmpty(shape)) return "";
             bool an = "aeiou".IndexOf(char.ToLowerInvariant(shape[0])) >= 0;

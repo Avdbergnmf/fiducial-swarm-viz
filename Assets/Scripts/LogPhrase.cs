@@ -105,6 +105,7 @@ namespace SwarmViewer
                     case "live": return Live(raw);
                     case "yield": return Yield(raw);
                     case "params": return Params(raw);
+                    case "radio": return Radio(raw);
                     case "drone": return Boot(raw);
                     default: return raw;
                 }
@@ -171,6 +172,11 @@ namespace SwarmViewer
                 "target       the craft it is spending itself on\n" +
                 "dist         horizontal range from this picket to that intercept line\n" +
                 "clear        the picket is no longer inside the keep-out",
+            "radio" =>
+                "Receiver measurements on an incoming frame, not claims in the payload.\n" +
+                "range_sigma    1-sigma of measured range to the transmitter, m.\n" +
+                "               Physical; a compromised drone cannot lie about range.\n" +
+                "bearing_sigma  1-sigma of the measured bearing, rad (world NED).",
             _ => "",
         };
 
@@ -340,6 +346,11 @@ namespace SwarmViewer
             Field(raw, "ring=", "picket ring", "m"),
             Field(raw, "alt=", "ring altitude", "m"),
             Field(raw, "fix=", "own fix σ", "m"));
+
+        // "radio range_sigma=%.2f bearing_sigma=%.3f"
+        static string Radio(string raw) => Join("Incoming radio measurement noise",
+            Field(raw, "range_sigma=", "range σ", "m"),
+            Field(raw, "bearing_sigma=", "bearing σ", "rad"));
 
         // "drone %u/%u up, lateral limit %.2f m/s^2, kill r %.1f, tier %u"
         static string Boot(string raw)

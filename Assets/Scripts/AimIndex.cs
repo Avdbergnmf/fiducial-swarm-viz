@@ -42,6 +42,12 @@ namespace SwarmViewer
         public IReadOnlyList<AimSample> Samples => _samples;
         public int Count => _samples.Count;
 
+        /// <summary>
+        /// Same hold as ping lines. Believed pose only refreshes on
+        /// commit / near / ram, then this is how long the ghost stays up.
+        /// </summary>
+        public const float Hold = RelationIndex.PingHold;
+
         public AimIndex(RunData run)
         {
             if (run?.Meta?.logs == null) return;
@@ -72,10 +78,12 @@ namespace SwarmViewer
         /// <summary>
         /// Believed target pose for this drone at t, while a commit span is
         /// still open. Latest sample at or before t, coasted on vn/ve.
+        /// age is seconds since that sample — the overlay fades it out.
         /// </summary>
-        public bool TryAt(RunData run, int droneId, float t, out Vector3 pos)
+        public bool TryAt(RunData run, int droneId, float t, out Vector3 pos, out float age)
         {
             pos = default;
+            age = 0f;
             if (droneId < 0 || _samples.Count == 0) return false;
             if (!InCommit(run, droneId, t)) return false;
             if (!_first.TryGetValue(droneId, out int start)) return false;
@@ -92,6 +100,7 @@ namespace SwarmViewer
             var s = _samples[pick];
             float dt = t - s.T;
             if (dt < 0f) dt = 0f;
+            age = dt;
             float n = s.North;
             float e = s.East;
             if (s.HasVel)

@@ -210,11 +210,13 @@ namespace SwarmViewer
             }
 
             int shown = 0;
+            bool muted = _cues.Muted;
             for (int i = 0; i < CueOverlay.Specs.Length; i++)
             {
                 var spec = CueOverlay.Specs[i];
                 if (!_cues.IsOn(spec.Bit) || !_cues.Available(spec.Bit)) continue;
-                Row(_cuesBox, spec.Color, spec.Label, _cues.ShapeHint(spec));
+                Color hue = muted ? Palette.Gray(spec.Color) : spec.Color;
+                Row(_cuesBox, hue, spec.Label, _cues.ShapeHint(spec));
                 shown++;
                 if (spec.Bit == CueMask.Pings)
                     CueLegend.AddPingKey(_cuesBox, labeled: false);
@@ -225,7 +227,7 @@ namespace SwarmViewer
             if (_cuesTitle != null)
             {
                 _cuesTitle.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
-                _cuesTitle.text = shown > 0 ? "Cues on now" : "";
+                _cuesTitle.text = shown <= 0 ? "" : muted ? "Cues hidden" : "Cues on now";
             }
         }
 
@@ -237,7 +239,9 @@ namespace SwarmViewer
             Key(_keys, "J L", "±5s");
             Key(_keys, "B", "belief");
             Key(_keys, "C", "cues");
+            Key(_keys, "Shift+C", "hide cues");
             Key(_keys, "Esc", "deselect");
+            Key(_keys, "Enter", "inspector");
             Key(_keys, "Ctrl+A", "select all (keep primary)");
             Key(_keys, "[ ]", "prev/next");
             Key(_keys, "?", "legend");

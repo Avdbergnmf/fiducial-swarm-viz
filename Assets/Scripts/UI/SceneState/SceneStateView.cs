@@ -39,6 +39,7 @@ namespace SwarmViewer
         Button _eventsOpenBtn;
         Button _logsOpenBtn;
         Button _cuesOpenBtn;
+        Button _cuesMuteBtn;
 
         FloatingPanel _aircraftFloat;
         FloatingPanel _eventsFloat;
@@ -176,6 +177,7 @@ namespace SwarmViewer
             _eventsOpenBtn = UiQuery.Named<Button>(_root, "sceneStateOpenBtn");
             _logsOpenBtn = UiQuery.Named<Button>(_root, "logsOpenBtn");
             _cuesOpenBtn = UiQuery.Named<Button>(_root, "cuesOpenBtn");
+            _cuesMuteBtn = UiQuery.Named<Button>(_root, "cuesMuteBtn");
 
             var aircraftPanel = UiQuery.Named<VisualElement>(_root, "aircraftPanel");
             var eventsPanel = UiQuery.Named<VisualElement>(_root, "eventsPanel");
@@ -270,6 +272,11 @@ namespace SwarmViewer
             {
                 _cuesOpenBtn.tooltip = "Range rings and motion arrows   C";
                 _cuesOpenBtn.clicked += ToggleCues;
+            }
+            if (_cuesMuteBtn != null)
+            {
+                _cuesMuteBtn.tooltip = "Temporarily hide every overlay. Chips stay as they were; Show brings them back. Shift+C.";
+                _cuesMuteBtn.clicked += ToggleCueMute;
             }
             BuildCueChips();
 
@@ -437,6 +444,13 @@ namespace SwarmViewer
             else OpenCues();
         }
 
+        /// <summary>Hide / restore overlays. Public because Shift+C calls it.</summary>
+        public void ToggleCueMute()
+        {
+            Cues.ToggleMute();
+            RefreshCueChips();
+        }
+
         void OpenCues()
         {
             _cuesVisible = true;
@@ -498,6 +512,14 @@ namespace SwarmViewer
         {
             if (_cueChips == null) return;
             var cues = Cues;
+            bool muted = cues.Muted;
+            _cuesChipRow?.EnableInClassList("filter-chips--muted", muted);
+            _cuesChipRow?.parent?.EnableInClassList("cues-muted", muted);
+            if (_cuesMuteBtn != null)
+            {
+                _cuesMuteBtn.text = muted ? "Show" : "Hide";
+                _cuesMuteBtn.EnableInClassList("scene-state-toggle--open", muted);
+            }
             for (int i = 0; i < _cueChips.Length; i++)
             {
                 var spec = CueOverlay.Specs[i];
@@ -505,9 +527,12 @@ namespace SwarmViewer
                 bool on = avail && cues.IsOn(spec.Bit);
                 _cueChips[i].EnableInClassList("filter-chip--on", on);
                 _cueChips[i].EnableInClassList("filter-chip--unavailable", !avail);
+                Color hue = muted ? Palette.Gray(spec.Color) : spec.Color;
                 _cueChips[i].style.backgroundColor = on
-                    ? Palette.A(spec.Color, 0.42f)
+                    ? Palette.A(hue, 0.42f)
                     : StyleKeyword.Null;
+                if (_cueChips[i].childCount > 0)
+                    Palette.Fill(_cueChips[i][0], hue);
             }
             if (_cuesFooter != null) _cuesFooter.text = cues.FooterText();
             RefreshCueDetail(cues);
@@ -530,13 +555,15 @@ namespace SwarmViewer
 
             var spec = CueOverlay.Specs[_cueExplained];
             bool avail = cues.Available(spec.Bit);
-            string state = !avail ? "unavailable in this run" : cues.IsOn(spec.Bit) ? "on" : "off";
+            string state = !avail ? "unavailable in this run"
+                : cues.Muted ? (cues.IsOn(spec.Bit) ? "on, hidden" : "off")
+                : cues.IsOn(spec.Bit) ? "on" : "off";
             _cuesDetailTitle.text = $"{spec.Label} — {state}";
 
             if (_cuesDetailSwatch != null)
             {
                 _cuesDetailSwatch.style.display = DisplayStyle.Flex;
-                Palette.Fill(_cuesDetailSwatch, spec.Color);
+                Palette.Fill(_cuesDetailSwatch, cues.Muted ? Palette.Gray(spec.Color) : spec.Color);
             }
 
             if (_cuesDetailShape != null)
@@ -552,8 +579,8 @@ namespace SwarmViewer
                 _cuesDetailKey.Clear();
                 if (CueOverlay.IsRadius(spec.Bit))
                     AddSphereToggle(_cuesDetailKey, cues, spec.Bit);
-                if (spec.Bit == CueMask.Ghosts)
-                    AddGhostsToggle(_cuesDetailKey, cues);
+                if (spec.Bit == CueMask.Selection)
+                    AddSelectionToggles(_cuesDetailKey, cues);
                 else if (spec.Bit == CueMask.Pings)
                     CueLegend.AddPingKey(_cuesDetailKey, labeled: true);
                 else if (spec.Bit == CueMask.Hops)
@@ -570,7 +597,7 @@ namespace SwarmViewer
                 string value = cues.ValueText(spec.Bit);
                 if (string.IsNullOrEmpty(value))
                     _cuesDetailSource.text = spec.Source + "\nThis run: nothing recorded, so there is nothing to draw.";
-                else if (spec.Bit == CueMask.Ghosts)
+                else if (spec.Bit == CueMask.Selection)
                     _cuesDetailSource.text = spec.Source + $"\nShowing: {value}.";
                 else
                     _cuesDetailSource.text = spec.Source + $"\nThis run: {value}.";
@@ -592,16 +619,34 @@ namespace SwarmViewer
             parent.Add(toggle);
         }
 
-        void AddGhostsToggle(VisualElement parent, CueOverlay cues)
+        void AddSelectionToggles(VisualElement parent, CueOverlay cues)
         {
-            var toggle = new Toggle("All craft");
+            var box = new VisualElement();
+            box.AddToClassList("cue-detail-picks");
+            box.pickingMode = PickingMode.Ignore;
+            var head = new Label("Show pick volume on");
+            head.AddToClassList("cue-detail-picks-label");
+            head.pickingMode = PickingMode.Ignore;
+            box.Add(head);
+            AddPickToggle(box, cues, "Hover", CueOverlay.PickHover, cues.PickHoverOn,
+                "The sphere under the pointer. Off if it is covering what you are trying to see.");
+            AddPickToggle(box, cues, "Selected", CueOverlay.PickSelected, cues.PickSelectedOn,
+                "Every craft currently in the selection.");
+            AddPickToggle(box, cues, "Unselected", CueOverlay.PickUnselected, cues.PickUnselectedOn,
+                "Every living craft that is not selected. With Selected, this is everyone.");
+            parent.Add(box);
+        }
+
+        void AddPickToggle(VisualElement parent, CueOverlay cues, string label, int flag, bool on, string tip)
+        {
+            var toggle = new Toggle(label);
             toggle.AddToClassList("cue-detail-toggle");
             toggle.pickingMode = PickingMode.Position;
-            toggle.tooltip = "On: every living craft. Off: the selection only. Hover still shows a sphere under the pointer.";
-            toggle.SetValueWithoutNotify(cues.PickVolumesAll);
+            toggle.tooltip = tip;
+            toggle.SetValueWithoutNotify(on);
             toggle.RegisterValueChangedCallback(evt =>
             {
-                cues.SetPickVolumesAll(evt.newValue);
+                cues.SetPickShow(flag, evt.newValue);
                 RefreshCueDetail(cues);
             });
             parent.Add(toggle);

@@ -25,10 +25,15 @@ namespace SwarmViewer
         /// </summary>
         public Dictionary<string, string> panelRects = new();
         public bool legendCollapsed;
-        /// <summary>When the Ghosts cue is on, draw on every living craft rather than the selection.</summary>
+        /// <summary>Legacy: when the old Ghosts cue was on, draw on every living craft.</summary>
         public bool pickVolumesAll;
-        /// <summary>Legacy scale-bar master switch. Migrated into cueMask + pickVolumesAll, then cleared.</summary>
+        /// <summary>Legacy scale-bar master switch. Migrated into cueMask + pickVolumeShow, then cleared.</summary>
         public bool pickVolumesOn;
+        /// <summary>
+        /// Selection cue: which crafts get the pick-volume sphere.
+        /// CueOverlay.PickHover / PickSelected / PickUnselected. Null = not yet migrated.
+        /// </summary>
+        public int? pickVolumeShow;
         /// <summary>
         /// Radius cues that also draw a sphere. Null means the default (Kill only,
         /// matching the old always-on kill mesh). 0 is a real choice: rings only.

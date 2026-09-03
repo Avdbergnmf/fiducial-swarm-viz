@@ -1,5 +1,6 @@
-// Draggable per-entity inspector. Double-click a craft to open it. While open,
-// it follows Selection.Primary (first selected) so multi-select stays simple.
+// Draggable per-entity inspectors. Enter toggles a window for the primary
+// craft; double-click opens one. Windows stay on their drone — changing the
+// primary does not retarget them, so several can be up at once.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,14 +16,16 @@ namespace SwarmViewer
 
         ViewerContext _ctx;
         VisualElement _root;
+        VisualElement _host;
+        VisualElement _stockPanel;
+        VisualTreeAsset _inspectorAsset;
         bool _uiWired;
-        bool _visible;
         int _boundSlot = -1;
 
+        readonly List<Card> _cards = new();
+
         VisualElement _panel;
-        VisualElement _dragHandle;
         VisualElement _kindDot;
-        Button _closeBtn;
         Label _title;
         Label _subtitle;
         Label _status;
@@ -41,15 +44,16 @@ namespace SwarmViewer
         Label _comm;
         Label _sep;
         Label _fix;
+        Label _rangeSigma;
+        Label _bearingSigma;
         VisualElement _compromisedRow;
         Label _compromised;
         Button _beliefsOpenBtn;
         Label _eventsHeader;
         ScrollView _eventsScroll;
         VisualElement _logSection;
-        Label _logHeader;
-        ScrollView _logScroll;
         LogList _logList;
+        HeadingPreview _headingViz;
 
         VisualElement _beliefsPanel;
         VisualElement _beliefsDragHandle;
@@ -74,12 +78,31 @@ namespace SwarmViewer
         readonly List<(int slot, BeliefClass cls)> _seesBuf = new();
         int _callsFingerprint = int.MinValue;
         int _seesFingerprint = int.MinValue;
-        readonly List<VisualElement> _eventRows = new();
+        List<VisualElement> _eventRows;
         IReadOnlyList<EntityEventRecord> _events;
         IReadOnlyList<LogLine> _logs;
         int _nowEventIndex = -1;
 
-        FloatingPanel _window;
+        sealed class Card
+        {
+            public int Slot;
+            public VisualElement Panel;
+            public VisualElement KindDot;
+            public Label Title, Subtitle, Status, Speed, Accel, Altitude, Position, Heading;
+            public Label Kind, SlotLbl, Trace, Drone, Lifetime, KillRadius, Sense, Comm, Sep, Fix;
+            public Label RangeSigma, BearingSigma, Compromised;
+            public VisualElement CompromisedRow, LogSection;
+            public Button BeliefsOpenBtn;
+            public Label EventsHeader;
+            public ScrollView EventsScroll;
+            public LogList Logs;
+            public HeadingPreview HeadingViz;
+            public readonly List<VisualElement> EventRows = new();
+            public IReadOnlyList<EntityEventRecord> Events;
+            public IReadOnlyList<LogLine> Lines;
+            public int NowEventIndex = -1;
+            public FloatingPanel Window;
+        }
 
         void OnEnable() => TryWireUi();
         void Start() => TryWireUi();
@@ -89,62 +112,250 @@ namespace SwarmViewer
             Unhook();
             _ctx = ctx;
             TryWireUi();
-            if (_logList != null)
-            {
-                _logList.Bind(_ctx);
-                _logList.LeadIn = eventLeadIn;
-            }
+            DiscardAll();
             Hook();
-            Close();
             HideBeliefs();
         }
 
-        /// <summary>Opens on the current primary selection.</summary>
+        /// <summary>Opens a window for the current primary. Does not close others.</summary>
         public void Open()
         {
             if (_ctx?.Selection == null) return;
             int slot = _ctx.Selection.Primary;
             if (slot < 0) return;
-            Show();
+            OpenSlot(slot);
+        }
+
+        /// <summary>Enter: inspector for the primary, or close that drone's window only.</summary>
+        public void TogglePrimary()
+        {
+            if (_ctx?.Selection == null) return;
+            int slot = _ctx.Selection.Primary;
+            if (slot < 0) return;
+            var card = FindCard(slot);
+            if (card != null && card.Window != null && card.Window.IsShown)
+            {
+                card.Window.Hide();
+                return;
+            }
+            OpenSlot(slot);
+        }
+
+        public void Close() => DiscardAll();
+
+        void OpenSlot(int slot)
+        {
+            if (_ctx?.Run == null || slot < 0) return;
+            if (_host == null) TryWireUi();
+            var card = FindCard(slot);
+            if (card == null)
+            {
+                card = SpawnCard(slot);
+                if (card == null) return;
+                _cards.Add(card);
+            }
+            Activate(card);
+            card.Window?.Show();
             BindSlot(slot, force: true);
         }
 
-        public void Close()
+        Card FindCard(int slot)
         {
-            _visible = false;
-            ClearBound();
-            if (_window != null)
-                _window.Hide();
-            else if (_panel != null)
-                _panel.style.display = DisplayStyle.None;
+            for (int i = 0; i < _cards.Count; i++)
+                if (_cards[i].Slot == slot) return _cards[i];
+            return null;
         }
 
-        void ClearBound()
+        void DiscardAll()
         {
+            for (int i = _cards.Count - 1; i >= 0; i--)
+                Discard(_cards[i]);
             _boundSlot = -1;
             _events = null;
             _logs = null;
+            _eventRows = null;
             _nowEventIndex = -1;
-            _callsFingerprint = int.MinValue;
-            _seesFingerprint = int.MinValue;
         }
 
-        void OnWindowHidden()
+        void Discard(Card card)
         {
-            if (!_visible) return;
-            _visible = false;
-            ClearBound();
+            if (card == null) return;
+            _cards.Remove(card);
+            card.Window?.Detach();
+            if (card.Panel != null && card.Panel != _stockPanel)
+                card.Panel.RemoveFromHierarchy();
+            else if (card.Panel == _stockPanel)
+                card.Panel.style.display = DisplayStyle.None;
         }
 
-        void Show()
+        void Activate(Card c)
         {
-            if (_panel == null) TryWireUi();
-            if (_panel == null) return;
-            _visible = true;
-            if (_window != null)
-                _window.Show();
+            _boundSlot = c.Slot;
+            _panel = c.Panel;
+            _kindDot = c.KindDot;
+            _title = c.Title;
+            _subtitle = c.Subtitle;
+            _status = c.Status;
+            _speed = c.Speed;
+            _accel = c.Accel;
+            _altitude = c.Altitude;
+            _position = c.Position;
+            _heading = c.Heading;
+            _kind = c.Kind;
+            _slot = c.SlotLbl;
+            _trace = c.Trace;
+            _drone = c.Drone;
+            _lifetime = c.Lifetime;
+            _killRadius = c.KillRadius;
+            _sense = c.Sense;
+            _comm = c.Comm;
+            _sep = c.Sep;
+            _fix = c.Fix;
+            _rangeSigma = c.RangeSigma;
+            _bearingSigma = c.BearingSigma;
+            _compromisedRow = c.CompromisedRow;
+            _compromised = c.Compromised;
+            _beliefsOpenBtn = c.BeliefsOpenBtn;
+            _eventsHeader = c.EventsHeader;
+            _eventsScroll = c.EventsScroll;
+            _logSection = c.LogSection;
+            _logList = c.Logs;
+            _headingViz = c.HeadingViz;
+            _eventRows = c.EventRows;
+            _events = c.Events;
+            _logs = c.Lines;
+            _nowEventIndex = c.NowEventIndex;
+        }
+
+        void StoreBound(Card c)
+        {
+            c.Events = _events;
+            c.Lines = _logs;
+            c.NowEventIndex = _nowEventIndex;
+        }
+
+        VisualTreeAsset FindInspectorAsset()
+        {
+            for (var el = _stockPanel; el != null; el = el.parent)
+            {
+                var src = el.visualTreeAssetSource;
+                if (IsInspectorUxml(src)) return src;
+                if (el is TemplateContainer tc && IsInspectorUxml(tc.templateSource))
+                    return tc.templateSource;
+            }
+            var inst = _root != null ? _root.Q("entityInspectorInstance") : null;
+            if (inst is TemplateContainer boxed && IsInspectorUxml(boxed.templateSource))
+                return boxed.templateSource;
+            return null;
+        }
+
+        static bool IsInspectorUxml(VisualTreeAsset src) =>
+            src != null && src.name.IndexOf("EntityInspector", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+        Card SpawnCard(int slot)
+        {
+            if (_host == null) return null;
+            VisualElement panel = null;
+            if (_inspectorAsset != null)
+            {
+                var tree = _inspectorAsset.Instantiate();
+                panel = tree.Q<VisualElement>("inspectorPanel");
+                if (panel != null)
+                {
+                    panel.RemoveFromHierarchy();
+                    _host.Add(panel);
+                }
+            }
+            if (panel == null && _stockPanel != null)
+            {
+                bool taken = false;
+                for (int i = 0; i < _cards.Count; i++)
+                    if (_cards[i].Panel == _stockPanel) { taken = true; break; }
+                if (!taken)
+                    panel = _stockPanel;
+            }
+            if (panel == null)
+            {
+                Debug.LogWarning("[viewer] EntityInspectorView: could not clone inspector panel.");
+                return null;
+            }
+
+            panel.name = "inspector-slot-" + slot;
+            panel.style.display = DisplayStyle.None;
+            int n = _cards.Count;
+            panel.style.left = 14 + n * 28;
+            panel.style.top = 52 + n * 28;
+
+            var c = WireCard(panel, slot);
+            c.Window = new FloatingPanel();
+            c.Window.Attach(panel, panel.Q("inspectorDragHandle"), panel.Q<Button>("inspectorCloseBtn"));
+            return c;
+        }
+
+        Card WireCard(VisualElement panel, int slot)
+        {
+            var c = new Card { Slot = slot, Panel = panel };
+            c.KindDot = UiQuery.Named<VisualElement>(panel, "inspectorKindDot");
+            c.Title = UiQuery.Named<Label>(panel, "inspectorTitle");
+            c.Subtitle = UiQuery.Named<Label>(panel, "inspectorSubtitle");
+            c.Status = UiQuery.Named<Label>(panel, "inspectorStatus");
+            c.Speed = UiQuery.Named<Label>(panel, "inspectorSpeed");
+            c.Accel = UiQuery.Named<Label>(panel, "inspectorAccel");
+            c.Altitude = UiQuery.Named<Label>(panel, "inspectorAltitude");
+            c.Position = UiQuery.Named<Label>(panel, "inspectorPosition");
+            c.Heading = UiQuery.Named<Label>(panel, "inspectorHeading");
+            c.Kind = UiQuery.Named<Label>(panel, "inspectorKind");
+            c.SlotLbl = UiQuery.Named<Label>(panel, "inspectorSlot");
+            c.Trace = UiQuery.Named<Label>(panel, "inspectorTrace");
+            c.Drone = UiQuery.Named<Label>(panel, "inspectorDrone");
+            c.Lifetime = UiQuery.Named<Label>(panel, "inspectorLifetime");
+            c.KillRadius = UiQuery.Named<Label>(panel, "inspectorKillRadius");
+            c.Sense = UiQuery.Named<Label>(panel, "inspectorSense");
+            c.Comm = UiQuery.Named<Label>(panel, "inspectorComm");
+            c.Sep = UiQuery.Named<Label>(panel, "inspectorSep");
+            c.Fix = UiQuery.Named<Label>(panel, "inspectorFix");
+            c.RangeSigma = UiQuery.Named<Label>(panel, "inspectorRangeSigma");
+            c.BearingSigma = UiQuery.Named<Label>(panel, "inspectorBearingSigma");
+            c.CompromisedRow = UiQuery.Named<VisualElement>(panel, "inspectorCompromisedRow");
+            c.Compromised = UiQuery.Named<Label>(panel, "inspectorCompromised");
+            c.BeliefsOpenBtn = UiQuery.Named<Button>(panel, "inspectorBeliefsBtn");
+            c.EventsHeader = UiQuery.Named<Label>(panel, "inspectorEventsHeader");
+            c.EventsScroll = UiQuery.Named<ScrollView>(panel, "inspectorEventsScroll");
+            c.LogSection = UiQuery.Named<VisualElement>(panel, "inspectorLogSection");
+            var logHeader = UiQuery.Named<Label>(panel, "inspectorLogHeader");
+            var logScroll = UiQuery.Named<ScrollView>(panel, "inspectorLogScroll");
+            c.Logs = new LogList(
+                logScroll,
+                logHeader,
+                null,
+                UiQuery.Named<VisualElement>(panel, "inspectorLogVerbs"),
+                UiQuery.Named<Button>(panel, "inspectorLogRawBtn"))
+            {
+                ShowDrone = false,
+                SelectOnJump = false,
+                FollowNow = true,
+                Title = "Log",
+                LeadIn = eventLeadIn,
+            };
+            if (_ctx != null)
+                c.Logs.Bind(_ctx);
+
+            c.HeadingViz = new HeadingPreview();
+            c.HeadingViz.name = "inspectorHeadingViz";
+            c.HeadingViz.AddToClassList("inspector-heading-viz");
+            int captured = slot;
+            c.HeadingViz.Clicked += () => _ctx?.Selection?.SelectOnly(captured);
+            if (c.Subtitle?.parent != null)
+            {
+                int at = c.Subtitle.parent.IndexOf(c.Subtitle);
+                c.Subtitle.parent.Insert(at + 1, c.HeadingViz);
+            }
             else
-                _panel.style.display = DisplayStyle.Flex;
+                panel.Insert(1, c.HeadingViz);
+
+            if (c.BeliefsOpenBtn != null)
+                c.BeliefsOpenBtn.clicked += () => OpenBeliefs(captured);
+            return c;
         }
 
         void TryWireUi()
@@ -167,51 +378,11 @@ namespace SwarmViewer
             if (_uiWired && _root == root) return;
 
             _root = root;
-            _panel = UiQuery.Named<VisualElement>(_root, "inspectorPanel");
-            _dragHandle = UiQuery.Named<VisualElement>(_root, "inspectorDragHandle");
-            _kindDot = UiQuery.Named<VisualElement>(_root, "inspectorKindDot");
-            _closeBtn = UiQuery.Named<Button>(_root, "inspectorCloseBtn");
-            _title = UiQuery.Named<Label>(_root, "inspectorTitle");
-            _subtitle = UiQuery.Named<Label>(_root, "inspectorSubtitle");
-            _status = UiQuery.Named<Label>(_root, "inspectorStatus");
-            _speed = UiQuery.Named<Label>(_root, "inspectorSpeed");
-            _accel = UiQuery.Named<Label>(_root, "inspectorAccel");
-            _altitude = UiQuery.Named<Label>(_root, "inspectorAltitude");
-            _position = UiQuery.Named<Label>(_root, "inspectorPosition");
-            _heading = UiQuery.Named<Label>(_root, "inspectorHeading");
-            _kind = UiQuery.Named<Label>(_root, "inspectorKind");
-            _slot = UiQuery.Named<Label>(_root, "inspectorSlot");
-            _trace = UiQuery.Named<Label>(_root, "inspectorTrace");
-            _drone = UiQuery.Named<Label>(_root, "inspectorDrone");
-            _lifetime = UiQuery.Named<Label>(_root, "inspectorLifetime");
-            _killRadius = UiQuery.Named<Label>(_root, "inspectorKillRadius");
-            _sense = UiQuery.Named<Label>(_root, "inspectorSense");
-            _comm = UiQuery.Named<Label>(_root, "inspectorComm");
-            _sep = UiQuery.Named<Label>(_root, "inspectorSep");
-            _fix = UiQuery.Named<Label>(_root, "inspectorFix");
-            _compromisedRow = UiQuery.Named<VisualElement>(_root, "inspectorCompromisedRow");
-            _compromised = UiQuery.Named<Label>(_root, "inspectorCompromised");
-            _beliefsOpenBtn = UiQuery.Named<Button>(_root, "inspectorBeliefsBtn");
-            _eventsHeader = UiQuery.Named<Label>(_root, "inspectorEventsHeader");
-            _eventsScroll = UiQuery.Named<ScrollView>(_root, "inspectorEventsScroll");
-            _logSection = UiQuery.Named<VisualElement>(_root, "inspectorLogSection");
-            _logHeader = UiQuery.Named<Label>(_root, "inspectorLogHeader");
-            _logScroll = UiQuery.Named<ScrollView>(_root, "inspectorLogScroll");
-            _logList = new LogList(
-                _logScroll,
-                _logHeader,
-                null,
-                UiQuery.Named<VisualElement>(_root, "inspectorLogVerbs"),
-                UiQuery.Named<Button>(_root, "inspectorLogRawBtn"))
-            {
-                ShowDrone = false,
-                SelectOnJump = false,
-                FollowNow = true,
-                Title = "Log",
-                LeadIn = eventLeadIn,
-            };
-            if (_ctx != null)
-                _logList.Bind(_ctx);
+            _host = root.Q("inspectorRoot") ?? root;
+            _stockPanel = root.Q<VisualElement>("inspectorPanel");
+            if (_stockPanel != null)
+                _stockPanel.style.display = DisplayStyle.None;
+            _inspectorAsset = FindInspectorAsset();
 
             _beliefsPanel = UiQuery.Named<VisualElement>(_root, "beliefsPanel");
             _beliefsDragHandle = UiQuery.Named<VisualElement>(_root, "beliefsDragHandle");
@@ -229,25 +400,13 @@ namespace SwarmViewer
             _beliefsSeesScroll = UiQuery.Named<ScrollView>(_root, "beliefsSeesScroll");
 
             RegisterCallbacks();
-            if (_panel != null && !_visible)
-                _panel.style.display = DisplayStyle.None;
             if (_beliefsPanel != null && !_beliefsVisible)
                 _beliefsPanel.style.display = DisplayStyle.None;
-            if (_beliefsOpenBtn != null && !_beliefsVisible)
-                _beliefsOpenBtn.style.display = DisplayStyle.None;
             _uiWired = true;
         }
 
         void RegisterCallbacks()
         {
-            if (_panel != null)
-            {
-                _window = new FloatingPanel();
-                _window.Attach(_panel, _dragHandle, _closeBtn);
-                _window.Hidden += OnWindowHidden;
-            }
-            if (_beliefsOpenBtn != null)
-                _beliefsOpenBtn.clicked += OpenBeliefsFromInspector;
             if (_beliefsPanel != null)
             {
                 _beliefsWindow = new FloatingPanel();
@@ -286,14 +445,24 @@ namespace SwarmViewer
             }
         }
 
-        void OnDestroy() => Unhook();
+        void OnDestroy()
+        {
+            Unhook();
+            DiscardAll();
+        }
 
         void OnStateChanged()
         {
-            if (!_visible || _boundSlot < 0) return;
-            RefreshLive();
-            _logList?.Highlight();
-            UpdateEventHighlights();
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                var card = _cards[i];
+                if (card.Window == null || !card.Window.IsShown) continue;
+                Activate(card);
+                RefreshLive();
+                _logList?.Highlight();
+                UpdateEventHighlights();
+                StoreBound(card);
+            }
             if (_beliefsVisible)
                 RefreshPinnedBeliefs(force: false);
         }
@@ -301,16 +470,9 @@ namespace SwarmViewer
         void OnViewModeChanged(ViewMode _) => RefreshPinnedVizBtn();
         void OnObserverChanged(int _) => RefreshPinnedVizBtn();
 
-        void OnSelectionChanged(int primary)
+        void OnSelectionChanged(int _)
         {
-            if (!_visible) return;
-            if (primary < 0)
-            {
-                Close();
-                return;
-            }
-            if (primary != _boundSlot)
-                BindSlot(primary, force: true);
+            // Inspectors are pinned to the drone they were opened on.
         }
 
         void BindSlot(int slot, bool force)
@@ -386,6 +548,32 @@ namespace SwarmViewer
                     _fix.tooltip = "params fix= was not logged on this run.";
                 }
             }
+            if (_rangeSigma != null)
+            {
+                if (p != null && p.RangeSigma > 0f)
+                {
+                    _rangeSigma.text = $"{p.RangeSigma:G} m";
+                    _rangeSigma.tooltip = "Incoming radio range 1-sigma (radio range_sigma=). Physical — a compromised drone cannot lie about this.";
+                }
+                else
+                {
+                    _rangeSigma.text = "—";
+                    _rangeSigma.tooltip = "radio range_sigma= was not logged on this run. Reload after a sim that received a frame.";
+                }
+            }
+            if (_bearingSigma != null)
+            {
+                if (p != null && p.BearingSigma > 0f)
+                {
+                    _bearingSigma.text = $"{p.BearingSigma:G} rad";
+                    _bearingSigma.tooltip = "Incoming radio bearing 1-sigma (radio bearing_sigma=), world NED.";
+                }
+                else
+                {
+                    _bearingSigma.text = "—";
+                    _bearingSigma.tooltip = "radio bearing_sigma= was not logged on this run. Reload after a sim that received a frame.";
+                }
+            }
 
             bool compromised = info.compromised_from >= 0;
             if (_compromisedRow != null)
@@ -401,6 +589,8 @@ namespace SwarmViewer
             RefreshLog();
             RefreshLive();
             RefreshBeliefsOpenBtn(info);
+            var card = FindCard(slot);
+            if (card != null) StoreBound(card);
         }
 
         void ApplyKindChrome(EntityKind kind, bool compromised = false)
@@ -450,6 +640,7 @@ namespace SwarmViewer
                 SetDash(_altitude);
                 SetDash(_position);
                 SetDash(_heading);
+                _headingViz?.Set(Vector3.zero, Palette.Kind(info.Kind), false);
                 return;
             }
 
@@ -488,6 +679,11 @@ namespace SwarmViewer
                     _heading.text = $"{deg:000}°";
                 }
             }
+
+            Color body = _ctx.State.IsCompromisedNow(_boundSlot)
+                ? Palette.Compromised
+                : Palette.Kind(info.Kind);
+            _headingViz?.Set(snap.Velocity, body, snap.Alive);
         }
 
         static void SetDash(Label label)
@@ -497,7 +693,7 @@ namespace SwarmViewer
 
         void RebuildEvents()
         {
-            _eventRows.Clear();
+            _eventRows?.Clear();
             _nowEventIndex = int.MinValue;
             if (_eventsScroll == null) return;
             _eventsScroll.contentContainer.Clear();
@@ -552,29 +748,29 @@ namespace SwarmViewer
                     row.Add(text);
                 }
 
-                row.RegisterCallback<ClickEvent>(OnEventClicked);
+                row.userData = rec;
+                int eventSlot = _boundSlot;
+                row.RegisterCallback<ClickEvent>(evt =>
+                {
+                    if (evt.currentTarget is VisualElement el && el.userData is EntityEventRecord r)
+                        JumpToEvent(r, eventSlot);
+                    evt.StopPropagation();
+                });
                 _eventsScroll.Add(row);
-                _eventRows.Add(row);
+                _eventRows?.Add(row);
             }
 
             UpdateEventHighlights();
         }
 
-        void OnEventClicked(ClickEvent evt)
+        void JumpToEvent(EntityEventRecord rec, int slot)
         {
-            if (evt.currentTarget is VisualElement row && row.userData is EntityEventRecord rec)
-                JumpToEvent(rec);
-            evt.StopPropagation();
-        }
-
-        void JumpToEvent(EntityEventRecord rec)
-        {
-            if (_ctx == null || rec == null || _boundSlot < 0) return;
+            if (_ctx == null || rec == null || slot < 0) return;
 
             _ctx.Clock.SeekJustBefore(rec.time);
 
             var sel = _ctx.Selection;
-            sel.SelectOnly(_boundSlot);
+            sel.SelectOnly(slot);
             if (rec.otherSlots == null) return;
             for (int i = 0; i < rec.otherSlots.Length; i++)
                 sel.Add(rec.otherSlots[i]);
@@ -582,7 +778,7 @@ namespace SwarmViewer
 
         void UpdateEventHighlights()
         {
-            if (_ctx == null || _eventRows.Count == 0) return;
+            if (_ctx == null || _eventRows == null || _eventRows.Count == 0) return;
             float t = _ctx.Clock.Time;
             int now = -1;
             for (int i = 0; i < _eventRows.Count; i++)
@@ -621,7 +817,7 @@ namespace SwarmViewer
         {
             if (_beliefsSlot < 0 || _ctx?.Selection == null) return;
             _ctx.Selection.SelectOnly(_beliefsSlot);
-            Open();
+            OpenSlot(_beliefsSlot);
         }
 
         void RefreshBeliefsOpenBtn(EntityInfo info)
@@ -633,11 +829,15 @@ namespace SwarmViewer
                 _beliefsVisible && _beliefsSlot == _boundSlot);
         }
 
-        void OpenBeliefsFromInspector()
+        void RefreshAllBeliefsButtons()
         {
-            if (_boundSlot < 0 || _ctx?.Run == null) return;
-            if (_ctx.Run.Info(_boundSlot).drone_id < 0) return;
-            OpenBeliefs(_boundSlot);
+            if (_ctx?.Run == null) return;
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                Activate(_cards[i]);
+                RefreshBeliefsOpenBtn(_ctx.Run.Info(_cards[i].Slot));
+                StoreBound(_cards[i]);
+            }
         }
 
         public void OpenBeliefs(int slot)
@@ -668,8 +868,7 @@ namespace SwarmViewer
 
             RefreshPinnedVizBtn();
             RefreshPinnedBeliefs(force: true);
-            if (_boundSlot >= 0)
-                RefreshBeliefsOpenBtn(_ctx.Run.Info(_boundSlot));
+            RefreshAllBeliefsButtons();
         }
 
         void HideBeliefs()
@@ -683,8 +882,7 @@ namespace SwarmViewer
                 _beliefsWindow.Hide();
             else if (_beliefsPanel != null)
                 _beliefsPanel.style.display = DisplayStyle.None;
-            if (_boundSlot >= 0 && _ctx?.Run != null)
-                RefreshBeliefsOpenBtn(_ctx.Run.Info(_boundSlot));
+            RefreshAllBeliefsButtons();
         }
 
         void OnBeliefsHidden()
@@ -692,8 +890,7 @@ namespace SwarmViewer
             _beliefsVisible = false;
             _beliefsSlot = -1;
             _beliefsLogs = null;
-            if (_boundSlot >= 0 && _ctx?.Run != null)
-                RefreshBeliefsOpenBtn(_ctx.Run.Info(_boundSlot));
+            RefreshAllBeliefsButtons();
         }
 
         void TogglePinnedViz()

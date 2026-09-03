@@ -20,6 +20,8 @@ namespace SwarmViewer
         public float RingRadius;
         public float RingAltitude;
         public float FixSigma;
+        public float RangeSigma;
+        public float BearingSigma;
         public float ObservedComm;
         public bool CommFromLinks;
 
@@ -47,22 +49,34 @@ namespace SwarmViewer
         {
             var logs = run.Meta.logs;
             if (logs == null) return;
+            bool gotParams = false;
+            bool gotRadio = false;
             for (int i = 0; i < logs.Count; i++)
             {
                 string text = logs[i]?.text;
-                if (string.IsNullOrEmpty(text) || !text.StartsWith("params ")) continue;
-                TryKey(text, "sense", ref p.SenseRadius);
-                TryKey(text, "comm", ref p.CommRadius);
-                TryKey(text, "maxv", ref p.MaxSpeed);
-                TryKey(text, "maxa", ref p.MaxAccel);
-                TryKey(text, "tilt", ref p.MaxTilt);
-                TryKey(text, "lat", ref p.LateralLimit);
-                TryKey(text, "sep", ref p.SeparationMargin);
-                TryKey(text, "fsep", ref p.FriendlyMargin);
-                TryKey(text, "ring", ref p.RingRadius);
-                TryKey(text, "alt", ref p.RingAltitude);
-                TryKey(text, "fix", ref p.FixSigma);
-                return;
+                if (string.IsNullOrEmpty(text)) continue;
+                if (!gotParams && text.StartsWith("params "))
+                {
+                    TryKey(text, "sense", ref p.SenseRadius);
+                    TryKey(text, "comm", ref p.CommRadius);
+                    TryKey(text, "maxv", ref p.MaxSpeed);
+                    TryKey(text, "maxa", ref p.MaxAccel);
+                    TryKey(text, "tilt", ref p.MaxTilt);
+                    TryKey(text, "lat", ref p.LateralLimit);
+                    TryKey(text, "sep", ref p.SeparationMargin);
+                    TryKey(text, "fsep", ref p.FriendlyMargin);
+                    TryKey(text, "ring", ref p.RingRadius);
+                    TryKey(text, "alt", ref p.RingAltitude);
+                    TryKey(text, "fix", ref p.FixSigma);
+                    gotParams = true;
+                }
+                else if (!gotRadio && text.StartsWith("radio "))
+                {
+                    TryKey(text, "range_sigma", ref p.RangeSigma);
+                    TryKey(text, "bearing_sigma", ref p.BearingSigma);
+                    gotRadio = true;
+                }
+                if (gotParams && gotRadio) return;
             }
         }
 

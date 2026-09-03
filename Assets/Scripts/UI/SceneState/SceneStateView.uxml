@@ -85,6 +85,7 @@
                 <ui:VisualElement name="cuesDragHandle" class="scene-state-drag">
                     <ui:Label text="Cues" picking-mode="Ignore" class="scene-state-title" />
                 </ui:VisualElement>
+                <ui:Button name="cuesMuteBtn" text="Hide" picking-mode="Position" class="scene-state-header-btn" tooltip="Temporarily hide every overlay. Chips stay as they were; Show brings them back. Shift+C." />
                 <ui:Button name="cuesCloseBtn" text="×" picking-mode="Position" class="scene-state-close" />
             </ui:VisualElement>
             <ui:VisualElement class="scene-state-section-head" picking-mode="Ignore">

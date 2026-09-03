@@ -83,6 +83,14 @@
                     <ui:Label text="Fix σ" picking-mode="Ignore" class="inspector-key" tooltip="Own-position 1-sigma. About 35 cm — too small to draw, so the number lives here." />
                     <ui:Label name="inspectorFix" text="—" picking-mode="Ignore" class="inspector-value" />
                 </ui:VisualElement>
+                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                    <ui:Label text="Range σ" picking-mode="Ignore" class="inspector-key" tooltip="Incoming radio: 1-sigma of measured range to the transmitter, metres. Physical — a compromised drone cannot lie about this." />
+                    <ui:Label name="inspectorRangeSigma" text="—" picking-mode="Ignore" class="inspector-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                    <ui:Label text="Bearing σ" picking-mode="Ignore" class="inspector-key" tooltip="Incoming radio: 1-sigma of measured bearing, radians, world NED." />
+                    <ui:Label name="inspectorBearingSigma" text="—" picking-mode="Ignore" class="inspector-value" />
+                </ui:VisualElement>
                 <ui:VisualElement name="inspectorCompromisedRow" class="inspector-row" picking-mode="Ignore">
                     <ui:Label text="Compromised" picking-mode="Ignore" class="inspector-key" />
                     <ui:Label name="inspectorCompromised" text="—" picking-mode="Ignore" class="inspector-value" />

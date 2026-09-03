@@ -133,6 +133,27 @@ namespace SwarmViewer
             Hidden?.Invoke();
         }
 
+        /// <summary>
+        /// Drop this window from the live list. Call before destroying the panel
+        /// so parent GeometryChanged and ReflowAll do not keep a dead handle.
+        /// </summary>
+        public void Detach()
+        {
+            Hide();
+            if (_panel != null)
+            {
+                var parent = _panel.parent;
+                if (parent != null)
+                    parent.UnregisterCallback<GeometryChangedEvent>(OnParentGeometry);
+            }
+            Live.Remove(this);
+            Hidden = null;
+            _panel = null;
+            _dragHandle = null;
+            _attached = false;
+            _shown = false;
+        }
+
         void AddGrips()
         {
             if (_panel.Q("floatGripE") != null) return;

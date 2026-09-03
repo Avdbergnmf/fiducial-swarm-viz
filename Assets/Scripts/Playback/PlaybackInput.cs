@@ -167,10 +167,16 @@ namespace SwarmViewer
                 ToggleBeliefMode();
 
             if (keyboard.cKey.wasPressedThisFrame)
-                GetComponent<SceneStateView>()?.ToggleCues();
+            {
+                if (shift) GetComponent<SceneStateView>()?.ToggleCueMute();
+                else GetComponent<SceneStateView>()?.ToggleCues();
+            }
 
             if (ctrl && keyboard.aKey.wasPressedThisFrame && !shift)
                 SelectAllAlive();
+
+            if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+                GetComponent<EntityInspectorView>()?.TogglePrimary();
 
             if (keyboard.slashKey.wasPressedThisFrame || keyboard.hKey.wasPressedThisFrame)
                 GetComponent<LegendView>()?.ToggleCollapsed();

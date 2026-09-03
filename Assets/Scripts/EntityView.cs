@@ -37,7 +37,9 @@ namespace SwarmViewer
         bool _hovered;
         bool _killCueOn = true;
         bool _pickVolumeCueOn;
-        bool _pickVolumeAll;
+        bool _pickHover;
+        bool _pickSelected;
+        bool _pickUnselected;
         GameObject _killRadiusGo;
         GameObject _pickVolumeGo;
         MeshRenderer _pickVolumeRend;
@@ -86,9 +88,9 @@ namespace SwarmViewer
         /// <summary>
         /// Pick volume in local metres. Larger than the mesh so a click near the
         /// craft still hits; EntityPicker breaks ties by origin, not first hit.
-        /// Ghost mesh is the same size, shown on hover and when the Ghosts cue is
-        /// on (selection or every craft). Tinted from the airframe material so
-        /// class / belief colour carries through.
+        /// The Selection cue owns when this mesh is visible (hover / selected /
+        /// unselected). Tinted from the airframe material so class / belief colour
+        /// carries through.
         /// </summary>
         public void ConfigurePickCollider(float localRadius)
         {
@@ -335,11 +337,13 @@ namespace SwarmViewer
             UpdateKillRadiusVisibility();
         }
 
-        /// <summary>Ghosts cue. Hover still shows a sphere when this is off.</summary>
-        public void SetPickVolumeCueEnabled(bool on, bool all)
+        /// <summary>Selection cue. Hover is one of the checkboxes, not a free extra.</summary>
+        public void SetPickVolumeCueEnabled(bool on, bool hover, bool selected, bool unselected)
         {
             _pickVolumeCueOn = on;
-            _pickVolumeAll = all;
+            _pickHover = hover;
+            _pickSelected = selected;
+            _pickUnselected = unselected;
             UpdatePickVolumeVisibility();
         }
 
@@ -352,8 +356,15 @@ namespace SwarmViewer
         void UpdatePickVolumeVisibility()
         {
             if (_pickVolumeGo == null) return;
-            bool cue = _pickVolumeCueOn && (_pickVolumeAll || _selected);
-            _pickVolumeGo.SetActive((_hovered || cue) && Current.Alive);
+            if (!_pickVolumeCueOn || !Current.Alive)
+            {
+                _pickVolumeGo.SetActive(false);
+                return;
+            }
+            bool show = (_hovered && _pickHover)
+                || (_selected && _pickSelected)
+                || (!_selected && _pickUnselected);
+            _pickVolumeGo.SetActive(show);
         }
 
         /// <summary>
