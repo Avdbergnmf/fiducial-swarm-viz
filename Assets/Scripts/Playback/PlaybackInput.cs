@@ -180,11 +180,23 @@ namespace SwarmViewer
         {
             if (_ctx?.Selection == null || _ctx.State == null) return;
             var ents = _ctx.State.Entities;
+            int keep = _ctx.Selection.Primary;
             _selectAllBuf.Clear();
             for (int i = 0; i < ents.Count; i++)
             {
                 if (ents[i].Alive)
                     _selectAllBuf.Add(i);
+            }
+            // Primary is slots[0]. Walking the roster would steal it
+            // (inspector, belief, hops) even when that drone is in the set.
+            if (keep >= 0)
+            {
+                int at = _selectAllBuf.IndexOf(keep);
+                if (at > 0)
+                {
+                    _selectAllBuf.RemoveAt(at);
+                    _selectAllBuf.Insert(0, keep);
+                }
             }
             _ctx.Selection.Replace(_selectAllBuf);
         }
