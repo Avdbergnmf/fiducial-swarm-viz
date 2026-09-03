@@ -643,7 +643,7 @@ namespace SwarmViewer
             if (On(CueMask.Pings))
                 DrawPings(snaps, t);
             if (On(CueMask.Picket) && p.Has(p.RingRadius))
-                DrawPicket(p);
+                DrawPicket(p, t);
             if (On(CueMask.Aim))
                 DrawAim(snaps, t);
 
@@ -805,14 +805,16 @@ namespace SwarmViewer
             return _ctx.Run.Sample(info.last_frame, slot, out pos, out _, out _);
         }
 
-        void DrawPicket(RunParams p)
+        void DrawPicket(RunParams p, float time)
         {
             var asset = _ctx.Run.Meta.asset;
             Vector3 c = Vector3.zero;
             if (asset?.position != null && asset.position.Length >= 3)
                 c = new Vector3(asset.position[0], asset.position[1], asset.position[2]);
-            c.y = p.Has(p.RingAltitude) ? p.RingAltitude : c.y;
-            DrawRadius(CueMask.Picket, c, p.RingRadius, Palette.A(Palette.Picket, 0.7f), 0.4f);
+            float altitude = p.RingAltitudeAt(time);
+            float radius = p.RingRadiusAt(time);
+            c.y = p.Has(altitude) ? altitude : c.y;
+            DrawRadius(CueMask.Picket, c, radius, Palette.A(Palette.Picket, 0.7f), 0.4f);
         }
 
         void DrawAim(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)

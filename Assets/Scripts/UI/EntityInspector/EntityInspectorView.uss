@@ -1,3 +1,7 @@
+/*
+2026-09-03 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
 .inspector-root {
     position: absolute;
     left: 0;
@@ -10,8 +14,8 @@
     position: absolute;
     left: 14px;
     top: 52px;
-    width: 340px;
-    height: 460px;
+    width: 520px;
+    height: 540px;
     display: none;
     flex-direction: column;
     background-color: rgba(16, 18, 22, 0.94);
@@ -185,8 +189,38 @@
     background-color: rgba(65, 140, 245, 0.4);
 }
 
+.inspector-fold-btn {
+    width: 16px;
+    height: 16px;
+    margin-left: 0;
+    margin-right: 6px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgb(200, 206, 216);
+    font-size: 11px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+    -unity-text-align: middle-center;
+}
+
+.inspector-fold-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+    color: rgb(255, 255, 255);
+}
+
 .inspector-panel--beliefs {
-    left: 368px;
+    left: 468px;
     top: 52px;
     width: 400px;
     height: 520px;
@@ -248,15 +282,53 @@
 .inspector-subtitle {
     color: rgb(150, 156, 164);
     font-size: 10px;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     flex-shrink: 0;
 }
 
-.inspector-heading-viz {
-    height: 88px;
-    margin-top: 4px;
-    margin-bottom: 4px;
+.inspector-top-strip {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-between;
+    margin-bottom: 6px;
     flex-shrink: 0;
+}
+
+.inspector-column {
+    flex-grow: 0;
+    flex-shrink: 1;
+    width: 150px;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.inspector-column--now {
+    margin-right: 4px;
+}
+
+.inspector-column--identity {
+    margin-left: 4px;
+}
+
+.inspector-visual-slot {
+    width: 150px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 126px;
+    margin-left: 4px;
+    margin-right: 4px;
+    align-self: stretch;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.inspector-heading-viz {
+    width: 100%;
+    height: 142px;
+    min-height: 126px;
+    max-width: 142px;
+    flex-shrink: 0;
+    align-self: center;
     background-color: rgba(0, 0, 0, 0.35);
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
@@ -276,7 +348,7 @@
     color: rgb(130, 138, 148);
     font-size: 10px;
     -unity-font-style: bold;
-    margin-top: 4px;
+    margin-top: 2px;
     margin-bottom: 2px;
     flex-shrink: 0;
 }
@@ -290,20 +362,20 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    margin-top: 4px;
+    margin-top: 6px;
     margin-bottom: 2px;
     flex-shrink: 0;
 }
 
 .inspector-section-head-lead {
     flex-direction: row;
-    align-items: baseline;
+    align-items: center;
     flex-grow: 1;
     flex-shrink: 1;
 }
 
 .inspector-section-head-lead .inspector-section-hint {
-    margin-left: 8px;
+    margin-left: 6px;
 }
 
 .inspector-section-head > .inspector-header-btn {
@@ -319,10 +391,14 @@
     -unity-font-style: italic;
 }
 
+.inspector-section-content {
+    flex-direction: column;
+}
+
 .inspector-facts {
     flex-shrink: 0;
-    padding-left: 6px;
-    padding-right: 6px;
+    padding-left: 4px;
+    padding-right: 4px;
     padding-top: 1px;
     padding-bottom: 1px;
     background-color: rgba(255, 255, 255, 0.03);
@@ -332,25 +408,32 @@
     border-bottom-right-radius: 4px;
 }
 
+.inspector-side-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+    max-height: 142px;
+}
+
 .inspector-row {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     padding-top: 0;
     padding-bottom: 0;
-    min-height: 16px;
+    min-height: 15px;
 }
 
 .inspector-key {
     color: rgb(140, 146, 154);
-    font-size: 10px;
-    width: 96px;
+    font-size: 9px;
+    width: 58px;
     flex-shrink: 0;
 }
 
 .inspector-value {
     color: rgb(230, 230, 230);
-    font-size: 10px;
+    font-size: 9px;
     flex-grow: 1;
     flex-shrink: 1;
     -unity-text-align: middle-right;
@@ -391,9 +474,9 @@
 .inspector-scroll {
     flex-grow: 0;
     flex-shrink: 0;
-    height: 180px;
-    min-height: 180px;
-    max-height: 180px;
+    height: 160px;
+    min-height: 160px;
+    max-height: 160px;
     background-color: rgba(0, 0, 0, 0.28);
     border-left-width: 1px;
     border-right-width: 1px;
@@ -410,15 +493,15 @@
 }
 
 .inspector-scroll--events {
-    height: 180px;
-    min-height: 180px;
-    max-height: 180px;
+    height: 160px;
+    min-height: 160px;
+    max-height: 160px;
 }
 
 .inspector-scroll--log {
-    height: 220px;
-    min-height: 220px;
-    max-height: 220px;
+    height: 200px;
+    min-height: 200px;
+    max-height: 200px;
 }
 
 .inspector-scroll--log .scene-state-cell-time {

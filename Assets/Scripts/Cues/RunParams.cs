@@ -2,10 +2,18 @@
 // Missing is unknown — never fill in 60/90 from memory (FORMAT.md).
 
 using System.Globalization;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SwarmViewer
 {
+    public sealed class RingRadiusSample
+    {
+        public float Time;
+        public float Radius;
+        public float Altitude;
+    }
+
     public sealed class RunParams
     {
         public float KillRadius;
@@ -24,6 +32,7 @@ namespace SwarmViewer
         public float BearingSigma;
         public float ObservedComm;
         public bool CommFromLinks;
+        public readonly List<RingRadiusSample> RingRadiusSamples = new();
 
         public float CommDraw => CommRadius > 0f ? CommRadius : ObservedComm;
         public bool Has(float metres) => metres > 0.01f;
@@ -55,42 +64,80 @@ namespace SwarmViewer
             {
                 string text = logs[i]?.text;
                 if (string.IsNullOrEmpty(text)) continue;
-                if (!gotParams && text.StartsWith("params "))
+                if (text.StartsWith("params "))
                 {
-                    TryKey(text, "sense", ref p.SenseRadius);
-                    TryKey(text, "comm", ref p.CommRadius);
-                    TryKey(text, "maxv", ref p.MaxSpeed);
-                    TryKey(text, "maxa", ref p.MaxAccel);
-                    TryKey(text, "tilt", ref p.MaxTilt);
-                    TryKey(text, "lat", ref p.LateralLimit);
-                    TryKey(text, "sep", ref p.SeparationMargin);
-                    TryKey(text, "fsep", ref p.FriendlyMargin);
-                    TryKey(text, "ring", ref p.RingRadius);
-                    TryKey(text, "alt", ref p.RingAltitude);
-                    TryKey(text, "fix", ref p.FixSigma);
-                    gotParams = true;
+                    if (!gotParams)
+                    {
+                        SetKey(text, "sense", ref p.SenseRadius);
+                        SetKey(text, "comm", ref p.CommRadius);
+                        SetKey(text, "maxv", ref p.MaxSpeed);
+                        SetKey(text, "maxa", ref p.MaxAccel);
+                        SetKey(text, "tilt", ref p.MaxTilt);
+                        SetKey(text, "lat", ref p.LateralLimit);
+                        SetKey(text, "sep", ref p.SeparationMargin);
+                        SetKey(text, "fsep", ref p.FriendlyMargin);
+                        SetKey(text, "fix", ref p.FixSigma);
+                        gotParams = true;
+                    }
+                    if (TryKey(text, "ring", out float ring) && ring > 0f)
+                    {
+                        SetKey(text, "alt", ref p.RingAltitude);
+                        p.RingRadius = ring;
+                        p.RingRadiusSamples.Add(new RingRadiusSample {
+                            Time = logs[i].t,
+                            Radius = ring,
+                            Altitude = p.RingAltitude,
+                        });
+                    }
                 }
                 else if (!gotRadio && text.StartsWith("radio "))
                 {
-                    TryKey(text, "range_sigma", ref p.RangeSigma);
-                    TryKey(text, "bearing_sigma", ref p.BearingSigma);
+                    SetKey(text, "range_sigma", ref p.RangeSigma);
+                    SetKey(text, "bearing_sigma", ref p.BearingSigma);
                     gotRadio = true;
                 }
-                if (gotParams && gotRadio) return;
             }
         }
 
-        static void TryKey(string line, string key, ref float dst)
+        public float RingRadiusAt(float time)
         {
+            float radius = 0f;
+            for (int i = 0; i < RingRadiusSamples.Count; i++)
+            {
+                if (RingRadiusSamples[i].Time > time + 0.001f) break;
+                radius = RingRadiusSamples[i].Radius;
+            }
+            return radius > 0f ? radius : RingRadius;
+        }
+
+        public float RingAltitudeAt(float time)
+        {
+            float altitude = RingAltitude;
+            for (int i = 0; i < RingRadiusSamples.Count; i++)
+            {
+                if (RingRadiusSamples[i].Time > time + 0.001f) break;
+                altitude = RingRadiusSamples[i].Altitude;
+            }
+            return altitude;
+        }
+
+        static bool TryKey(string line, string key, out float value)
+        {
+            value = 0f;
             string token = key + "=";
             int at = line.IndexOf(token, System.StringComparison.Ordinal);
-            if (at < 0) return;
+            if (at < 0) return false;
             int start = at + token.Length;
             int end = start;
             while (end < line.Length && line[end] != ' ') end++;
-            if (float.TryParse(line.Substring(start, end - start), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out float v) && v > 0f)
-                dst = v;
+            return float.TryParse(line.Substring(start, end - start), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out value);
+        }
+
+        static void SetKey(string line, string key, ref float dst)
+        {
+            if (TryKey(line, key, out float value) && value > 0f)
+                dst = value;
         }
 
         static float MeasureMaxLinkRange(RunData run)

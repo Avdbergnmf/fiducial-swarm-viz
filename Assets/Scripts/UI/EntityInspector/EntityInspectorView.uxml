@@ -1,3 +1,7 @@
+<!--
+2026-09-03 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+-->
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Style src="EntityInspectorView.uss" />
     <ui:Style src="../SceneState/SceneStateView.uss" />
@@ -12,110 +16,134 @@
                 <ui:Button name="inspectorCloseBtn" text="×" picking-mode="Position" class="inspector-close" />
             </ui:VisualElement>
             <ui:Label name="inspectorSubtitle" text="" picking-mode="Ignore" class="inspector-subtitle" />
+            
             <ui:ScrollView name="inspectorBody" class="inspector-body">
-            <ui:Label text="Now" picking-mode="Ignore" class="inspector-section-title" />
-            <ui:VisualElement class="inspector-facts" picking-mode="Ignore">
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Status" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorStatus" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Speed" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorSpeed" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Accel" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorAccel" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Altitude" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorAltitude" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Ground (x, z)" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorPosition" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Heading" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorHeading" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-
-            <ui:Label text="Identity" picking-mode="Ignore" class="inspector-section-title" />
-            <ui:VisualElement class="inspector-facts" picking-mode="Ignore">
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Kind" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorKind" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Slot" picking-mode="Ignore" class="inspector-key" tooltip="Viewer column in the recording, 0-based. Equals drone id for the initial fleet." />
-                    <ui:Label name="inspectorSlot" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Trace id" picking-mode="Ignore" class="inspector-key" tooltip="Simulator entity id, 1-based. Drone 0 is sim #1. This is the number that used to appear in event text, one higher than the log column." />
-                    <ui:Label name="inspectorTrace" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Drone id" picking-mode="Ignore" class="inspector-key" tooltip="Brain id, 0-based. Same number as the Logs column and as Drone N in the aircraft list." />
-                    <ui:Label name="inspectorDrone" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Lifetime" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorLifetime" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Kill radius" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorKillRadius" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Sense" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorSense" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Comm" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorComm" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Sep margin" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorSep" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Fix σ" picking-mode="Ignore" class="inspector-key" tooltip="Own-position 1-sigma. About 35 cm — too small to draw, so the number lives here." />
-                    <ui:Label name="inspectorFix" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Range σ" picking-mode="Ignore" class="inspector-key" tooltip="Incoming radio: 1-sigma of measured range to the transmitter, metres. Physical — a compromised drone cannot lie about this." />
-                    <ui:Label name="inspectorRangeSigma" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Bearing σ" picking-mode="Ignore" class="inspector-key" tooltip="Incoming radio: 1-sigma of measured bearing, radians, world NED." />
-                    <ui:Label name="inspectorBearingSigma" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-                <ui:VisualElement name="inspectorCompromisedRow" class="inspector-row" picking-mode="Ignore">
-                    <ui:Label text="Compromised" picking-mode="Ignore" class="inspector-key" />
-                    <ui:Label name="inspectorCompromised" text="—" picking-mode="Ignore" class="inspector-value" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-
-            <ui:VisualElement class="inspector-section" picking-mode="Ignore">
-                <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
-                    <ui:Label name="inspectorEventsHeader" text="Events" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
-                    <ui:Label text="click to jump one frame before" picking-mode="Ignore" class="inspector-section-hint" />
-                </ui:VisualElement>
-                <ui:ScrollView name="inspectorEventsScroll" class="inspector-scroll inspector-scroll--events" />
-            </ui:VisualElement>
-
-            <ui:VisualElement name="inspectorLogSection" class="inspector-section" picking-mode="Ignore">
-                <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
-                    <ui:VisualElement class="inspector-section-head-lead" picking-mode="Ignore">
-                        <ui:Label name="inspectorLogHeader" text="Log" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
-                        <ui:Label text="click to jump" picking-mode="Ignore" class="inspector-section-hint" />
+                <!-- Top Split: Now (Left) | Drone Visual (Center) | Identity (Right) -->
+                <ui:VisualElement name="inspectorTopStrip" class="inspector-top-strip" picking-mode="Ignore">
+                    <ui:VisualElement class="inspector-column inspector-column--now" picking-mode="Ignore">
+                        <ui:Label text="Now" picking-mode="Ignore" class="inspector-section-title" />
+                        <ui:ScrollView class="inspector-side-scroll" picking-mode="Position">
+                        <ui:VisualElement class="inspector-facts" picking-mode="Ignore">
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Status" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorStatus" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Speed" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorSpeed" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Accel" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorAccel" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Alt" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorAltitude" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Pos (x,z)" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorPosition" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Heading" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorHeading" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        </ui:ScrollView>
                     </ui:VisualElement>
-                    <ui:Button name="inspectorLogRawBtn" text="Raw" picking-mode="Position" class="inspector-header-btn" tooltip="Show exactly what the brain wrote instead of the plain-English reading." />
+
+                    <ui:VisualElement name="inspectorVisualSlot" class="inspector-visual-slot" picking-mode="Position" />
+
+                    <ui:VisualElement class="inspector-column inspector-column--identity" picking-mode="Ignore">
+                        <ui:Label text="Identity" picking-mode="Ignore" class="inspector-section-title" />
+                        <ui:ScrollView class="inspector-side-scroll" picking-mode="Position">
+                        <ui:VisualElement class="inspector-facts" picking-mode="Ignore">
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Kind" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorKind" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Slot" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorSlot" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Sim #" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorTrace" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Drone" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorDrone" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Life" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorLifetime" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Kill" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorKillRadius" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Sense" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorSense" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Comm" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorComm" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Sep" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorSep" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Fix σ" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorFix" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Range σ" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorRangeSigma" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Bearing σ" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorBearingSigma" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="inspectorCompromisedRow" class="inspector-row" picking-mode="Ignore">
+                                <ui:Label text="Compromised" picking-mode="Ignore" class="inspector-key" />
+                                <ui:Label name="inspectorCompromised" text="—" picking-mode="Ignore" class="inspector-value" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        </ui:ScrollView>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement name="inspectorLogVerbs" class="filter-chips" picking-mode="Ignore" />
-                <ui:ScrollView name="inspectorLogScroll" class="inspector-scroll inspector-scroll--log" />
-            </ui:VisualElement>
+
+                <!-- Foldable Events Section -->
+                <ui:VisualElement class="inspector-section" picking-mode="Ignore">
+                    <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
+                        <ui:VisualElement class="inspector-section-head-lead" picking-mode="Ignore">
+                            <ui:Button name="inspectorEventsToggleBtn" text="–" picking-mode="Position" class="inspector-fold-btn" tooltip="Toggle Events list" />
+                            <ui:Label name="inspectorEventsHeader" text="Events" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                            <ui:Label text="click to jump one frame before" picking-mode="Ignore" class="inspector-section-hint" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="inspectorEventsContent" class="inspector-section-content" picking-mode="Ignore">
+                        <ui:ScrollView name="inspectorEventsScroll" class="inspector-scroll inspector-scroll--events" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Logs Section -->
+                <ui:VisualElement name="inspectorLogSection" class="inspector-section" picking-mode="Ignore">
+                    <ui:VisualElement class="inspector-section-head" picking-mode="Ignore">
+                        <ui:VisualElement class="inspector-section-head-lead" picking-mode="Ignore">
+                            <ui:Button name="inspectorLogToggleBtn" text="–" picking-mode="Position" class="inspector-fold-btn" tooltip="Toggle Logs" />
+                            <ui:Label name="inspectorLogHeader" text="Log" picking-mode="Ignore" class="inspector-section-title inspector-section-title--inline" />
+                            <ui:Label text="click to jump" picking-mode="Ignore" class="inspector-section-hint" />
+                        </ui:VisualElement>
+                        <ui:Button name="inspectorLogRawBtn" text="Raw" picking-mode="Position" class="inspector-header-btn" tooltip="Show exactly what the brain wrote instead of the plain-English reading." />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="inspectorLogContent" class="inspector-section-content" picking-mode="Ignore">
+                        <ui:VisualElement name="inspectorLogVerbs" class="filter-chips" picking-mode="Ignore" />
+                        <ui:ScrollView name="inspectorLogScroll" class="inspector-scroll inspector-scroll--log" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:ScrollView>
         </ui:VisualElement>
 

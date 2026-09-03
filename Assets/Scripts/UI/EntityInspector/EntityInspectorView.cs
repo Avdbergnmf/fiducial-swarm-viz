@@ -49,9 +49,13 @@ namespace SwarmViewer
         VisualElement _compromisedRow;
         Label _compromised;
         Button _beliefsOpenBtn;
+        Button _eventsToggleBtn;
         Label _eventsHeader;
+        VisualElement _eventsContent;
         ScrollView _eventsScroll;
+        Button _logToggleBtn;
         VisualElement _logSection;
+        VisualElement _logContent;
         LogList _logList;
         HeadingPreview _headingViz;
 
@@ -91,8 +95,8 @@ namespace SwarmViewer
             public Label Title, Subtitle, Status, Speed, Accel, Altitude, Position, Heading;
             public Label Kind, SlotLbl, Trace, Drone, Lifetime, KillRadius, Sense, Comm, Sep, Fix;
             public Label RangeSigma, BearingSigma, Compromised;
-            public VisualElement CompromisedRow, LogSection;
-            public Button BeliefsOpenBtn;
+            public VisualElement CompromisedRow, LogSection, LogContent, EventsContent;
+            public Button BeliefsOpenBtn, EventsToggleBtn, LogToggleBtn;
             public Label EventsHeader;
             public ScrollView EventsScroll;
             public LogList Logs;
@@ -102,6 +106,8 @@ namespace SwarmViewer
             public IReadOnlyList<LogLine> Lines;
             public int NowEventIndex = -1;
             public FloatingPanel Window;
+            public bool EventsCollapsed;
+            public bool LogCollapsed;
         }
 
         void OnEnable() => TryWireUi();
@@ -226,13 +232,18 @@ namespace SwarmViewer
             _beliefsOpenBtn = c.BeliefsOpenBtn;
             _eventsHeader = c.EventsHeader;
             _eventsScroll = c.EventsScroll;
+            _eventsToggleBtn = c.EventsToggleBtn;
+            _eventsContent = c.EventsContent;
             _logSection = c.LogSection;
+            _logToggleBtn = c.LogToggleBtn;
+            _logContent = c.LogContent;
             _logList = c.Logs;
             _headingViz = c.HeadingViz;
             _eventRows = c.EventRows;
             _events = c.Events;
             _logs = c.Lines;
             _nowEventIndex = c.NowEventIndex;
+            ApplyFoldState(c);
         }
 
         void StoreBound(Card c)
@@ -328,8 +339,12 @@ namespace SwarmViewer
             c.Compromised = UiQuery.Named<Label>(panel, "inspectorCompromised");
             c.BeliefsOpenBtn = UiQuery.Named<Button>(panel, "inspectorBeliefsBtn");
             c.EventsHeader = UiQuery.Named<Label>(panel, "inspectorEventsHeader");
+            c.EventsToggleBtn = UiQuery.Named<Button>(panel, "inspectorEventsToggleBtn");
+            c.EventsContent = UiQuery.Named<VisualElement>(panel, "inspectorEventsContent");
             c.EventsScroll = UiQuery.Named<ScrollView>(panel, "inspectorEventsScroll");
             c.LogSection = UiQuery.Named<VisualElement>(panel, "inspectorLogSection");
+            c.LogToggleBtn = UiQuery.Named<Button>(panel, "inspectorLogToggleBtn");
+            c.LogContent = UiQuery.Named<VisualElement>(panel, "inspectorLogContent");
             var logHeader = UiQuery.Named<Label>(panel, "inspectorLogHeader");
             var logScroll = UiQuery.Named<ScrollView>(panel, "inspectorLogScroll");
             c.Logs = new LogList(
@@ -353,7 +368,10 @@ namespace SwarmViewer
             c.HeadingViz.AddToClassList("inspector-heading-viz");
             int captured = slot;
             c.HeadingViz.Clicked += () => _ctx?.Selection?.SelectOnly(captured);
-            if (c.Subtitle?.parent != null)
+            var visualSlot = panel.Q("inspectorVisualSlot");
+            if (visualSlot != null)
+                visualSlot.Add(c.HeadingViz);
+            else if (c.Subtitle?.parent != null)
             {
                 int at = c.Subtitle.parent.IndexOf(c.Subtitle);
                 c.Subtitle.parent.Insert(at + 1, c.HeadingViz);
@@ -363,6 +381,10 @@ namespace SwarmViewer
 
             if (c.BeliefsOpenBtn != null)
                 c.BeliefsOpenBtn.clicked += () => OpenBeliefs(captured);
+            if (c.EventsToggleBtn != null)
+                c.EventsToggleBtn.clicked += () => ToggleEvents(c);
+            if (c.LogToggleBtn != null)
+                c.LogToggleBtn.clicked += () => ToggleLogs(c);
             return c;
         }
 
@@ -692,7 +714,13 @@ namespace SwarmViewer
             Color body = _ctx.State.IsCompromisedNow(_boundSlot)
                 ? Palette.Compromised
                 : Palette.Kind(info.Kind);
-            _headingViz?.Set(snap.Velocity, body, snap.Alive);
+            var asset = _ctx.Run.Meta?.asset;
+            bool hasAsset = asset?.position != null && asset.position.Length >= 3;
+            Vector3 assetPos = hasAsset
+                ? new Vector3(asset.position[0], asset.position[1], asset.position[2])
+                : Vector3.zero;
+            _headingViz?.Set(snap.Velocity, body, snap.Alive, hasAsset,
+                             snap.Position, assetPos);
         }
 
         static void SetDash(Label label)
@@ -816,6 +844,34 @@ namespace SwarmViewer
             if (_logSection != null)
                 _logSection.style.display = total > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _logList?.SetSource(_logs);
+        }
+
+        void ToggleEvents(Card card)
+        {
+            if (card == null) return;
+            card.EventsCollapsed = !card.EventsCollapsed;
+            ApplyFoldState(card);
+        }
+
+        void ToggleLogs(Card card)
+        {
+            if (card == null) return;
+            card.LogCollapsed = !card.LogCollapsed;
+            ApplyFoldState(card);
+        }
+
+        static void ApplyFoldState(Card card)
+        {
+            if (card.EventsContent != null)
+                card.EventsContent.style.display = card.EventsCollapsed
+                    ? DisplayStyle.None : DisplayStyle.Flex;
+            if (card.EventsToggleBtn != null)
+                card.EventsToggleBtn.text = card.EventsCollapsed ? "+" : "–";
+            if (card.LogContent != null)
+                card.LogContent.style.display = card.LogCollapsed
+                    ? DisplayStyle.None : DisplayStyle.Flex;
+            if (card.LogToggleBtn != null)
+                card.LogToggleBtn.text = card.LogCollapsed ? "+" : "–";
         }
 
         /// <summary>
