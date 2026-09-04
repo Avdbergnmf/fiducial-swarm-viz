@@ -1113,9 +1113,6 @@ namespace SwarmViewer
                 if (info.Kind is EntityKind.Hostile or EntityKind.Civilian)
                 {
                     if ((center - pos).sqrMagnitude < 0.25f) continue;
-                    float a = focus ? 0.9f : 0.7f;
-                    if (vel.sqrMagnitude > 0.01f)
-                        _lines.Arrow(pos, vel * t, Palette.A(Palette.Kind(info.Kind), a * 0.65f), 0.12f);
                     ShowCoastGhost(slot, center, snaps[slot].Rotation);
                     continue;
                 }
