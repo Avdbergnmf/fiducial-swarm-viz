@@ -50,6 +50,25 @@ namespace SwarmViewer
         public bool IsSelected => _selected;
         public bool IsHovered => _hovered;
 
+        /// <summary>
+        /// The airframe mesh and its live class material. Used to stamp a
+        /// transparent ghost at a coasted pose — not the kill-radius sphere.
+        /// </summary>
+        public bool TryAirframe(out Mesh mesh, out Vector3 worldScale, out Material source)
+        {
+            mesh = null;
+            worldScale = transform.lossyScale;
+            source = _currentMaterial;
+            if (mainRenderer == null)
+                mainRenderer = GetComponent<MeshRenderer>();
+            if (mainRenderer == null) return false;
+            var filter = mainRenderer.GetComponent<MeshFilter>();
+            if (filter == null || filter.sharedMesh == null) return false;
+            mesh = filter.sharedMesh;
+            if (source == null) source = mainRenderer.sharedMaterial;
+            return source != null;
+        }
+
         public void Init(int slot, EntityInfo info)
         {
             Slot = slot;

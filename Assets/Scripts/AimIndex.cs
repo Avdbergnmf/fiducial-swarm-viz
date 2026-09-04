@@ -1,8 +1,9 @@
-// Believed target pose, reconstructed from commit / near / ram log lines.
+// Believed intercept meeting, reconstructed from commit / near / ram logs.
 //
-// The recording is ground truth. These samples are what that drone thought it
-// was flying at — own fix plus the track it had associated. Drawing lives in
-// CueOverlay; this is the lookup.
+// in=/ie=/ialt= is CollisionCourse I(t) — where that drone believed it would
+// ram. n=/e=/alt= is the believed body (CommitIndex still uses it). TryAt
+// draws I when present. It does not add fix_sigma; the sample is already in
+// the believed frame. Old traces without in= fall back to the body.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -16,21 +17,23 @@ namespace SwarmViewer
         public readonly float North;
         public readonly float East;
         public readonly float Alt;
-        public readonly float Vn;
-        public readonly float Ve;
-        public readonly bool HasVel;
+        public readonly float MeetNorth;
+        public readonly float MeetEast;
+        public readonly float MeetAlt;
+        public readonly bool HasMeet;
 
         public AimSample(int droneId, float t, float north, float east, float alt,
-            float vn, float ve, bool hasVel)
+            float meetN, float meetE, float meetAlt, bool hasMeet)
         {
             DroneId = droneId;
             T = t;
             North = north;
             East = east;
             Alt = alt;
-            Vn = vn;
-            Ve = ve;
-            HasVel = hasVel;
+            MeetNorth = meetN;
+            MeetEast = meetE;
+            MeetAlt = meetAlt;
+            HasMeet = hasMeet;
         }
     }
 
@@ -42,11 +45,6 @@ namespace SwarmViewer
         public IReadOnlyList<AimSample> Samples => _samples;
         public int Count => _samples.Count;
 
-        /// <summary>
-        /// Same hold as ping lines. Believed pose refreshes on commit / near /
-        /// ram (every 0.1 s in the last 1 s of a chase); this is how long the
-        /// ghost stays up after the last sample.
-        /// </summary>
         public const float Hold = RelationIndex.PingHold;
 
         public AimIndex(RunData run)
@@ -64,23 +62,24 @@ namespace SwarmViewer
 
                 float alt = 0f;
                 bool hasAlt = LogPhrase.TryNumber(line.text, "alt=", out alt);
-                float vn = 0f, ve = 0f;
-                bool hasVel = LogPhrase.TryNumber(line.text, "vn=", out vn)
-                    && LogPhrase.TryNumber(line.text, "ve=", out ve);
-                if (!hasVel) { vn = 0f; ve = 0f; }
+                float inn = 0f, iee = 0f, ialt = 0f;
+                bool hasMeet = LogPhrase.TryNumber(line.text, "in=", out inn)
+                    && LogPhrase.TryNumber(line.text, "ie=", out iee);
+                if (hasMeet)
+                    LogPhrase.TryNumber(line.text, "ialt=", out ialt);
 
                 if (!_first.ContainsKey(line.drone))
                     _first[line.drone] = _samples.Count;
                 _samples.Add(new AimSample(line.drone, line.t, n, e,
-                    hasAlt ? alt : float.NaN, vn, ve, hasVel));
+                    hasAlt ? alt : float.NaN,
+                    inn, iee, ialt, hasMeet));
             }
         }
 
         /// <summary>
-        /// Believed target pose for this drone at t, while a commit span is
-        /// still open. Latest sample at or before t; the marker stays at the
-        /// pose the brain actually logged until another sample replaces it.
-        /// age is seconds since that sample — the overlay fades it out.
+        /// Believed ram point for this drone at t, while a commit span is open.
+        /// Prefers in=/ie=/ialt= (CollisionCourse meeting). No extra noise,
+        /// no vn/ve coast on I. age is seconds since the sample.
         /// </summary>
         public bool TryAt(RunData run, int droneId, float t, out Vector3 pos, out float age)
         {
@@ -103,12 +102,16 @@ namespace SwarmViewer
             float dt = t - s.T;
             if (dt < 0f) dt = 0f;
             age = dt;
-            float n = s.North;
-            float e = s.East;
+
+            if (s.HasMeet)
+            {
+                pos = SwarmCoord.Ned(s.MeetNorth, s.MeetEast, -s.MeetAlt);
+                return true;
+            }
 
             float down = 0f;
             if (!float.IsNaN(s.Alt)) down = -s.Alt;
-            pos = SwarmCoord.Ned(n, e, down);
+            pos = SwarmCoord.Ned(s.North, s.East, down);
             return true;
         }
 

@@ -303,6 +303,13 @@
     margin-bottom: 2px;
 }
 
+.cue-horizon-slider {
+    margin-top: 4px;
+    margin-bottom: 2px;
+    min-width: 200px;
+    height: 16px;
+}
+
 .filter-chips--muted .cue-chip {
     opacity: 0.55;
 }

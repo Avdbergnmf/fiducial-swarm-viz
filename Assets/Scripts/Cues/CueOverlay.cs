@@ -37,6 +37,7 @@ namespace SwarmViewer
         Selection = 1 << 13,
         Aim = 1 << 14,
         Cover = 1 << 15,
+        Reach = 1 << 16,
     }
 
     public sealed class CueOverlay : MonoBehaviour, IRunView
@@ -104,12 +105,16 @@ namespace SwarmViewer
                 "params ring= for the radius and alt= for the height, centred on the asset position from the trace header."),
 
             new(CueMask.Aim, "Believed aim",
-                "A kill-radius sphere at the pose the selected drone believed its target was at. It refreshes on commit / near / ram. Near the end of a chase the brain writes those every 0.1 s for the last 1 s, so the marker tracks; earlier it stays on the last logged pose and fades over 1.4 s (same hold as short Pings). Ground truth is the real craft (and the commit ping).",
-                "commit / near / ram: n=, e=, alt=, vn=, ve=. Not a per-tick dump (D3); the last second of a pursuit is the exception (D43). The marker uses n=/e=/alt= only; vn=/ve= are shown in the log but do not move it. Sphere radius is kill_radius from the trace. Select a committed friendly."),
+                "A kill-radius sphere at the meeting the selected drone believed it would ram — CollisionCourse I(t), logged as in=/ie=/ialt=. Ahead along the hostile track, not on the current body. n=/e= is still the believed body (CommitIndex). The sample is already in the believed frame; fix_sigma is not added. Old traces without in= fall back to the body. Select a committed friendly.",
+                "commit / near / ram: in=/ie=/ialt= when the brain logged a meeting. Not a per-tick dump (D3); last 1 s of a chase is every 0.1 s (D43). Sphere radius is kill_radius. No extra noise."),
 
             new(CueMask.Cover, "Kill envelope",
                 "Theoretical safety belt around the asset. Each living friendly paints the inbound directions it could still ram, assuming a hostile that first appears on its sense sphere and flies params maxv straight at the asset. Green is covered; red is a hole. Closed means the picket-height ring has no gap. Select a friendly to see its own cone, capped on its sense sphere.",
                 "Live poses from the trace; sense / maxv / lat / ring from the params log; kill_radius and asset.radius from the header. From rest, Reach() as in flight.cpp, divert = lat. Not UniqueOwner, not scramble delay, not the 0.1 s cylinder gate — geometry only. Hostile speed is maxv (D37), not an unpublished enemy dump."),
+
+            new(CueMask.Reach, "Reach horizon",
+                "N seconds ahead. Friendlies: a cylinder around the ballistic point (pose + velocity × horizon). Radius is Reach(t, lat, maxv) — xy from tilt. Height is Reach(t, maxa, maxv) — z from thrust. Not a sphere: leftover z does not steal xy. Hostiles and civilians: a ghost of the same airframe at that ballistic point, no turn. Horizon is the slider. Selected and hovered friendlies; every living hostile and civilian that is moving. Sphere draws the can volume; otherwise a wire can.",
+                "Live pose and velocity from the trace; lat and maxa from params. Ghost mesh is the entity prefab. Slider is viewer-only (seconds)."),
         };
 
         /// <summary>Ping-line kinds, in the order the legend and Cues panel list them.</summary>
@@ -161,6 +166,7 @@ namespace SwarmViewer
         EntityView[] _bySlot;
         LinePool _lines;
         SpherePool _spheres;
+        AirframeGhostPool _ghosts;
         CoverBelt _belt;
         Material _lineMat;
         readonly System.Collections.Generic.List<CoverDefender> _defenders = new();
@@ -176,6 +182,13 @@ namespace SwarmViewer
         int _pickShow = PickDefault;
         int _pingKinds = -1;
         bool _muted;
+        float _reachHorizon = ReachHorizonDefault;
+
+        public const float ReachHorizonMin = 0.2f;
+        public const float ReachHorizonMax = 4f;
+        public const float ReachHorizonDefault = 1f;
+
+        public float ReachHorizon => _reachHorizon;
 
         public event Action MaskChanged;
         public CueMask Mask => _mask;
@@ -246,7 +259,8 @@ namespace SwarmViewer
 
         /// <summary>Radius cues: hex volume or equatorial ring, never both.</summary>
         public static bool IsRadius(CueMask bit) =>
-            bit is CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket;
+            bit is CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate
+                or CueMask.Picket or CueMask.Reach;
 
         /// <summary>Legend / detail hint: who the Selection cue is drawing on.</summary>
         public string SelectionScope
@@ -272,6 +286,7 @@ namespace SwarmViewer
             _hoverPing = -1;
             _coverFrame = -1;
             _mask = LoadMask(out _pickShow, out _sphereMask, out _pingKinds);
+            _reachHorizon = LoadReachHorizon();
             Hook();
             Refresh();
             MaskChanged?.Invoke();
@@ -283,6 +298,7 @@ namespace SwarmViewer
             if (_lineMat != null) Destroy(_lineMat);
             _lines?.Dispose();
             _spheres?.Dispose();
+            _ghosts?.Dispose();
             _belt?.Dispose();
         }
 
@@ -379,6 +395,25 @@ namespace SwarmViewer
             MaskChanged?.Invoke();
         }
 
+        public void SetReachHorizon(float seconds)
+        {
+            float v = Mathf.Clamp(seconds, ReachHorizonMin, ReachHorizonMax);
+            if (Mathf.Abs(v - _reachHorizon) < 0.005f) return;
+            _reachHorizon = v;
+            var settings = ViewerSettings.Load();
+            settings.reachHorizonSeconds = v;
+            settings.Save();
+            Refresh();
+            MaskChanged?.Invoke();
+        }
+
+        static float LoadReachHorizon()
+        {
+            float v = ViewerSettings.Load().reachHorizonSeconds;
+            if (v < 0.05f) return ReachHorizonDefault;
+            return Mathf.Clamp(v, ReachHorizonMin, ReachHorizonMax);
+        }
+
         static int PingKindsMask()
         {
             int m = 0;
@@ -453,6 +488,7 @@ namespace SwarmViewer
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
                 CueMask.Cover => CoverAvailable(p),
+                CueMask.Reach => p != null && p.Has(p.LateralLimit),
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Hops => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Pings => _ctx.Run.Relations != null && _ctx.Run.Relations.Pings.Count > 0,
@@ -480,6 +516,7 @@ namespace SwarmViewer
                 CueMask.Separate => p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G4} m" : "",
                 CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
                 CueMask.Cover => CoverValue(),
+                CueMask.Reach => $"{_reachHorizon:0.0} s · pancake lat×maxa",
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0
                     ? $"{_ctx.Run.Meta.links.Count} link records" : "",
                 CueMask.Hops => HopValue(),
@@ -528,7 +565,7 @@ namespace SwarmViewer
         static string AimValue(AimIndex aims)
         {
             if (aims == null || aims.Count <= 0) return "";
-            return aims.Count == 1 ? "1 believed pose" : aims.Count + " believed poses";
+            return aims.Count == 1 ? "1 meeting" : aims.Count + " meetings";
         }
 
         string HopValue()
@@ -645,6 +682,7 @@ namespace SwarmViewer
             EnsureViews();
             EnsureLines();
             EnsureSpheres();
+            EnsureGhosts();
             EnsureBelt();
             var p = _ctx.Run.Params;
             var snaps = _ctx.State.Entities;
@@ -680,6 +718,10 @@ namespace SwarmViewer
                 DrawPicket(p, t);
             if (On(CueMask.Aim))
                 DrawAim(snaps, t);
+            if (On(CueMask.Reach))
+                DrawReach(snaps, p, hover);
+            else
+                _ghosts?.Hide();
             if (On(CueMask.Cover))
                 DrawCover(snaps, p);
             else
@@ -1040,6 +1082,79 @@ namespace SwarmViewer
             }
         }
 
+        void DrawReach(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps,
+            RunParams p, int hover)
+        {
+            float t = _reachHorizon;
+            _ghosts.Begin();
+
+            float divert = 0f;
+            float climb = 0f;
+            if (p != null && p.Has(p.LateralLimit))
+            {
+                float vmax = p.Has(p.MaxSpeed) ? p.MaxSpeed : 0f;
+                divert = ReachCover.Reach(t, p.LateralLimit, vmax);
+                climb = p.Has(p.MaxAccel)
+                    ? ReachCover.Reach(t, p.MaxAccel, vmax)
+                    : divert;
+            }
+
+            Color hue = Palette.Reach;
+            var sel = _ctx.Selection;
+            for (int slot = 0; slot < snaps.Count; slot++)
+            {
+                if (!snaps[slot].Alive) continue;
+                var info = _ctx.Run.Info(slot);
+                Vector3 pos = snaps[slot].Position;
+                Vector3 vel = snaps[slot].Velocity;
+                Vector3 center = pos + vel * t;
+                bool focus = ReachFocused(slot, hover, sel);
+
+                if (info.Kind is EntityKind.Hostile or EntityKind.Civilian)
+                {
+                    if ((center - pos).sqrMagnitude < 0.25f) continue;
+                    float a = focus ? 0.9f : 0.7f;
+                    if (vel.sqrMagnitude > 0.01f)
+                        _lines.Arrow(pos, vel * t, Palette.A(Palette.Kind(info.Kind), a * 0.65f), 0.12f);
+                    ShowCoastGhost(slot, center, snaps[slot].Rotation);
+                    continue;
+                }
+
+                if (info.drone_id < 0) continue;
+                if (!focus) continue;
+                if (divert < 0.3f) continue;
+                if (vel.sqrMagnitude > 0.01f)
+                    _lines.Arrow(pos, vel * t, Palette.A(hue, 0.6f), 0.12f);
+                DrawPancake(center, divert, climb, Palette.A(hue, 0.85f), 0.22f);
+            }
+
+            _ghosts.End();
+        }
+
+        bool ReachFocused(int slot, int hover, SelectionModel sel)
+        {
+            if (sel != null && sel.IsSelected(slot)) return true;
+            if (slot == hover) return true;
+            if (_picker == null) return false;
+            var boxed = _picker.MarqueeHovered;
+            if (boxed == null) return false;
+            for (int i = 0; i < boxed.Count; i++)
+            {
+                if (boxed[i] != null && boxed[i].Slot == slot) return true;
+            }
+            return false;
+        }
+
+        void ShowCoastGhost(int slot, Vector3 pos, Quaternion rot)
+        {
+            if (_bySlot == null || (uint)slot >= (uint)_bySlot.Length) return;
+            var view = _bySlot[slot];
+            if (view == null) return;
+            if (!view.TryAirframe(out Mesh mesh, out Vector3 scale, out Material source))
+                return;
+            _ghosts.Show(mesh, pos, rot, scale, source);
+        }
+
         /// <summary>
         /// One visualisation: hex volume if Sphere is on, equatorial ring if not.
         /// Kill's old per-airframe mesh is left off; this pool is the one path.
@@ -1050,6 +1165,31 @@ namespace SwarmViewer
                 _spheres.Show(center, radius, VolumeColor(bit));
             else
                 _lines.Circle(center, radius, ring, width);
+        }
+
+        /// <summary>
+        /// Independent xy / z saturator (5.4 cylinder): disk of radius rxy,
+        /// half-height hz. Sphere toggle fills the can; otherwise a wire can.
+        /// </summary>
+        void DrawPancake(Vector3 center, float rxy, float hz, Color ring, float width)
+        {
+            if (rxy < 0.3f) return;
+            if (hz < 0.15f) hz = 0.15f;
+            if (SphereOn(CueMask.Reach))
+            {
+                _spheres.ShowCan(center, rxy, hz, VolumeColor(CueMask.Reach));
+                return;
+            }
+            Vector3 up = Vector3.up * hz;
+            _lines.Circle(center, rxy, ring, width);
+            _lines.Circle(center + up, rxy, ring, width * 0.85f);
+            _lines.Circle(center - up, rxy, ring, width * 0.85f);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * 0.5f * Mathf.PI;
+                Vector3 rim = new Vector3(Mathf.Cos(a) * rxy, 0f, Mathf.Sin(a) * rxy);
+                _lines.Segment(center - up + rim, center + up + rim, ring, width * 0.7f);
+            }
         }
 
         static Color VolumeColor(CueMask bit)
@@ -1064,6 +1204,7 @@ namespace SwarmViewer
         public void Restyle()
         {
             _spheres?.InvalidateMaterials();
+            _ghosts?.InvalidateMaterials();
             Refresh();
         }
 
@@ -1108,6 +1249,14 @@ namespace SwarmViewer
             var root = new GameObject("CueSpheres");
             root.transform.SetParent(transform, false);
             _spheres = new SpherePool(root.transform);
+        }
+
+        void EnsureGhosts()
+        {
+            if (_ghosts != null) return;
+            var root = new GameObject("CueReachGhosts");
+            root.transform.SetParent(transform, false);
+            _ghosts = new AirframeGhostPool(root.transform);
         }
 
         void EnsureBelt()
@@ -1173,6 +1322,7 @@ namespace SwarmViewer
             {
                 CueMask.Kill or CueMask.Sense or CueMask.Comm or CueMask.Separate or CueMask.Picket => "ring",
                 CueMask.Selection or CueMask.Aim => "sphere",
+                CueMask.Reach => "horizon",
                 CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
                 CueMask.Links or CueMask.Hops or CueMask.Pings => "line",
                 CueMask.Cover => "belt",
@@ -1185,7 +1335,12 @@ namespace SwarmViewer
             if (spec.Bit == CueMask.Selection)
                 return SelectionScope;
             if (spec.Bit == CueMask.Aim)
-                return "kill-radius sphere";
+                return "kill-radius sphere at the believed meeting";
+            if (spec.Bit == CueMask.Reach)
+            {
+                string friendly = SphereOn(spec.Bit) ? "tilt cylinder" : "wire can";
+                return $"{friendly} on friendlies, ghost airframe on hostiles and civilians";
+            }
             if (spec.Bit == CueMask.Cover)
                 return "belt around the asset";
             if (IsRadius(spec.Bit))
@@ -1313,15 +1468,128 @@ namespace SwarmViewer
         }
 
         /// <summary>
-        /// VolumeFixture spheres for radius cues. Same hex shell as kill / ghosts,
-        /// pooled so a new radius never means a new mesh type.
+        /// Transparent copies of the entity prefab mesh. Hostiles / civilians at
+        /// a coasted pose — not the kill-radius sphere, not the VolumeFixture hex.
         /// </summary>
+        sealed class AirframeGhostPool
+        {
+            const float Alpha = 0.38f;
+            readonly Transform _root;
+            readonly System.Collections.Generic.List<MeshRenderer> _all = new();
+            readonly System.Collections.Generic.Dictionary<Material, Material> _mats = new();
+            int _used;
+
+            public AirframeGhostPool(Transform root)
+            {
+                _root = root;
+            }
+
+            public void Begin() => _used = 0;
+
+            public void Hide()
+            {
+                Begin();
+                End();
+            }
+
+            public void End()
+            {
+                for (int i = 0; i < _all.Count; i++)
+                {
+                    if (_all[i] != null)
+                        _all[i].gameObject.SetActive(i < _used);
+                }
+            }
+
+            public void Dispose()
+            {
+                InvalidateMaterials();
+                if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
+                _all.Clear();
+            }
+
+            public void InvalidateMaterials()
+            {
+                foreach (var kv in _mats)
+                {
+                    if (kv.Value == null) continue;
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(kv.Value);
+                    else UnityEngine.Object.DestroyImmediate(kv.Value);
+                }
+                _mats.Clear();
+            }
+
+            public void Show(Mesh mesh, Vector3 pos, Quaternion rot, Vector3 scale,
+                Material source)
+            {
+                if (mesh == null || source == null) return;
+                var rend = Next(mesh);
+                var t = rend.transform;
+                t.SetPositionAndRotation(pos, rot);
+                t.localScale = scale;
+                rend.sharedMaterial = GhostOf(source);
+            }
+
+            MeshRenderer Next(Mesh mesh)
+            {
+                MeshRenderer rend;
+                if (_used < _all.Count)
+                    rend = _all[_used];
+                else
+                {
+                    var go = new GameObject("reach-ghost");
+                    go.transform.SetParent(_root, false);
+                    go.AddComponent<MeshFilter>();
+                    rend = go.AddComponent<MeshRenderer>();
+                    rend.shadowCastingMode = ShadowCastingMode.Off;
+                    rend.receiveShadows = false;
+                    _all.Add(rend);
+                }
+
+                var filter = rend.GetComponent<MeshFilter>();
+                if (filter.sharedMesh != mesh)
+                    filter.sharedMesh = mesh;
+                _used++;
+                return rend;
+            }
+
+            Material GhostOf(Material source)
+            {
+                if (_mats.TryGetValue(source, out var ghost) && ghost != null)
+                    return ghost;
+
+                ghost = new Material(source)
+                {
+                    name = source.name + " (reach ghost)",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                Palette.MakeTransparent(ghost);
+                Color c = Palette.Opaque(ReadColor(source));
+                c.a = Alpha;
+                Palette.Tint(ghost, c);
+                if (ghost.HasProperty("_Cull"))
+                    ghost.SetFloat("_Cull", (float)CullMode.Off);
+                _mats[source] = ghost;
+                return ghost;
+            }
+
+            static Color ReadColor(Material mat)
+            {
+                if (mat.HasProperty("_BaseColor")) return mat.GetColor("_BaseColor");
+                if (mat.HasProperty("_Color")) return mat.GetColor("_Color");
+                return Color.white;
+            }
+        }
+
+        /// <summary>
         sealed class SpherePool
         {
             readonly Transform _root;
             readonly System.Collections.Generic.List<MeshRenderer> _all = new();
+            readonly System.Collections.Generic.List<MeshRenderer> _cans = new();
             readonly System.Collections.Generic.Dictionary<Color, Material> _mats = new();
             int _used;
+            int _usedCans;
             static Shader _shader;
 
             public SpherePool(Transform root)
@@ -1329,7 +1597,11 @@ namespace SwarmViewer
                 _root = root;
             }
 
-            public void Begin() => _used = 0;
+            public void Begin()
+            {
+                _used = 0;
+                _usedCans = 0;
+            }
 
             public void InvalidateMaterials()
             {
@@ -1349,12 +1621,18 @@ namespace SwarmViewer
                     if (_all[i] != null)
                         _all[i].gameObject.SetActive(i < _used);
                 }
+                for (int i = 0; i < _cans.Count; i++)
+                {
+                    if (_cans[i] != null)
+                        _cans[i].gameObject.SetActive(i < _usedCans);
+                }
             }
 
             public void Dispose()
             {
                 if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
                 _all.Clear();
+                _cans.Clear();
                 foreach (var kv in _mats)
                     if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value);
                 _mats.Clear();
@@ -1367,6 +1645,20 @@ namespace SwarmViewer
                 t.position = center;
                 t.rotation = Quaternion.identity;
                 t.localScale = Vector3.one * (radius * 2f);
+                rend.sharedMaterial = MaterialOf(color);
+            }
+
+            /// <summary>
+            /// Unity cylinder is 1 m across and 2 m tall, Y-up. rxy is the
+            /// disk radius, hz the half-height, both metres.
+            /// </summary>
+            public void ShowCan(Vector3 center, float rxy, float hz, Color color)
+            {
+                var rend = NextCan();
+                var t = rend.transform;
+                t.position = center;
+                t.rotation = Quaternion.identity;
+                t.localScale = new Vector3(rxy * 2f, hz, rxy * 2f);
                 rend.sharedMaterial = MaterialOf(color);
             }
 
@@ -1390,6 +1682,30 @@ namespace SwarmViewer
                 }
 
                 _used++;
+                rend.gameObject.SetActive(true);
+                return rend;
+            }
+
+            MeshRenderer NextCan()
+            {
+                MeshRenderer rend;
+                if (_usedCans < _cans.Count)
+                    rend = _cans[_usedCans];
+                else
+                {
+                    var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    go.name = "cue-can";
+                    go.transform.SetParent(_root, false);
+                    var col = go.GetComponent<Collider>();
+                    if (col != null) UnityEngine.Object.Destroy(col);
+                    rend = go.GetComponent<MeshRenderer>();
+                    rend.shadowCastingMode = ShadowCastingMode.Off;
+                    rend.receiveShadows = false;
+                    VolumeFixtureRegistry.Ensure();
+                    _cans.Add(rend);
+                }
+
+                _usedCans++;
                 rend.gameObject.SetActive(true);
                 return rend;
             }

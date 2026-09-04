@@ -425,6 +425,7 @@ namespace SwarmViewer
             Field(raw, "comm=", "radio", "m"),
             Field(raw, "maxv=", "max speed", "m/s"),
             Field(raw, "maxa=", "max accel", "m/s\u00b2"),
+            Field(raw, "rate=", "body rate", "rad/s"),
             Field(raw, "lat=", "lateral limit", "m/s\u00b2"),
             Field(raw, "sep=", "separation", "m"),
             Field(raw, "fsep=", "friendly keep-out", "m"),

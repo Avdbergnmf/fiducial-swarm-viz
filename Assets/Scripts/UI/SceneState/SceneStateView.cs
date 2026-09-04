@@ -615,6 +615,8 @@ namespace SwarmViewer
                     CueLegend.AddHopKey(_cuesDetailKey, labeled: true);
                 else if (spec.Bit == CueMask.Cover)
                     CueLegend.AddCoverKey(_cuesDetailKey);
+                else if (spec.Bit == CueMask.Reach)
+                    AddReachHorizonSlider(_cuesDetailKey, cues);
                 _cuesDetailKey.style.display = _cuesDetailKey.childCount > 0
                     ? DisplayStyle.Flex
                     : DisplayStyle.None;
@@ -694,6 +696,29 @@ namespace SwarmViewer
                 RefreshCueDetail(cues);
             });
             parent.Add(toggle);
+        }
+
+        void AddReachHorizonSlider(VisualElement parent, CueOverlay cues)
+        {
+            var box = new VisualElement();
+            box.AddToClassList("cue-detail-picks");
+            box.pickingMode = PickingMode.Ignore;
+            var caption = new Label($"Horizon {cues.ReachHorizon:0.0} s");
+            caption.AddToClassList("cue-detail-picks-label");
+            caption.pickingMode = PickingMode.Ignore;
+            box.Add(caption);
+            var sl = new Slider(CueOverlay.ReachHorizonMin, CueOverlay.ReachHorizonMax);
+            sl.AddToClassList("cue-horizon-slider");
+            sl.pickingMode = PickingMode.Position;
+            sl.tooltip = "Seconds of coast. Friendlies: xy from lat, height from maxa. Hostiles and civilians: ghost airframe.";
+            sl.SetValueWithoutNotify(cues.ReachHorizon);
+            sl.RegisterValueChangedCallback(evt =>
+            {
+                cues.SetReachHorizon(evt.newValue);
+                caption.text = $"Horizon {cues.ReachHorizon:0.0} s";
+            });
+            box.Add(sl);
+            parent.Add(box);
         }
 
         void AddSelectionToggles(VisualElement parent, CueOverlay cues)
