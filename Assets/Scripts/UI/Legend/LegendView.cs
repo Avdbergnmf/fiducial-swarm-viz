@@ -259,6 +259,8 @@ namespace SwarmViewer
             Row(_scene, Palette.Selected, "Selected", "white outline, not a class");
             if (!belief)
                 Row(_scene, Palette.Unknown, "Unknown", "no class yet");
+            if (_ctx?.Run?.Telemetry != null && _ctx.Run.Telemetry.HasAny)
+                Row(_scene, Palette.BudgetWarn, "Radio budget", "amber ring = nearly gone; red = empty. Hover or open the inspector for the number.");
         }
 
         void FillCues()

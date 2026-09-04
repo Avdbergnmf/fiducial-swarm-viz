@@ -54,13 +54,6 @@
         <ui:VisualElement name="legendKeys" class="legend-keys" picking-mode="Ignore" />
     </ui:VisualElement>
     <ui:Instance template="Timeline" name="timelineInstance" picking-mode="Ignore" class="screen-overlay"/>
-    <ui:VisualElement name="cameraCompassRoot" picking-mode="Ignore" class="camera-compass-root">
-        <ui:VisualElement name="cameraCompassDial" picking-mode="Ignore" class="camera-compass-dial">
-            <ui:VisualElement name="cameraCompassNeedle" picking-mode="Ignore" class="camera-compass-needle">
-                <ui:Label text="▲" picking-mode="Ignore" class="camera-compass-arrow" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-        <ui:Button name="cameraCompassToggle" text="–" picking-mode="Position" class="ui-btn-ghost camera-compass-toggle" tooltip="Hide compass" />
-    </ui:VisualElement>
     <ui:VisualElement name="marqueeBox" picking-mode="Ignore" class="marquee-box" />
+    <ui:VisualElement name="budgetHud" picking-mode="Ignore" class="budget-hud" />
 </ui:UXML>

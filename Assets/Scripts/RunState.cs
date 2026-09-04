@@ -28,6 +28,7 @@ namespace SwarmViewer
     {
         readonly RunData _run;
         readonly EntitySnapshot[] _entities;
+        readonly BudgetSnap[] _budget;
 
         public event Action Changed;
 
@@ -38,10 +39,15 @@ namespace SwarmViewer
         /// <summary>Indexed by slot. Check Alive before drawing.</summary>
         public IReadOnlyList<EntitySnapshot> Entities => _entities;
 
+        /// <summary>Last telemetry sample at or before now. <see cref="BudgetSnap.Has"/> is false when this slot is not a fleet drone or the run has no telemetry.</summary>
+        public BudgetSnap Budget(int slot) =>
+            (uint)slot < (uint)_budget.Length ? _budget[slot] : default;
+
         public RunState(RunData run)
         {
             _run = run;
             _entities = new EntitySnapshot[run.SlotCount];
+            _budget = new BudgetSnap[run.SlotCount];
             for (int i = 0; i < _entities.Length; i++) _entities[i].Slot = i;
         }
 
@@ -65,12 +71,12 @@ namespace SwarmViewer
                 _entities[s].Acceleration = prevOk ? (v - vPrev) * _run.TraceHz : Vector3.zero;
             }
 
-            // EXTENSION POINT. Everything else derived from time goes here and is
-            // exposed as a property, so views stay dumb:
-            //   active radio links  -> filter Run.Meta.links by t_start <= t < t_end
-            //   belief per observer -> binary search Run.Meta.beliefs
-            //   events in a window  -> binary search Run.Meta.events
-            //   telemetry per drone -> last sample at or before t
+            var telemetry = _run.Telemetry;
+            for (int s = 0; s < _budget.Length; s++)
+            {
+                int drone = _run.Info(s).drone_id;
+                _budget[s] = drone >= 0 ? telemetry.At(drone, t) : default;
+            }
 
             Changed?.Invoke();
         }

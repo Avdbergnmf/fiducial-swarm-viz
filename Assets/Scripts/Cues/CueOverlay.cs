@@ -685,6 +685,8 @@ namespace SwarmViewer
             else
                 _belt?.Hide();
 
+            DrawBudgetBadges(snaps);
+
             _spheres.End();
             _lines.End();
         }
@@ -874,6 +876,23 @@ namespace SwarmViewer
                 _lines.Arrow(pos, snap.Acceleration * AccelScale, Palette.Accel, 0.18f);
             if (On(CueMask.Attitude))
                 _lines.Arrow(pos, snap.Rotation * Vector3.forward * AttitudeLen, Palette.Attitude, 0.12f);
+        }
+
+        /// <summary>
+        /// Always-on: a drone that spent its radio budget is a cause, not a
+        /// cue you have to remember to switch on.
+        /// </summary>
+        void DrawBudgetBadges(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps)
+        {
+            if (_ctx?.State == null || snaps == null) return;
+            for (int s = 0; s < snaps.Count; s++)
+            {
+                if (!snaps[s].Alive) continue;
+                var b = _ctx.State.Budget(s);
+                if (!b.Low) continue;
+                Color c = b.Empty ? Palette.BudgetEmpty : Palette.BudgetWarn;
+                _lines.Circle(snaps[s].Position, 3.4f, Palette.A(c, 0.95f), b.Empty ? 0.28f : 0.2f);
+            }
         }
 
         void DrawLinks(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, float t)

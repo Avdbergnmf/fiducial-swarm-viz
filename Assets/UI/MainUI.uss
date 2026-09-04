@@ -47,107 +47,6 @@
     background-color: rgba(255, 255, 255, 0.16);
 }
 
-.camera-compass-root {
-    position: absolute;
-    right: 16px;
-    bottom: 78px;
-    width: 56px;
-    height: 56px;
-    background-color: rgba(16, 18, 22, 0.9);
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-color: rgba(255, 255, 255, 0.14);
-    border-right-color: rgba(255, 255, 255, 0.14);
-    border-top-color: rgba(255, 255, 255, 0.14);
-    border-bottom-color: rgba(255, 255, 255, 0.14);
-    border-top-left-radius: 28px;
-    border-top-right-radius: 28px;
-    border-bottom-left-radius: 28px;
-    border-bottom-right-radius: 28px;
-    overflow: visible;
-}
-
-.camera-compass-dial {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    overflow: hidden;
-    border-top-left-radius: 28px;
-    border-top-right-radius: 28px;
-    border-bottom-left-radius: 28px;
-    border-bottom-right-radius: 28px;
-}
-
-.camera-compass-needle {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    align-items: center;
-    padding-top: 3px;
-    transform-origin: center;
-}
-
-.camera-compass-arrow {
-    color: rgb(242, 215, 112);
-    font-size: 16px;
-    -unity-font-style: bold;
-    -unity-text-align: upper-center;
-    margin-top: 0;
-    margin-bottom: 0;
-    margin-left: 0;
-    margin-right: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    padding-left: 0;
-    padding-right: 0;
-}
-
-.camera-compass-toggle {
-    position: absolute;
-    right: -2px;
-    top: -2px;
-    width: 18px;
-    height: 18px;
-    margin-left: 0;
-    margin-right: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding-left: 0;
-    padding-right: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
-    font-size: 12px;
-}
-
-.camera-compass-root--collapsed {
-    width: 22px;
-    height: 22px;
-    background-color: rgba(0, 0, 0, 0);
-    border-left-width: 0;
-    border-right-width: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
-}
-
-.camera-compass-root--collapsed .camera-compass-dial {
-    display: none;
-}
-
-.camera-compass-root--collapsed .camera-compass-toggle {
-    right: 0;
-    top: 0;
-}
-
 .ui-scene-btn {
     height: 22px;
     margin-left: 0;
@@ -494,4 +393,53 @@
 .legend-key-mean {
     color: rgb(130, 138, 148);
     font-size: 10px;
+}
+
+.budget-hud {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    overflow: visible;
+}
+
+.budget-chip {
+    position: absolute;
+    background-color: rgba(16, 18, 22, 0.9);
+    color: rgb(230, 230, 230);
+    font-size: 10px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 176, 64, 0.55);
+    border-right-color: rgba(255, 176, 64, 0.55);
+    border-top-color: rgba(255, 176, 64, 0.55);
+    border-bottom-color: rgba(255, 176, 64, 0.55);
+    translate: -50% -110%;
+    white-space: nowrap;
+}
+
+.budget-chip--hover {
+    border-left-color: rgba(184, 115, 255, 0.55);
+    border-right-color: rgba(184, 115, 255, 0.55);
+    border-top-color: rgba(184, 115, 255, 0.55);
+    border-bottom-color: rgba(184, 115, 255, 0.55);
+}
+
+.budget-chip--empty {
+    color: rgb(255, 150, 140);
+    border-left-color: rgba(255, 72, 64, 0.8);
+    border-right-color: rgba(255, 72, 64, 0.8);
+    border-top-color: rgba(255, 72, 64, 0.8);
+    border-bottom-color: rgba(255, 72, 64, 0.8);
 }

@@ -23,6 +23,7 @@ namespace SwarmViewer
         public readonly YieldIndex Yields;
         public readonly HearIndex Hear;
         public readonly RelationIndex Relations;
+        public readonly TelemetryIndex Telemetry;
 
         readonly float[] _geometry;      // frame-major: [(frame * slots + slot) * stride]
         readonly int _slots, _stride;
@@ -50,6 +51,7 @@ namespace SwarmViewer
             meta.events ??= new List<EventInfo>();
             meta.beliefs ??= new List<BeliefChange>();
             meta.logs ??= new List<LogLine>();
+            meta.telemetry ??= new List<TelemetrySample>();
             meta.events.Sort((a, b) => a.t.CompareTo(b.t));
             meta.beliefs.Sort((a, b) => a.t.CompareTo(b.t));
             meta.logs.Sort((a, b) => a.t.CompareTo(b.t));
@@ -79,6 +81,7 @@ namespace SwarmViewer
             Hear = new HearIndex(this);
             LogsByDrone = new DroneLogIndex(meta.logs);
             Relations = new RelationIndex(this);
+            Telemetry = new TelemetryIndex(meta.telemetry);
         }
 
         /// <summary>

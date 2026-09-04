@@ -48,6 +48,13 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
                                 <ui:Label text="Heading" picking-mode="Ignore" class="inspector-key" />
                                 <ui:Label name="inspectorHeading" text="—" picking-mode="Ignore" class="inspector-value" />
                             </ui:VisualElement>
+                            <ui:VisualElement name="inspectorBudgetRow" class="inspector-row inspector-row--stack" picking-mode="Ignore">
+                                <ui:VisualElement class="inspector-row" picking-mode="Ignore">
+                                    <ui:Label text="Budget" picking-mode="Ignore" class="inspector-key" />
+                                    <ui:Label name="inspectorBudget" text="—" picking-mode="Ignore" class="inspector-value" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="inspectorBudgetSpark" picking-mode="Ignore" class="inspector-budget-spark" />
+                            </ui:VisualElement>
                         </ui:VisualElement>
                         </ui:ScrollView>
                     </ui:VisualElement>

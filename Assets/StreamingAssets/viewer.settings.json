@@ -2,10 +2,10 @@
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/evidence-bar/0.5",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\worst",
   "uiScale": 1.30000007,
-  "cueMask": 6641,
+  "cueMask": 2417,
   "panelRects": {
     "aircraftPanel": "-111,108,960,472",
-    "cuesPanel": "442,167,1044,376",
+    "cuesPanel": "615,353,1043,376",
     "inspectorPanel": "362,53,280,526",
     "eventsPanel": "1173,261,579,421",
     "beliefsPanel": "794,189,555,522",
@@ -24,18 +24,17 @@
     "inspector-slot-10": "14,53,525,575",
     "inspector-slot-8": "287,32,609,552",
     "inspector-slot-14": "1055,182,340,461",
-    "inspector-slot-1": "400,58,497,472"
+    "inspector-slot-1": "765,37,496,472"
   },
   "legendCollapsed": true,
   "legendKeysCollapsed": true,
   "legendCraftCollapsed": true,
   "legendSceneCollapsed": true,
   "legendCuesCollapsed": false,
-  "compassCollapsed": false,
   "pickVolumesAll": false,
   "pickVolumesOn": false,
   "pickVolumeShow": 3,
   "cueSphereMask": 3,
   "playbackStepSeconds": 1.0,
-  "pingKindMask": 1022
+  "pingKindMask": 830
 }

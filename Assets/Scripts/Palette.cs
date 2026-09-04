@@ -107,6 +107,8 @@ namespace SwarmViewer
         public static Color Aim => _live != null ? _live.aim : Rgb(255, 90, 210, 0.35f);
         public static Color CoverSafe => _live != null ? _live.coverSafe : Rgb(64, 220, 140);
         public static Color CoverGap => _live != null ? _live.coverGap : Rgb(232, 72, 64);
+        public static Color BudgetWarn => Rgb(255, 176, 64);
+        public static Color BudgetEmpty => Rgb(255, 72, 64);
 
         public static float RadiusVolumeAlpha => _live != null ? _live.radiusVolumeAlpha : 0.10f;
         public static float PickVolumeAlpha => _live != null ? _live.pickVolumeAlpha : 0.12f;

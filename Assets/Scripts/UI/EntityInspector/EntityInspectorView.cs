@@ -34,6 +34,9 @@ namespace SwarmViewer
         Label _altitude;
         Label _position;
         Label _heading;
+        Label _budget;
+        VisualElement _budgetRow;
+        BudgetSpark _budgetSpark;
         Label _state;
         Label _stateHint;
         VisualElement _stateBanner;
@@ -61,6 +64,7 @@ namespace SwarmViewer
         VisualElement _logContent;
         LogList _logList;
         HeadingPreview _headingViz;
+        float[] _sparkY;
 
         VisualElement _beliefsPanel;
         VisualElement _beliefsDragHandle;
@@ -95,8 +99,10 @@ namespace SwarmViewer
             public int Slot;
             public VisualElement Panel;
             public VisualElement KindDot;
-            public Label Title, Subtitle, Status, Speed, Accel, Altitude, Position, Heading, State, StateHint;
-            public VisualElement StateBanner;
+            public Label Title, Subtitle, Status, Speed, Accel, Altitude, Position, Heading, Budget, State, StateHint;
+            public VisualElement StateBanner, BudgetRow;
+            public BudgetSpark Spark;
+            public readonly float[] SparkY = new float[32];
             public Label Kind, SlotLbl, Trace, Drone, Lifetime, KillRadius, Sense, Comm, Sep, Fix;
             public Label RangeSigma, BearingSigma, Compromised;
             public VisualElement CompromisedRow, LogSection, LogContent, EventsContent;
@@ -219,6 +225,9 @@ namespace SwarmViewer
             _altitude = c.Altitude;
             _position = c.Position;
             _heading = c.Heading;
+            _budget = c.Budget;
+            _budgetRow = c.BudgetRow;
+            _budgetSpark = c.Spark;
             _state = c.State;
             _stateHint = c.StateHint;
             _stateBanner = c.StateBanner;
@@ -246,6 +255,7 @@ namespace SwarmViewer
             _logContent = c.LogContent;
             _logList = c.Logs;
             _headingViz = c.HeadingViz;
+            _sparkY = c.SparkY;
             _eventRows = c.EventRows;
             _events = c.Events;
             _logs = c.Lines;
@@ -331,6 +341,12 @@ namespace SwarmViewer
             c.Altitude = UiQuery.Named<Label>(panel, "inspectorAltitude");
             c.Position = UiQuery.Named<Label>(panel, "inspectorPosition");
             c.Heading = UiQuery.Named<Label>(panel, "inspectorHeading");
+            c.Budget = UiQuery.Named<Label>(panel, "inspectorBudget");
+            c.BudgetRow = UiQuery.Named<VisualElement>(panel, "inspectorBudgetRow");
+            c.Spark = new BudgetSpark();
+            var sparkHost = panel.Q("inspectorBudgetSpark");
+            if (sparkHost != null)
+                sparkHost.Add(c.Spark);
             c.State = UiQuery.Named<Label>(panel, "inspectorState");
             c.StateHint = UiQuery.Named<Label>(panel, "inspectorStateHint");
             c.StateBanner = panel.Q("inspectorStateBanner");
@@ -678,6 +694,7 @@ namespace SwarmViewer
             var info = _ctx.Run.Info(_boundSlot);
             ApplyKindChrome(info.Kind, _ctx.State.IsCompromisedNow(_boundSlot));
             var snap = _ctx.State.Entities[_boundSlot];
+            RefreshBudget(info);
 
             if (_status != null)
             {
@@ -788,6 +805,36 @@ namespace SwarmViewer
                 _stateBanner.tooltip = tooltip;
                 _stateBanner.style.borderLeftColor = modeColor;
             }
+        }
+
+        void RefreshBudget(EntityInfo info)
+        {
+            bool show = info != null && info.IsFriendly && _ctx?.Run?.Telemetry != null
+                        && _ctx.Run.Telemetry.HasAny;
+            if (_budgetRow != null)
+                _budgetRow.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!show) return;
+
+            var b = _ctx.State.Budget(_boundSlot);
+            if (_budget != null)
+            {
+                _budget.text = b.Label();
+                _budget.tooltip = b.Detail();
+                _budget.EnableInClassList("inspector-value--hot", b.Low && !b.Empty);
+                _budget.EnableInClassList("inspector-value--empty", b.Empty);
+            }
+
+            if (_budgetSpark == null || _sparkY == null) return;
+            int n = _ctx.Run.Telemetry.CopyRemaining(info.drone_id, _ctx.Clock.Time, _sparkY);
+            float max = b.Cap > 0 ? b.Cap : 1f;
+            if (b.Cap <= 0 && n > 0)
+            {
+                max = _sparkY[0];
+                for (int i = 1; i < n; i++)
+                    if (_sparkY[i] > max) max = _sparkY[i];
+                if (max < 1f) max = 1f;
+            }
+            _budgetSpark.Set(_sparkY, n, max, b.Low, b.Empty);
         }
 
         static void SetDash(Label label)
@@ -1265,5 +1312,59 @@ namespace SwarmViewer
             3 => "worst",
             _ => severity.ToString(),
         };
+
+        sealed class BudgetSpark : VisualElement
+        {
+            float[] _y;
+            int _n;
+            float _max = 1f;
+            Color _color = Color.white;
+
+            public BudgetSpark()
+            {
+                pickingMode = PickingMode.Ignore;
+                generateVisualContent += Paint;
+                RegisterCallback<GeometryChangedEvent>(_ => MarkDirtyRepaint());
+                style.flexGrow = 1;
+                style.width = new Length(100, LengthUnit.Percent);
+                style.height = 16;
+            }
+
+            public void Set(float[] y, int n, float max, bool low, bool empty)
+            {
+                _y = y;
+                _n = n;
+                _max = max > 0.01f ? max : 1f;
+                _color = empty ? Palette.Opaque(Palette.BudgetEmpty)
+                    : low ? Palette.Opaque(Palette.BudgetWarn)
+                    : Palette.Opaque(Palette.Comm);
+                style.display = n > 1 ? DisplayStyle.Flex : DisplayStyle.None;
+                MarkDirtyRepaint();
+            }
+
+            void Paint(MeshGenerationContext ctx)
+            {
+                if (_y == null || _n < 2) return;
+                var rect = contentRect;
+                if (rect.width < 4f || rect.height < 4f) return;
+
+                var painter = ctx.painter2D;
+                painter.lineJoin = LineJoin.Miter;
+                painter.lineCap = LineCap.Round;
+                painter.strokeColor = _color;
+                painter.lineWidth = 1.2f;
+                painter.BeginPath();
+                float denom = _n - 1;
+                for (int i = 0; i < _n; i++)
+                {
+                    float x = rect.xMin + (i / denom) * rect.width;
+                    float u = Mathf.Clamp01(_y[i] / _max);
+                    float y = rect.yMax - u * (rect.height - 2f) - 1f;
+                    if (i == 0) painter.MoveTo(new Vector2(x, y));
+                    else painter.LineTo(new Vector2(x, y));
+                }
+                painter.Stroke();
+            }
+        }
     }
 }

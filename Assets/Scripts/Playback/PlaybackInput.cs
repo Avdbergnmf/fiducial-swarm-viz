@@ -28,6 +28,7 @@ namespace SwarmViewer
             GetComponent<DisagreeView>()?.Bind(_ctx);
             GetComponent<ScoringView>()?.Bind(_ctx);
             GetComponent<TimelineView>()?.Bind(_ctx);
+            GetComponent<BudgetOverlay>()?.Bind(_ctx);
             RefreshSelButtons();
         }
 
@@ -61,6 +62,8 @@ namespace SwarmViewer
                 gameObject.AddComponent<DisagreeView>();
             if (GetComponent<ScoringView>() == null)
                 gameObject.AddComponent<ScoringView>();
+            if (GetComponent<BudgetOverlay>() == null)
+                gameObject.AddComponent<BudgetOverlay>();
 
             if (!_wired)
             {

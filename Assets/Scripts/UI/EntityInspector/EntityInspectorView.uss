@@ -520,6 +520,22 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     color: rgb(240, 160, 70);
 }
 
+.inspector-value--empty {
+    color: rgb(255, 88, 72);
+}
+
+.inspector-budget-spark {
+    height: 16px;
+    width: 100%;
+    margin-top: 1px;
+    margin-bottom: 2px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
 .inspector-value--gone {
     color: rgb(160, 164, 170);
 }

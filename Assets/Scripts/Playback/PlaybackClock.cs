@@ -88,7 +88,9 @@ namespace SwarmViewer
             else Play();
         }
 
-        public void Seek(float t)
+        public void Seek(float t) => Seek(t, announceJump: true);
+
+        void Seek(float t, bool announceJump)
         {
             float c = Mathf.Clamp(t, 0f, _run.Duration);
             if (!Mathf.Approximately(c, _time))
@@ -96,12 +98,13 @@ namespace SwarmViewer
                 _time = c;
                 OnTimeChanged?.Invoke(_time);
             }
-            OnUserTimeJumped?.Invoke();
+            if (announceJump)
+                OnUserTimeJumped?.Invoke();
         }
 
         public void SeekNormalised(float u) => Seek(u * _run.Duration);
-        public void StepFrames(int n) { Pause(); Seek(_time + n / _run.TraceHz); }
-        public void StepSeconds(float s) => Seek(_time + s);
+        public void StepFrames(int n) { Pause(); Seek(_time + n / _run.TraceHz, announceJump: false); }
+        public void StepSeconds(float s) => Seek(_time + s, announceJump: false);
 
         public float StepSecondsAmount => _stepSeconds;
 
