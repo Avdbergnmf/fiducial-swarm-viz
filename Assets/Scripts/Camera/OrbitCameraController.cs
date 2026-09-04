@@ -121,8 +121,35 @@ namespace SwarmViewer
                 // Empty set: detach WHERE THE CAMERA IS. Do not recentre on the asset.
                 _targetFocus = _currentFocus;
             }
+            else if (count > 0)
+                AdoptDistanceToSelection();
             _followSelection = count > 0;
             _lastSelectionCount = count;
+        }
+
+        /// <summary>
+        /// Freecam can sit metres from a drone while the orbit radius is still
+        /// the arena default. Selecting that drone should keep this camera
+        /// distance, not yank back to the old look-at radius.
+        /// </summary>
+        void AdoptDistanceToSelection()
+        {
+            if (_cam == null || _ctx?.Selection == null || _ctx.State == null) return;
+            int slot = _ctx.Selection.Primary;
+            var ents = _ctx.State.Entities;
+            if (slot < 0 || slot >= ents.Count) return;
+
+            Vector3 pos = ents[slot].Position;
+            float d = Vector3.Distance(_cam.transform.position, pos);
+            _distance = Mathf.Clamp(d, _minDistance, _maxDistance);
+
+            Vector3 euler = _cam.transform.eulerAngles;
+            _yaw = euler.y;
+            float pitch = euler.x;
+            if (pitch > 180f) pitch -= 360f;
+            _pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            _targetFocus = pos;
+            _currentFocus = pos;
         }
 
         void LateUpdate()

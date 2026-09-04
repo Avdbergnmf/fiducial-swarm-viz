@@ -36,6 +36,8 @@ namespace SwarmViewer
         public event Action<bool> OnPlayStateChanged;
         public event Action<float> OnSpeedChanged;
         public event Action<float> OnStepChanged;
+        /// <summary>Seek / step from the user. Not fired by Tick while playing.</summary>
+        public event Action OnUserTimeJumped;
 
         public PlaybackClock(RunData run)
         {
@@ -89,14 +91,17 @@ namespace SwarmViewer
         public void Seek(float t)
         {
             float c = Mathf.Clamp(t, 0f, _run.Duration);
-            if (Mathf.Approximately(c, _time)) return;
-            _time = c;
-            OnTimeChanged?.Invoke(_time);
+            if (!Mathf.Approximately(c, _time))
+            {
+                _time = c;
+                OnTimeChanged?.Invoke(_time);
+            }
+            OnUserTimeJumped?.Invoke();
         }
 
         public void SeekNormalised(float u) => Seek(u * _run.Duration);
         public void StepFrames(int n) { Pause(); Seek(_time + n / _run.TraceHz); }
-        public void StepSeconds(float s) { Pause(); Seek(_time + s); }
+        public void StepSeconds(float s) => Seek(_time + s);
 
         public float StepSecondsAmount => _stepSeconds;
 

@@ -21,7 +21,10 @@ namespace SwarmViewer
         ViewerContext _ctx;
         ScoringView _scoring;
         VisualElement _root;
+        VisualElement _bar;
         bool _uiWired;
+        bool _ownControl;
+        int _jumpGen;
 
         Button _playPauseButton;
         Button _stepBackFiveButton;
@@ -89,6 +92,7 @@ namespace SwarmViewer
 
             // Get all the elements by name
             _root = root;
+            _bar = UiQuery.Named<VisualElement>(_root, "timelineRoot");
             _playPauseButton = UiQuery.Named<Button>(_root, "playPauseButton");
             _stepHost = UiQuery.Named<VisualElement>(_root, "stepHost");
             _stepFlyout = UiQuery.Named<VisualElement>(_root, "stepFlyout");
@@ -120,23 +124,34 @@ namespace SwarmViewer
                 {
                     if (_ctx == null) return;
                     var clock = _ctx.Clock;
-                    if (clock.Time >= clock.Duration - 0.05f)
+                    Own(() =>
                     {
-                        clock.Seek(0f);
-                        clock.Play();
-                    }
-                    else
-                    {
-                        clock.TogglePlay();
-                    }
+                        if (clock.Time >= clock.Duration - 0.05f)
+                        {
+                            clock.Seek(0f);
+                            clock.Play();
+                        }
+                        else
+                        {
+                            clock.TogglePlay();
+                        }
+                    });
                 };
             }
 
             if (_stepBackFiveButton != null)
-                _stepBackFiveButton.clicked += () => _ctx?.Clock.StepBack();
+                _stepBackFiveButton.clicked += () => Own(() =>
+                {
+                    _ctx?.Clock.Pause();
+                    _ctx?.Clock.StepBack();
+                });
 
             if (_stepForwardFiveButton != null)
-                _stepForwardFiveButton.clicked += () => _ctx?.Clock.StepForward();
+                _stepForwardFiveButton.clicked += () => Own(() =>
+                {
+                    _ctx?.Clock.Pause();
+                    _ctx?.Clock.StepForward();
+                });
 
             ArmSpeedFlyout();
             ArmStepFlyout();
@@ -175,6 +190,7 @@ namespace SwarmViewer
             clock.OnPlayStateChanged += UpdatePlayPauseButton;
             clock.OnSpeedChanged += UpdateSpeedDisplay;
             clock.OnStepChanged += UpdateStepDisplay;
+            clock.OnUserTimeJumped += FlashExternalJump;
         }
 
         void UnhookClock()
@@ -185,6 +201,7 @@ namespace SwarmViewer
             clock.OnPlayStateChanged -= UpdatePlayPauseButton;
             clock.OnSpeedChanged -= UpdateSpeedDisplay;
             clock.OnStepChanged -= UpdateStepDisplay;
+            clock.OnUserTimeJumped -= FlashExternalJump;
         }
 
         void HookScoring()
@@ -254,10 +271,13 @@ namespace SwarmViewer
 
             _isScrubbing = true;
             _wasPlayingBeforeScrub = _ctx.Clock.IsPlaying;
-            _ctx.Clock.Pause();
+            Own(() =>
+            {
+                _ctx.Clock.Pause();
+                SeekFromPointer(evt.localPosition.x);
+            });
 
             _trackContainer.CapturePointer(evt.pointerId);
-            SeekFromPointer(evt.localPosition.x);
             evt.StopPropagation();
         }
 
@@ -278,7 +298,7 @@ namespace SwarmViewer
 
             if (_isScrubbing)
             {
-                SeekFromPointer(evt.localPosition.x);
+                Own(() => SeekFromPointer(evt.localPosition.x));
                 evt.StopPropagation();
             }
         }
@@ -306,7 +326,26 @@ namespace SwarmViewer
                 _trackTooltip.style.display = DisplayStyle.None;
 
             if (_wasPlayingBeforeScrub && _ctx != null)
-                _ctx.Clock.Play();
+                Own(() => _ctx.Clock.Play());
+        }
+
+        void Own(System.Action action)
+        {
+            _ownControl = true;
+            try { action(); }
+            finally { _ownControl = false; }
+        }
+
+        void FlashExternalJump()
+        {
+            if (_ownControl || _isScrubbing || _bar == null) return;
+            _bar.AddToClassList("timeline-root--jump");
+            int gen = ++_jumpGen;
+            _bar.schedule.Execute(() =>
+            {
+                if (gen == _jumpGen)
+                    _bar?.RemoveFromClassList("timeline-root--jump");
+            }).StartingIn(420);
         }
 
         void SeekFromPointer(float localX)

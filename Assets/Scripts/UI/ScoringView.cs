@@ -445,11 +445,10 @@ namespace SwarmViewer
         {
             var slots = ResolveSlots(e);
             if (slots.Count == 0 || _ctx?.Selection == null) return;
-            for (int i = 0; i < slots.Count; i++)
-            {
-                if (i == 0) _ctx.Selection.SelectOnly(slots[i]);
-                else _ctx.Selection.Add(slots[i]);
-            }
+            _ctx.Selection.SelectOnly(slots[0]);
+            if (e.kind == "civilian_lost") return;
+            for (int i = 1; i < slots.Count; i++)
+                _ctx.Selection.Add(slots[i]);
         }
 
         List<int> ResolveSlots(ScoreLedgerEntry e)
@@ -466,7 +465,6 @@ namespace SwarmViewer
                     if ((uint)s < (uint)run.SlotCount && !slots.Contains(s))
                         slots.Add(s);
                 }
-                if (slots.Count > 0) return slots;
             }
 
             AddDronesFromDetail(e.detail, run, slots);
@@ -474,6 +472,7 @@ namespace SwarmViewer
             if (e.detail?["target"] != null)
                 ScanNamed(e.detail["target"].ToString(), run, slots);
             AddFromRunEvents(e, run, slots);
+            PreferSubject(run, e, slots);
             return slots;
         }
 
@@ -485,10 +484,10 @@ namespace SwarmViewer
             {
                 var ev = events[i];
                 if (ev?.slots == null || ev.slots.Length == 0) continue;
-                if (Mathf.Abs(ev.t - e.t) > 0.05f) continue;
-                bool kindMatch = Contains(ev.kind, e.kind) || Contains(e.kind, ev.kind);
-                bool textMatch = Contains(ev.text, e.kind) || Contains(e.text, ev.text);
-                if (!kindMatch && !textMatch) continue;
+                if (Mathf.Abs(ev.t - e.t) > 0.25f) continue;
+                if (!ScoreMatchesEvent(e.kind, ev.kind)
+                    && !Contains(ev.text, e.kind) && !Contains(e.text, ev.text))
+                    continue;
                 for (int s = 0; s < ev.slots.Length; s++)
                 {
                     int slot = ev.slots[s];
@@ -548,6 +547,88 @@ namespace SwarmViewer
                     i = hostAt + 8;
                 }
             }
+
+            int civAt = 0;
+            while (civAt < text.Length)
+            {
+                int at = text.IndexOf("civilian", civAt, StringComparison.OrdinalIgnoreCase);
+                if (at < 0) break;
+                int n = ReadInt(text, at + 8);
+                if (n >= 0)
+                {
+                    int slot = CivilianSlot(run, n);
+                    if (slot >= 0 && !slots.Contains(slot))
+                        slots.Add(slot);
+                }
+                civAt = at + 8;
+            }
+        }
+
+        static int CivilianSlot(RunData run, int traceId)
+        {
+            for (int s = 0; s < run.SlotCount; s++)
+            {
+                var info = run.Info(s);
+                if (info.Kind == EntityKind.Civilian && info.trace_id == traceId)
+                    return s;
+            }
+            return -1;
+        }
+
+        static void PreferSubject(RunData run, ScoreLedgerEntry e, List<int> slots)
+        {
+            if (e == null || run == null) return;
+            int sub = SubjectSlot(run, e);
+            if (sub < 0) return;
+            slots.Remove(sub);
+            slots.Insert(0, sub);
+        }
+
+        /// <summary>
+        /// Ledger <c>slots</c> / <c>by_drones</c> are often the colliding
+        /// friendlies, not the craft the score is about. Pick the entity of the
+        /// right kind whose last living frame is nearest the ledger time.
+        /// </summary>
+        static int SubjectSlot(RunData run, ScoreLedgerEntry e)
+        {
+            EntityKind want = e.kind switch
+            {
+                "civilian_lost" => EntityKind.Civilian,
+                "friendly_lost" => EntityKind.Friendly,
+                "intercept" => EntityKind.Hostile,
+                _ => EntityKind.Unknown,
+            };
+            if (want == EntityKind.Unknown) return -1;
+
+            float step = run.TraceHz > 0.5f ? 1f / run.TraceHz : 0.1f;
+            int best = -1;
+            float bestErr = 0.6f;
+            for (int s = 0; s < run.SlotCount; s++)
+            {
+                var info = run.Info(s);
+                if (info.Kind != want || info.last_frame < 0) continue;
+                float death = run.TimeOfFrame(info.last_frame);
+                float err = Mathf.Min(Mathf.Abs(death - e.t), Mathf.Abs(death + step - e.t));
+                if (err < bestErr)
+                {
+                    bestErr = err;
+                    best = s;
+                }
+            }
+            return best;
+        }
+
+        static bool ScoreMatchesEvent(string scoreKind, string eventKind)
+        {
+            if (string.IsNullOrEmpty(scoreKind) || string.IsNullOrEmpty(eventKind)) return false;
+            if (Contains(eventKind, scoreKind) || Contains(scoreKind, eventKind)) return true;
+            if (scoreKind == "civilian_lost")
+                return eventKind == "civilian collision";
+            if (scoreKind == "friendly_lost")
+                return eventKind == "friendly collision" || eventKind == "death";
+            if (scoreKind == "intercept")
+                return eventKind == "intercept" || eventKind == "death";
+            return false;
         }
 
         static int HostileSlot(RunData run, int index)

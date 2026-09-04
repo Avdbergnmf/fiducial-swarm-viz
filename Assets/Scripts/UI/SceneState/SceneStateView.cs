@@ -1356,21 +1356,34 @@ namespace SwarmViewer
             _ctx.Clock.SeekJustBefore(e.t);
 
             if (e.slots == null || e.slots.Length == 0) return;
-            int first = -1;
+            int primary = PrimaryEventSlot(e);
+            if (primary < 0) return;
+            _ctx.Selection.SelectOnly(primary);
+            if ((uint)primary < (uint)_ctx.Run.SlotCount
+                && _ctx.Run.Info(primary).Kind == EntityKind.Civilian)
+                return;
             for (int i = 0; i < e.slots.Length; i++)
             {
                 int slot = e.slots[i];
-                if ((uint)slot >= (uint)_ctx.Run.SlotCount) continue;
-                if (first < 0)
-                {
-                    first = slot;
-                    _ctx.Selection.SelectOnly(slot);
-                }
-                else
-                {
+                if (slot == primary) continue;
+                if ((uint)slot < (uint)_ctx.Run.SlotCount)
                     _ctx.Selection.Add(slot);
-                }
             }
+        }
+
+        int PrimaryEventSlot(EventInfo e)
+        {
+            if (e.slots == null || _ctx?.Run == null) return -1;
+            for (int i = 0; i < e.slots.Length; i++)
+            {
+                int slot = e.slots[i];
+                if ((uint)slot < (uint)_ctx.Run.SlotCount && _ctx.Run.Info(slot).Kind == EntityKind.Civilian)
+                    return slot;
+            }
+            for (int i = 0; i < e.slots.Length; i++)
+                if ((uint)e.slots[i] < (uint)_ctx.Run.SlotCount)
+                    return e.slots[i];
+            return -1;
         }
 
         void UpdateEventHighlights()

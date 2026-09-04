@@ -1,20 +1,22 @@
-// Circular heading dial for the main camera: one ring, one north needle.
-// Collapse is the +/– in the corner; the dial itself does not eat clicks.
+// Circular heading dial: a ring and a north arrow. The arrow sits at the top
+// of a full-size plate; we rotate the plate by camera yaw so north stays north.
+// Lives above the timeline overlay so the – button is clickable.
 
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SwarmViewer
 {
+    [DefaultExecutionOrder(200)]
     public sealed class CameraCompass : MonoBehaviour
     {
         [SerializeField] UIDocument uiDocument;
 
         Camera _camera;
         VisualElement _root;
-        VisualElement _dial;
+        VisualElement _needle;
         Button _toggle;
-        Vector2 _north = new(0f, -1f);
+        float _angle = float.NaN;
         bool _collapsed;
         bool _wired;
 
@@ -23,11 +25,6 @@ namespace SwarmViewer
 
         void OnDisable()
         {
-            if (_dial != null)
-            {
-                _dial.generateVisualContent -= Paint;
-                _dial.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-            }
             if (_toggle != null)
                 _toggle.clicked -= Toggle;
             _wired = false;
@@ -42,50 +39,54 @@ namespace SwarmViewer
             }
 
             if (_camera == null)
-                _camera = GetComponent<Camera>() ?? Camera.main;
-            if (_camera == null || _collapsed) return;
+            {
+                _camera = GetComponent<Camera>();
+                if (_camera == null)
+                    _camera = Camera.main;
+            }
+            if (_camera == null || _collapsed || _needle == null) return;
 
-            Vector3 forward = Vector3.ProjectOnPlane(_camera.transform.forward, Vector3.up);
-            if (forward.sqrMagnitude < 1e-5f) return;
-            forward.Normalize();
-            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
-            Vector3 worldNorth = Vector3.forward;
-            Vector2 next = new(
-                Vector3.Dot(worldNorth, right),
-                -Vector3.Dot(worldNorth, forward));
-            if (next.sqrMagnitude < 1e-5f) return;
-            next.Normalize();
-
-            if ((_north - next).sqrMagnitude < 1e-6f) return;
-            _north = next;
-            _dial.MarkDirtyRepaint();
+            // Orbit camera has no roll: yaw 0 looks world +Z (north). UITK
+            // rotate is clockwise-positive, so north stays at the rim opposite
+            // the heading.
+            float yaw = _camera.transform.eulerAngles.y;
+            float deg = -yaw;
+            if (!float.IsNaN(_angle) && Mathf.Abs(Mathf.DeltaAngle(_angle, deg)) < 0.4f)
+                return;
+            _angle = deg;
+            _needle.style.rotate = new Rotate(new Angle(deg, AngleUnit.Degree));
         }
 
         void TryWire()
         {
             if (_wired) return;
             if (uiDocument == null)
-                uiDocument = FindAnyObjectByType<UIDocument>();
+            {
+                var docs = FindObjectsByType<UIDocument>(FindObjectsInactive.Include);
+                if (docs != null && docs.Length > 0)
+                    uiDocument = docs[0];
+            }
             if (uiDocument == null) return;
 
             var documentRoot = uiDocument.rootVisualElement;
             if (documentRoot == null) return;
 
             _root = UiQuery.Named<VisualElement>(documentRoot, "cameraCompassRoot");
-            _dial = UiQuery.Named<VisualElement>(documentRoot, "cameraCompassDial");
+            _needle = UiQuery.Named<VisualElement>(documentRoot, "cameraCompassNeedle");
             _toggle = UiQuery.Named<Button>(documentRoot, "cameraCompassToggle");
-            if (_root == null || _dial == null || _toggle == null)
+            if (_root == null || _needle == null || _toggle == null)
                 return;
 
-            _camera = GetComponent<Camera>() ?? Camera.main;
-            _dial.generateVisualContent += Paint;
-            _dial.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            _needle.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(50));
+            _needle.usageHints = UsageHints.DynamicTransform;
+            _camera = GetComponent<Camera>();
+            if (_camera == null)
+                _camera = Camera.main;
             _toggle.clicked += Toggle;
             UiQuery.HitSelf(_toggle);
             _collapsed = ViewerSettings.Load().compassCollapsed;
             _wired = true;
             ApplyCollapsed();
-            _dial.MarkDirtyRepaint();
         }
 
         void Toggle()
@@ -108,51 +109,7 @@ namespace SwarmViewer
             _toggle.tooltip = _collapsed ? "Show compass" : "Hide compass";
             UiQuery.HitSelf(_toggle);
             if (!_collapsed)
-                _dial?.MarkDirtyRepaint();
-        }
-
-        void OnGeometryChanged(GeometryChangedEvent _) => _dial?.MarkDirtyRepaint();
-
-        void Paint(MeshGenerationContext context)
-        {
-            if (_collapsed || _dial == null) return;
-            Rect rect = _dial.contentRect;
-            if (rect.width < 8f || rect.height < 8f) return;
-
-            Vector2 center = rect.center;
-            float radius = Mathf.Min(rect.width, rect.height) * 0.5f - 2f;
-            Vector2 tip = center + _north * radius;
-            Vector2 perp = new(-_north.y, _north.x);
-            Vector2 left = center - _north * (radius * 0.28f) + perp * (radius * 0.22f);
-            Vector2 right = center - _north * (radius * 0.28f) - perp * (radius * 0.22f);
-            var painter = context.painter2D;
-
-            painter.strokeColor = new Color(1f, 1f, 1f, 0.22f);
-            painter.lineWidth = 1.25f;
-            DrawCircle(painter, center, radius);
-
-            painter.fillColor = new Color(0.95f, 0.82f, 0.38f, 0.95f);
-            painter.BeginPath();
-            painter.MoveTo(tip);
-            painter.LineTo(left);
-            painter.LineTo(right);
-            painter.ClosePath();
-            painter.Fill();
-        }
-
-        static void DrawCircle(Painter2D painter, Vector2 center, float radius)
-        {
-            const int segments = 48;
-            painter.BeginPath();
-            for (int i = 0; i <= segments; i++)
-            {
-                float angle = i * Mathf.PI * 2f / segments;
-                Vector2 point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-                if (i == 0) painter.MoveTo(point);
-                else painter.LineTo(point);
-            }
-            painter.ClosePath();
-            painter.Stroke();
+                _angle = float.NaN;
         }
     }
 }

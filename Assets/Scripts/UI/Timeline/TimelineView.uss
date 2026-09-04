@@ -30,6 +30,14 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     overflow: visible;
 }
 
+.timeline-root--jump {
+    background-color: rgba(36, 58, 88, 0.94);
+    border-left-color: rgba(160, 215, 255, 0.7);
+    border-right-color: rgba(160, 215, 255, 0.7);
+    border-top-color: rgba(160, 215, 255, 0.7);
+    border-bottom-color: rgba(160, 215, 255, 0.7);
+}
+
 .timeline-button {
     background-color: rgba(255, 255, 255, 0.08);
     color: rgb(235, 235, 235);

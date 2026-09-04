@@ -230,6 +230,8 @@ namespace SwarmViewer
                 "picket" => Picket,
                 "state" => StateColor(raw),
                 "params" => Unknown,
+                "radio" => Comm,
+                "link" => Comm,
                 _ => Unknown,
             };
         }

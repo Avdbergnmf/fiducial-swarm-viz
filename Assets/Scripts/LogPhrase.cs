@@ -170,6 +170,7 @@ namespace SwarmViewer
                     case "yield": return Yield(raw);
                     case "params": return Params(raw);
                     case "radio": return Radio(raw);
+                    case "link": return Link(raw);
                     case "drone": return Boot(raw);
                     default: return raw;
                 }
@@ -243,6 +244,16 @@ namespace SwarmViewer
                 "range_sigma    1-sigma of measured range to the transmitter, m.\n" +
                 "               Physical; a compromised drone cannot lie about range.\n" +
                 "bearing_sigma  1-sigma of the measured bearing, rad (world NED).",
+            "link" =>
+                "This drone's estimate of unpublished radio loss and delay (CHALLENGE.md §6).\n" +
+                "Counted on hop-0 frames only: sequence gaps are loss, now−sent_time is latency.\n" +
+                "A seq jump >32 is leaving range, not a burst of loss. Relays are ignored.\n" +
+                "loss   median per-neighbour missing/(got+missing) on hop-0, 0–1.\n" +
+                "       Median so a neighbour in the last 10 m of radio range does not dominate.\n" +
+                "lat    mean now−sent_time on those frames, seconds\n" +
+                "n      hop-0 frames across those neighbours (got+missing)\n" +
+                "src    distinct neighbours contributing\n" +
+                "s1 is ~2% / ~0.02 s; s2 is ~8% / ~0.03–0.05 s. Logged every 2 s.",
             "state" =>
                 "The flight mode this drone entered. Forming = flying to its ring slot. Picketing = on station, facing out. Watching = on the ring, turned at an inbound it owns. Stalking = eased ≤40 m off the slot toward a compact inbound (can reverse). Scrambling = left the ring early, before a Hostile call (will abort if not a threat, or if a hit is impossible). Ramming = spent, flying to collide; arena springs off until it aborts.\n" +
                 "from     previous mode\n" +
@@ -419,12 +430,27 @@ namespace SwarmViewer
             Field(raw, "fsep=", "friendly keep-out", "m"),
             Field(raw, "ring=", "picket ring", "m"),
             Field(raw, "alt=", "ring altitude", "m"),
+            Field(raw, "h0=", "inbound-ray h0", "m"),
+            Field(raw, "slope=", "inbound-ray slope", ""),
             Field(raw, "fix=", "own fix σ", "m"));
 
         // "radio range_sigma=%.2f bearing_sigma=%.3f"
         static string Radio(string raw) => Join("Incoming radio measurement noise",
             Field(raw, "range_sigma=", "range σ", "m"),
             Field(raw, "bearing_sigma=", "bearing σ", "rad"));
+
+        // "link loss=0.021 lat=0.023 n=186 src=4"
+        static string Link(string raw)
+        {
+            float loss = Num(raw, "loss=");
+            float lat = Num(raw, "lat=");
+            string lossS = float.IsNaN(loss) ? "" : $"{loss * 100f:F1}% estimated packet loss";
+            string latS = float.IsNaN(lat) ? "" : $"{lat * 1000f:F0} ms estimated latency";
+            return Join("Measured radio (hop-0, unpublished in the brief)",
+                lossS, latS,
+                Field(raw, "n=", "frames", ""),
+                Field(raw, "src=", "neighbours", ""));
+        }
 
         // "state ram from=watch trk=12"
         static string State(string raw)
