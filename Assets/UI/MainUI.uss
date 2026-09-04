@@ -406,6 +406,8 @@
 
 .budget-chip {
     position: absolute;
+    flex-direction: column;
+    align-items: flex-start;
     background-color: rgba(16, 18, 22, 0.9);
     color: rgb(230, 230, 230);
     font-size: 10px;
@@ -429,11 +431,44 @@
     white-space: nowrap;
 }
 
+.hover-chip__title {
+    font-size: 10px;
+    margin: 0;
+    padding: 0;
+}
+
+.hover-chip__body {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.hover-chip__row {
+    color: rgb(168, 174, 184);
+    font-size: 10px;
+    margin-top: 1px;
+    padding: 0;
+}
+
+.hover-chip--ping {
+    border-left-color: rgba(184, 115, 255, 0.55);
+    border-right-color: rgba(184, 115, 255, 0.55);
+    border-top-color: rgba(184, 115, 255, 0.55);
+    border-bottom-color: rgba(184, 115, 255, 0.55);
+}
+
 .budget-chip--hover {
     border-left-color: rgba(184, 115, 255, 0.55);
     border-right-color: rgba(184, 115, 255, 0.55);
     border-top-color: rgba(184, 115, 255, 0.55);
     border-bottom-color: rgba(184, 115, 255, 0.55);
+}
+
+.budget-chip--low {
+    color: rgb(255, 196, 120);
+    border-left-color: rgba(255, 176, 64, 0.9);
+    border-right-color: rgba(255, 176, 64, 0.9);
+    border-top-color: rgba(255, 176, 64, 0.9);
+    border-bottom-color: rgba(255, 176, 64, 0.9);
 }
 
 .budget-chip--empty {

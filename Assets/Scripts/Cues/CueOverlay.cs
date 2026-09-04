@@ -195,11 +195,65 @@ namespace SwarmViewer
         public bool Muted => _muted;
         int _hoverPing = -1;
 
+        public int HoverPingIndex => _hoverPing;
+
         public void SetHoverPing(int index)
         {
             if (_hoverPing == index) return;
             _hoverPing = index;
             Refresh();
+        }
+
+        public static string PingKindLabel(RelationKind kind)
+        {
+            for (int i = 0; i < PingKinds.Length; i++)
+                if (PingKinds[i].Kind == kind) return PingKinds[i].Label;
+            return kind.ToString().ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Visible pings on the same unordered pair as the hovered stroke,
+        /// oldest first. Midpoint is that stroke's current segment, so the
+        /// chip stays under the cursor instead of jumping between stacked
+        /// lines.
+        /// </summary>
+        public bool TryHoverPingGroup(System.Collections.Generic.List<RelationPing> dst, out Vector3 mid)
+        {
+            mid = default;
+            dst?.Clear();
+            if (dst == null || _hoverPing < 0 || _ctx?.Clock == null || !On(CueMask.Pings))
+                return false;
+            var snaps = _ctx.State?.Entities;
+            var pings = _ctx.Run?.Relations?.Pings;
+            if (snaps == null || pings == null || (uint)_hoverPing >= (uint)pings.Count)
+                return false;
+
+            var seed = pings[_hoverPing];
+            float t = _ctx.Clock.Time;
+            if (!TryPingEnds(seed, snaps, t, out Vector3 pa, out Vector3 pb))
+                return false;
+            mid = (pa + pb) * 0.5f;
+
+            for (int i = 0; i < pings.Count; i++)
+            {
+                if (!PingKindOn(pings[i].Kind)) continue;
+                if (!SamePair(pings[i], seed)) continue;
+                if (!TryPingEnds(pings[i], snaps, t, out _, out _)) continue;
+                dst.Add(pings[i]);
+            }
+            dst.Sort(ComparePingTime);
+            return dst.Count > 0;
+        }
+
+        static int ComparePingTime(RelationPing a, RelationPing b) => a.T.CompareTo(b.T);
+
+        static bool SamePair(in RelationPing a, in RelationPing b)
+        {
+            int aLo = a.FromSlot < a.ToSlot ? a.FromSlot : a.ToSlot;
+            int aHi = a.FromSlot < a.ToSlot ? a.ToSlot : a.FromSlot;
+            int bLo = b.FromSlot < b.ToSlot ? b.FromSlot : b.ToSlot;
+            int bHi = b.FromSlot < b.ToSlot ? b.ToSlot : b.FromSlot;
+            return aLo == bLo && aHi == bHi;
         }
 
         /// <summary>
@@ -928,7 +982,9 @@ namespace SwarmViewer
                     ? 1f
                     : 1f - (age - (ping.Hold - fade)) / fade;
                 if (k < 0.08f) k = 0.08f;
-                bool hover = i == _hoverPing;
+                bool hover = _hoverPing >= 0
+                    && (uint)_hoverPing < (uint)pings.Count
+                    && SamePair(ping, pings[_hoverPing]);
                 if (hover) k = Mathf.Max(k, 0.85f);
                 Color hue = Palette.Ping(ping.Kind);
                 Color ca = Palette.A(hue, k);

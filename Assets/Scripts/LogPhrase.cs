@@ -189,6 +189,38 @@ namespace SwarmViewer
             return string.IsNullOrEmpty(legend) ? raw : raw + "\n\n" + legend;
         }
 
+        /// <summary>
+        /// One-line hover chip for a ping. Kind-specific fields only, plus
+        /// how long the stroke has been up (or how long a commit/yield span
+        /// has left). Pretty English stays on the tooltip.
+        /// </summary>
+        public static string PingCaption(RelationKind kind, string raw, float now, float t0, float hold)
+        {
+            raw ??= "";
+            float age = now - t0;
+            float left = t0 + hold - now;
+            string body = kind switch
+            {
+                RelationKind.Call => Join(CallClass(raw), MissShort(raw), CloseShort(raw)),
+                RelationKind.Drop => "stopped naming that track",
+                RelationKind.Wreck => Join("named wreckage", MissShort(raw)),
+                RelationKind.Near => Join(Range(Num(raw, "rng=")), CloseShort(raw)),
+                RelationKind.Ram => Join("last metres", Range(Num(raw, "rng=")), CloseShort(raw)),
+                RelationKind.Duplicate => "same intercept",
+                RelationKind.Gone => "off the radio",
+                RelationKind.Live => "back on the radio",
+                RelationKind.Commit => Join("intercept", Range(Num(raw, "rng=")), TtgShort(raw)),
+                RelationKind.Yield => raw.StartsWith("yield clear", StringComparison.Ordinal)
+                    ? "clear of the corridor"
+                    : Join("in the corridor", DistShort(raw)),
+                _ => "",
+            };
+            string when = hold > 2f
+                ? (left > 0.05f ? $"{left:0.0}s left" : "")
+                : (age >= 0.08f ? $"{age:0.0}s ago" : "");
+            return Join(body, when);
+        }
+
         static string Legend(string verb) => verb switch
         {
             "call" or "drop" or "wreck" =>
@@ -515,6 +547,45 @@ namespace SwarmViewer
         }
 
         // ---- phrase pieces -------------------------------------------------
+
+        static string CallClass(string raw)
+        {
+            string cls = Word(raw, "class=");
+            if (string.IsNullOrEmpty(cls))
+            {
+                string[] tok = raw.Split(' ');
+                if (tok.Length > 2 && tok[2].IndexOf('=') < 0)
+                    cls = tok[2];
+            }
+            return string.IsNullOrEmpty(cls) ? "called" : "called " + ClassWord(cls);
+        }
+
+        static string MissShort(string raw)
+        {
+            float miss = Num(raw, "miss=");
+            return float.IsNaN(miss) ? "" : Metres(miss) + " miss";
+        }
+
+        static string CloseShort(string raw)
+        {
+            float close = Num(raw, "close=");
+            if (float.IsNaN(close)) return "";
+            if (close >= 0.5f) return $"closing {close:F0} m/s";
+            if (close <= -0.5f) return $"opening {-close:F0} m/s";
+            return "";
+        }
+
+        static string TtgShort(string raw)
+        {
+            float ttg = Num(raw, "ttg=");
+            return float.IsNaN(ttg) ? "" : $"{ttg:F1}s to cylinder";
+        }
+
+        static string DistShort(string raw)
+        {
+            float dist = Num(raw, "dist=");
+            return float.IsNaN(dist) ? "" : Metres(dist) + " off corridor";
+        }
 
         static string Track(int id, bool peer) =>
             peer || id <= 0 ? "a peer-reported track" : $"track {id}";

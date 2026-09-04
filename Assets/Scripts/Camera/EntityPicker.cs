@@ -142,8 +142,14 @@ namespace SwarmViewer
 
             if (IsPointerOverUI(mousePos))
             {
-                ClearHover();
-                cues?.SetHoverPing(-1);
+                // Hover chips sit over the craft / ping they describe. Treat
+                // them as UI for clicks, but keep the world hover so the chip
+                // does not vanish the moment the cursor moves onto it.
+                if (!IsHoverChip(PickedElement(mousePos)))
+                {
+                    ClearHover();
+                    cues?.SetHoverPing(-1);
+                }
                 return;
             }
 
@@ -459,18 +465,26 @@ namespace SwarmViewer
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return true;
 
+            var picked = PickedElement(screenPos);
+            if (picked == null || uiDocument == null) return false;
+            return picked != uiDocument.rootVisualElement;
+        }
+
+        VisualElement PickedElement(Vector2 screenPos)
+        {
             if (uiDocument == null || uiDocument.rootVisualElement == null)
-                return false;
-
+                return null;
             var root = uiDocument.rootVisualElement;
-            if (root.panel == null) return false;
-
-            // Screen y-up -> panel y-down. Overlay wrappers are picking-mode Ignore,
-            // so Pick returns null / the document root over empty world, and the
-            // actual Button / track over widgets.
+            if (root.panel == null) return null;
             Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(root.panel, screenPos);
-            var picked = root.panel.Pick(panelPos);
-            return picked != null && picked != root;
+            return root.panel.Pick(panelPos);
+        }
+
+        static bool IsHoverChip(VisualElement el)
+        {
+            for (var x = el; x != null; x = x.parent)
+                if (x.ClassListContains("hover-chip")) return true;
+            return false;
         }
 
         /// <summary>
