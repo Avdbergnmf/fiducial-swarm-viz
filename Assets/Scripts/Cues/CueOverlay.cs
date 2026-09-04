@@ -1,5 +1,6 @@
 // Diagnostic overlay: range rings, motion arrows, radio links, log pings
-// (including commit / yield spans), picket ring, pick-volume selection spheres.
+// (including commit / yield spans), picket ring, kill envelope, pick-volume
+// selection spheres.
 //
 // Drawing only. The Cues panel and its chips live in SceneStateView alongside
 // Aircraft, Events, Score and Logs, so one component owns the windows instead of two
@@ -35,6 +36,7 @@ namespace SwarmViewer
         Hops = 1 << 12,
         Selection = 1 << 13,
         Aim = 1 << 14,
+        Cover = 1 << 15,
     }
 
     public sealed class CueOverlay : MonoBehaviour, IRunView
@@ -104,6 +106,10 @@ namespace SwarmViewer
             new(CueMask.Aim, "Believed aim",
                 "A kill-radius sphere at the pose the selected drone believed its target was at. It refreshes on commit / near / ram. Near the end of a chase the brain writes those every 0.1 s for the last 1 s, so the marker tracks; earlier it stays on the last logged pose and fades over 1.4 s (same hold as short Pings). Ground truth is the real craft (and the commit ping).",
                 "commit / near / ram: n=, e=, alt=, vn=, ve=. Not a per-tick dump (D3); the last second of a pursuit is the exception (D43). The marker uses n=/e=/alt= only; vn=/ve= are shown in the log but do not move it. Sphere radius is kill_radius from the trace. Select a committed friendly."),
+
+            new(CueMask.Cover, "Kill envelope",
+                "Theoretical safety belt around the asset. Each living friendly paints the inbound directions it could still ram, assuming a hostile that first appears on its sense sphere and flies params maxv straight at the asset. Green is covered; red is a hole. Closed means the picket-height ring has no gap. Select a friendly to see its own cone, capped on its sense sphere.",
+                "Live poses from the trace; sense / maxv / lat / ring from the params log; kill_radius and asset.radius from the header. From rest, Reach() as in flight.cpp, divert = lat. Not UniqueOwner, not scramble delay, not the 0.1 s cylinder gate — geometry only. Hostile speed is maxv (D37), not an unpublished enemy dump."),
         };
 
         /// <summary>Ping-line kinds, in the order the legend and Cues panel list them.</summary>
@@ -155,7 +161,11 @@ namespace SwarmViewer
         EntityView[] _bySlot;
         LinePool _lines;
         SpherePool _spheres;
+        CoverBelt _belt;
         Material _lineMat;
+        readonly System.Collections.Generic.List<CoverDefender> _defenders = new();
+        CoverResult _cover;
+        int _coverFrame = -1;
         public const int PickHover = 1;
         public const int PickSelected = 2;
         public const int PickUnselected = 4;
@@ -260,6 +270,7 @@ namespace SwarmViewer
             _ctx = ctx;
             _bySlot = null;
             _hoverPing = -1;
+            _coverFrame = -1;
             _mask = LoadMask(out _pickShow, out _sphereMask, out _pingKinds);
             Hook();
             Refresh();
@@ -272,6 +283,7 @@ namespace SwarmViewer
             if (_lineMat != null) Destroy(_lineMat);
             _lines?.Dispose();
             _spheres?.Dispose();
+            _belt?.Dispose();
         }
 
         void Hook()
@@ -440,6 +452,7 @@ namespace SwarmViewer
                 CueMask.Comm => p != null && p.Has(p.CommDraw),
                 CueMask.Separate => p != null && p.Has(p.SeparationMargin),
                 CueMask.Picket => p != null && p.Has(p.RingRadius),
+                CueMask.Cover => CoverAvailable(p),
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Hops => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0,
                 CueMask.Pings => _ctx.Run.Relations != null && _ctx.Run.Relations.Pings.Count > 0,
@@ -466,6 +479,7 @@ namespace SwarmViewer
                     : p.CommFromLinks ? $"{p.CommDraw:G4} m, measured from links" : $"{p.CommDraw:G4} m",
                 CueMask.Separate => p.Has(p.SeparationMargin) ? $"{p.SeparationMargin:G4} m" : "",
                 CueMask.Picket => p.Has(p.RingRadius) ? $"{p.RingRadius:G4} m" : "",
+                CueMask.Cover => CoverValue(),
                 CueMask.Links => _ctx.Run.Meta?.links != null && _ctx.Run.Meta.links.Count > 0
                     ? $"{_ctx.Run.Meta.links.Count} link records" : "",
                 CueMask.Hops => HopValue(),
@@ -481,6 +495,23 @@ namespace SwarmViewer
             int n = rel.Pings.Count;
             if (n <= 0) return "";
             return n == 1 ? "1 ping" : n + " pings";
+        }
+
+        bool CoverAvailable(RunParams p)
+        {
+            if (p == null || _ctx?.Run?.Meta?.asset == null) return false;
+            return p.Has(p.SenseRadius) && p.Has(p.MaxSpeed) && p.Has(p.LateralLimit)
+                && p.Has(p.KillRadius) && _ctx.Run.Meta.asset.radius > 0.1f;
+        }
+
+        string CoverValue()
+        {
+            EnsureCoverNow();
+            if (_cover == null || !_cover.Ready)
+                return _cover != null && _cover.Live == 0 ? "no living friendlies" : "";
+            string live = _cover.Live == 1 ? "1 live" : _cover.Live + " live";
+            if (_cover.Closed) return "closed · " + live;
+            return $"hole {_cover.GapDeg:0}° · " + live;
         }
 
         public string PingKindValue(RelationKind kind)
@@ -576,8 +607,9 @@ namespace SwarmViewer
                 string sense = p.Has(p.SenseRadius) ? $"sense {p.SenseRadius:G4} m" : "";
                 string sep = p.Has(p.SeparationMargin) ? $"sep {p.SeparationMargin:G4} m" : "";
                 string ring = p.Has(p.RingRadius) ? $"picket {p.RingRadius:G4} m" : "";
+                string cover = On(CueMask.Cover) ? CoverValue() : "";
                 string fsep = p.Has(p.FriendlyMargin) ? $"fsep {p.FriendlyMargin:G4} m" : "";
-                distances = JoinNonEmpty(" · ", sense, comm, sep, fsep, ring);
+                distances = JoinNonEmpty(" · ", sense, comm, sep, fsep, ring, cover);
             }
             if (_muted)
                 return string.IsNullOrEmpty(distances)
@@ -606,12 +638,14 @@ namespace SwarmViewer
                 _lines?.End();
                 _spheres?.Begin();
                 _spheres?.End();
+                _belt?.Hide();
                 return;
             }
 
             EnsureViews();
             EnsureLines();
             EnsureSpheres();
+            EnsureBelt();
             var p = _ctx.Run.Params;
             var snaps = _ctx.State.Entities;
             float t = _ctx.Clock.Time;
@@ -646,9 +680,145 @@ namespace SwarmViewer
                 DrawPicket(p, t);
             if (On(CueMask.Aim))
                 DrawAim(snaps, t);
+            if (On(CueMask.Cover))
+                DrawCover(snaps, p);
+            else
+                _belt?.Hide();
 
             _spheres.End();
             _lines.End();
+        }
+
+        Vector3 AssetPosition()
+        {
+            var asset = _ctx.Run.Meta.asset;
+            if (asset?.position != null && asset.position.Length >= 3)
+                return new Vector3(asset.position[0], asset.position[1], asset.position[2]);
+            return Vector3.zero;
+        }
+
+        void EnsureCoverNow()
+        {
+            if (_ctx?.Run == null || _ctx.State == null) return;
+            var p = _ctx.Run.Params;
+            if (!CoverAvailable(p)) return;
+            var snaps = _ctx.State.Entities;
+            int frame = Mathf.RoundToInt((_ctx.Clock != null ? _ctx.Clock.Time : 0f) * 10f);
+            ReachCover.CollectDefenders(snaps, _ctx.Run, _defenders);
+            if (_coverFrame == frame && _cover != null && _cover.Live == _defenders.Count)
+                return;
+            _coverFrame = frame;
+            var assetInfo = _ctx.Run.Meta.asset;
+            float ring = p.Has(p.RingRadius) ? p.RingRadiusAt(_ctx.Clock != null ? _ctx.Clock.Time : 0f) : 0f;
+            _cover = ReachCover.Evaluate(
+                _defenders, AssetPosition(), assetInfo.radius,
+                p.SenseRadius, p.MaxSpeed, p.LateralLimit, p.KillRadius, ring);
+        }
+
+        void DrawCover(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, RunParams p)
+        {
+            EnsureCoverNow();
+            EnsureBelt();
+            if (_cover == null || !_cover.Ready)
+            {
+                _belt?.Hide();
+                return;
+            }
+
+            _belt.Show(_cover);
+            DrawBracelet(_cover);
+            DrawSelectedCones(snaps, p);
+        }
+
+        void DrawBracelet(CoverResult cover)
+        {
+            int el = cover.RingElev;
+            int n = cover.Azimuths;
+            Vector3[] pts = new Vector3[n + 1];
+            bool[] on = new bool[n];
+            for (int a = 0; a < n; a++)
+            {
+                on[a] = cover.Cell(el, a);
+                pts[a] = cover.Asset + ReachCover.InboundDir(el, a) * cover.DrawRadius;
+            }
+            pts[n] = pts[0];
+
+            int a0 = 0;
+            while (a0 < n)
+            {
+                bool val = on[a0];
+                int a1 = a0 + 1;
+                while (a1 < n && on[a1] == val) a1++;
+                bool loop = a0 == 0 && a1 == n;
+                Color c = val ? Palette.CoverSafe : Palette.CoverGap;
+                _lines.Polyline(pts, a0, a1 - a0 + 1, Palette.A(c, val ? 0.95f : 0.9f), val ? 0.45f : 0.55f, loop);
+                a0 = a1;
+            }
+        }
+
+        void DrawSelectedCones(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, RunParams p)
+        {
+            var sel = _ctx.Selection;
+            if (sel == null || sel.Count == 0 || _cover == null) return;
+            float sense = p.SenseRadius;
+            float vmax = p.MaxSpeed;
+            float accel = p.LateralLimit;
+            float kill = p.KillRadius;
+            float ar = _cover.AssetRadius;
+            Vector3 asset = _cover.Asset;
+            int el = _cover.RingElev;
+
+            for (int s = 0; s < sel.Count; s++)
+            {
+                int slot = sel.Slots[s];
+                if ((uint)slot >= (uint)snaps.Count) continue;
+                if (!snaps[slot].Alive) continue;
+                if (_ctx.Run.Info(slot).drone_id < 0) continue;
+                Vector3 pos = snaps[slot].Position;
+                Vector3[] hits = new Vector3[ReachCover.Azimuths + 1];
+                bool[] ok = new bool[ReachCover.Azimuths];
+                for (int a = 0; a < ReachCover.Azimuths; a++)
+                {
+                    Vector3 u = ReachCover.InboundDir(el, a);
+                    if (!ReachCover.CanCatch(asset, ar, pos, u, sense, vmax, accel, kill))
+                        continue;
+                    if (!ReachCover.FirstSight(asset, pos, u, sense, out Vector3 hit, out _))
+                        continue;
+                    ok[a] = true;
+                    hits[a] = hit;
+                    if (a % 2 == 0)
+                    {
+                        _lines.Segment(pos, hit, Palette.A(Palette.CoverSafe, 0.4f), 0.07f);
+                        Vector3 rim = asset + u * _cover.DrawRadius;
+                        _lines.Segment(hit, rim, Palette.A(Palette.CoverSafe, 0.18f), 0.04f);
+                    }
+                }
+                hits[ReachCover.Azimuths] = hits[0];
+                int a0 = 0;
+                int n = ReachCover.Azimuths;
+                while (a0 < n)
+                {
+                    if (!ok[a0]) { a0++; continue; }
+                    int a1 = a0 + 1;
+                    while (a1 < n && ok[a1]) a1++;
+                    int count = a1 - a0;
+                    bool loop = a0 == 0 && a1 == n;
+                    if (loop) count = n + 1;
+                    if (count >= 2)
+                        _lines.Polyline(hits, a0, count, Palette.A(Palette.CoverSafe, 0.9f), 0.14f, loop);
+                    a0 = a1;
+                }
+                if (ok[0] && ok[n - 1])
+                {
+                    bool full = true;
+                    for (int i = 0; i < n; i++)
+                    {
+                        if (!ok[i]) { full = false; break; }
+                    }
+                    if (!full)
+                        _lines.Segment(hits[n - 1], hits[0], Palette.A(Palette.CoverSafe, 0.9f), 0.14f);
+                }
+            }
         }
 
         int HoverSlot()
@@ -921,6 +1091,14 @@ namespace SwarmViewer
             _spheres = new SpherePool(root.transform);
         }
 
+        void EnsureBelt()
+        {
+            if (_belt != null) return;
+            var root = new GameObject("CueCover");
+            root.transform.SetParent(transform, false);
+            _belt = new CoverBelt(root.transform);
+        }
+
         static Material MakeLineMaterial()
         {
             var shader = Shader.Find("Sprites/Default")
@@ -978,6 +1156,7 @@ namespace SwarmViewer
                 CueMask.Selection or CueMask.Aim => "sphere",
                 CueMask.Velocity or CueMask.Accel or CueMask.Attitude => "arrow",
                 CueMask.Links or CueMask.Hops or CueMask.Pings => "line",
+                CueMask.Cover => "belt",
                 _ => "",
             };
         }
@@ -988,6 +1167,8 @@ namespace SwarmViewer
                 return SelectionScope;
             if (spec.Bit == CueMask.Aim)
                 return "kill-radius sphere";
+            if (spec.Bit == CueMask.Cover)
+                return "belt around the asset";
             if (IsRadius(spec.Bit))
                 return SphereOn(spec.Bit) ? "sphere" : "ring";
             return spec.Shape;
@@ -1069,6 +1250,17 @@ namespace SwarmViewer
                 lr.positionCount = 2;
                 lr.SetPosition(0, a);
                 lr.SetPosition(1, b);
+            }
+
+            public void Polyline(Vector3[] pts, int start, int count, Color color, float width, bool loop)
+            {
+                if (pts == null || count < 2) return;
+                int last = start + count - 1;
+                if (start < 0 || last >= pts.Length) return;
+                var lr = Next(color, width, loop);
+                lr.positionCount = count;
+                for (int i = 0; i < count; i++)
+                    lr.SetPosition(i, pts[start + i]);
             }
 
             LineRenderer Next(Color color, float width, bool loop)
@@ -1198,6 +1390,113 @@ namespace SwarmViewer
                 Palette.TintVolume(mat, color);
                 _mats[color] = mat;
                 return mat;
+            }
+        }
+
+        sealed class CoverBelt
+        {
+            readonly Transform _root;
+            readonly Mesh _mesh;
+            readonly MeshFilter _filter;
+            readonly MeshRenderer _rend;
+            readonly Material _mat;
+            readonly Vector3[] _verts;
+            readonly Color[] _colors;
+            readonly int[] _tris;
+
+            public CoverBelt(Transform root)
+            {
+                _root = root;
+                int el = ReachCover.Elevations;
+                int az = ReachCover.Azimuths;
+                _verts = new Vector3[el * az];
+                _colors = new Color[el * az];
+                _tris = new int[(el - 1) * az * 6];
+                int t = 0;
+                for (int e = 0; e < el - 1; e++)
+                {
+                    for (int a = 0; a < az; a++)
+                    {
+                        int a2 = (a + 1) % az;
+                        int i00 = e * az + a;
+                        int i10 = e * az + a2;
+                        int i01 = (e + 1) * az + a;
+                        int i11 = (e + 1) * az + a2;
+                        _tris[t++] = i00; _tris[t++] = i10; _tris[t++] = i11;
+                        _tris[t++] = i00; _tris[t++] = i11; _tris[t++] = i01;
+                    }
+                }
+
+                var go = new GameObject("belt");
+                go.transform.SetParent(root, false);
+                _filter = go.AddComponent<MeshFilter>();
+                _rend = go.AddComponent<MeshRenderer>();
+                _mesh = new Mesh { name = "KillEnvelope", hideFlags = HideFlags.HideAndDontSave };
+                _mesh.MarkDynamic();
+                _filter.sharedMesh = _mesh;
+                _mat = MakeBeltMaterial();
+                _rend.sharedMaterial = _mat;
+                _rend.shadowCastingMode = ShadowCastingMode.Off;
+                _rend.receiveShadows = false;
+                _rend.enabled = false;
+            }
+
+            static Material MakeBeltMaterial()
+            {
+                var shader = Shader.Find("Hidden/Internal-Colored")
+                             ?? Shader.Find("Sprites/Default")
+                             ?? Shader.Find("Universal Render Pipeline/Unlit");
+                var mat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave, name = "CueCover" };
+                var white = Color.white;
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", white);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", white);
+                if (mat.HasProperty("_Cull")) mat.SetInt("_Cull", (int)CullMode.Off);
+                if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
+                if (mat.HasProperty("_SrcBlend")) mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                if (mat.HasProperty("_DstBlend")) mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                mat.SetOverrideTag("RenderType", "Transparent");
+                mat.renderQueue = 3000;
+                return mat;
+            }
+
+            public void Show(CoverResult cover)
+            {
+                int el = cover.Elevations;
+                int az = cover.Azimuths;
+                Color safe = Palette.A(Palette.Opaque(Palette.CoverSafe), 0.22f);
+                Color gap = Palette.A(Palette.Opaque(Palette.CoverGap), 0.32f);
+                Color safeRing = Palette.A(Palette.Opaque(Palette.CoverSafe), 0.38f);
+                Color gapRing = Palette.A(Palette.Opaque(Palette.CoverGap), 0.55f);
+                int ring = cover.RingElev;
+                for (int e = 0; e < el; e++)
+                {
+                    for (int a = 0; a < az; a++)
+                    {
+                        int i = e * az + a;
+                        _verts[i] = cover.Asset + ReachCover.InboundDir(e, a) * cover.DrawRadius;
+                        bool on = cover.Cell(e, a);
+                        bool atRing = e == ring;
+                        _colors[i] = on ? (atRing ? safeRing : safe) : (atRing ? gapRing : gap);
+                    }
+                }
+                _mesh.Clear();
+                _mesh.vertices = _verts;
+                _mesh.colors = _colors;
+                _mesh.triangles = _tris;
+                _mesh.RecalculateBounds();
+                _rend.enabled = true;
+            }
+
+            public void Hide()
+            {
+                if (_rend != null) _rend.enabled = false;
+            }
+
+            public void Dispose()
+            {
+                if (_mat != null) UnityEngine.Object.Destroy(_mat);
+                if (_mesh != null) UnityEngine.Object.Destroy(_mesh);
+                if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
             }
         }
     }

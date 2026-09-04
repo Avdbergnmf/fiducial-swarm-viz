@@ -46,6 +46,8 @@ namespace SwarmViewer
         [SerializeField] Color picket = Rgb(208, 208, 220);
         [SerializeField] [Tooltip("Hue plus peak alpha of the believed-aim sphere.")]
         Color aim = Rgb(255, 90, 210, 0.35f);
+        [SerializeField] Color coverSafe = Rgb(64, 220, 140);
+        [SerializeField] Color coverGap = Rgb(232, 72, 64);
 
         [Header("Volume shells (kill / sense / aim / pick / asset)")]
         [SerializeField] [Range(0f, 0.4f)]
@@ -103,6 +105,8 @@ namespace SwarmViewer
         public static Color Yield => _live != null ? _live.yieldColor : Rgb(255, 184, 46);
         public static Color Picket => _live != null ? _live.picket : Rgb(208, 208, 220);
         public static Color Aim => _live != null ? _live.aim : Rgb(255, 90, 210, 0.35f);
+        public static Color CoverSafe => _live != null ? _live.coverSafe : Rgb(64, 220, 140);
+        public static Color CoverGap => _live != null ? _live.coverGap : Rgb(232, 72, 64);
 
         public static float RadiusVolumeAlpha => _live != null ? _live.radiusVolumeAlpha : 0.10f;
         public static float PickVolumeAlpha => _live != null ? _live.pickVolumeAlpha : 0.12f;
@@ -181,6 +185,7 @@ namespace SwarmViewer
             CueMask.Pings => Rgb(255, 255, 255),
             CueMask.Selection => Hover,
             CueMask.Aim => Aim,
+            CueMask.Cover => CoverSafe,
             _ => Color.white,
         };
 

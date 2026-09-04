@@ -613,6 +613,8 @@ namespace SwarmViewer
                     AddPingKindChips(_cuesDetailKey, cues);
                 else if (spec.Bit == CueMask.Hops)
                     CueLegend.AddHopKey(_cuesDetailKey, labeled: true);
+                else if (spec.Bit == CueMask.Cover)
+                    CueLegend.AddCoverKey(_cuesDetailKey);
                 _cuesDetailKey.style.display = _cuesDetailKey.childCount > 0
                     ? DisplayStyle.Flex
                     : DisplayStyle.None;

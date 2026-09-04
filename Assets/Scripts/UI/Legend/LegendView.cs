@@ -285,6 +285,8 @@ namespace SwarmViewer
                     CueLegend.AddPingKey(_cuesBox, labeled: false, _cues);
                 if (spec.Bit == CueMask.Hops)
                     CueLegend.AddHopKey(_cuesBox, labeled: false);
+                if (spec.Bit == CueMask.Cover)
+                    CueLegend.AddCoverKey(_cuesBox, labeled: false);
             }
 
             Show(_cuesFold, shown > 0);
