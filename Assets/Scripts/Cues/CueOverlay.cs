@@ -109,11 +109,11 @@ namespace SwarmViewer
                 "commit / near / ram: in=/ie=/ialt= when the brain logged a meeting. Not a per-tick dump (D3); last 1 s of a chase is every 0.1 s (D43). Sphere radius is kill_radius. No extra noise."),
 
             new(CueMask.Cover, "Kill envelope",
-                "Theoretical safety belt around the asset. Each living friendly paints the inbound directions it could still ram, assuming a hostile that first appears on its sense sphere and flies params maxv straight at the asset. Green is covered; red is a hole. Closed means the picket-height ring has no gap. Select a friendly to see its own cone, capped on its sense sphere.",
+                "Theoretical safety belt around the asset. Each living friendly paints the inbound directions it could still ram, assuming a hostile that first appears on its sense sphere and flies params maxv straight at the asset. Green is covered; red is a hole. Closed means the picket-height ring has no gap.",
                 "Live poses from the trace; sense / maxv / lat / ring from the params log; kill_radius and asset.radius from the header. From rest, Reach() as in flight.cpp, divert = lat. Not UniqueOwner, not scramble delay, not the 0.1 s cylinder gate — geometry only. Hostile speed is maxv (D37), not an unpublished enemy dump."),
 
             new(CueMask.Reach, "Reach horizon",
-                "N seconds ahead. Friendlies: a cylinder around the ballistic point (pose + velocity × horizon). Radius is Reach(t, lat, maxv) — xy from tilt. Height is Reach(t, maxa, maxv) — z from thrust. Not a sphere: leftover z does not steal xy. Hostiles and civilians: a ghost of the same airframe at that ballistic point, no turn. Horizon is the slider. Selected and hovered friendlies; every living hostile and civilian that is moving. Sphere draws the can volume; otherwise a wire can.",
+                "N seconds ahead. Friendlies: a cylinder around the ballistic point (pose + velocity × horizon). Radius is Reach(t, lat, maxv) — xy from tilt. Height is Reach(t, maxa, maxv) — z from thrust. Not a sphere: leftover z does not steal xy. Hostiles and civilians: a ghost of the same airframe at that ballistic point, no turn. If Kill radius is on, that sphere is drawn on the ghost too. Horizon is the slider. Selected and hovered craft only. Sphere draws the can volume; otherwise a wire can.",
                 "Live pose and velocity from the trace; lat and maxa from params. Ghost mesh is the entity prefab. Slider is viewer-only (seconds)."),
         };
 
@@ -723,7 +723,7 @@ namespace SwarmViewer
             else
                 _ghosts?.Hide();
             if (On(CueMask.Cover))
-                DrawCover(snaps, p);
+                DrawCover();
             else
                 _belt?.Hide();
 
@@ -759,7 +759,7 @@ namespace SwarmViewer
                 p.SenseRadius, p.MaxSpeed, p.LateralLimit, p.KillRadius, ring);
         }
 
-        void DrawCover(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, RunParams p)
+        void DrawCover()
         {
             EnsureCoverNow();
             EnsureBelt();
@@ -771,7 +771,6 @@ namespace SwarmViewer
 
             _belt.Show(_cover);
             DrawBracelet(_cover);
-            DrawSelectedCones(snaps, p);
         }
 
         void DrawBracelet(CoverResult cover)
@@ -797,71 +796,6 @@ namespace SwarmViewer
                 Color c = val ? Palette.CoverSafe : Palette.CoverGap;
                 _lines.Polyline(pts, a0, a1 - a0 + 1, Palette.A(c, val ? 0.95f : 0.9f), val ? 0.45f : 0.55f, loop);
                 a0 = a1;
-            }
-        }
-
-        void DrawSelectedCones(System.Collections.Generic.IReadOnlyList<EntitySnapshot> snaps, RunParams p)
-        {
-            var sel = _ctx.Selection;
-            if (sel == null || sel.Count == 0 || _cover == null) return;
-            float sense = p.SenseRadius;
-            float vmax = p.MaxSpeed;
-            float accel = p.LateralLimit;
-            float kill = p.KillRadius;
-            float ar = _cover.AssetRadius;
-            Vector3 asset = _cover.Asset;
-            int el = _cover.RingElev;
-
-            for (int s = 0; s < sel.Count; s++)
-            {
-                int slot = sel.Slots[s];
-                if ((uint)slot >= (uint)snaps.Count) continue;
-                if (!snaps[slot].Alive) continue;
-                if (_ctx.Run.Info(slot).drone_id < 0) continue;
-                Vector3 pos = snaps[slot].Position;
-                Vector3[] hits = new Vector3[ReachCover.Azimuths + 1];
-                bool[] ok = new bool[ReachCover.Azimuths];
-                for (int a = 0; a < ReachCover.Azimuths; a++)
-                {
-                    Vector3 u = ReachCover.InboundDir(el, a);
-                    if (!ReachCover.CanCatch(asset, ar, pos, u, sense, vmax, accel, kill))
-                        continue;
-                    if (!ReachCover.FirstSight(asset, pos, u, sense, out Vector3 hit, out _))
-                        continue;
-                    ok[a] = true;
-                    hits[a] = hit;
-                    if (a % 2 == 0)
-                    {
-                        _lines.Segment(pos, hit, Palette.A(Palette.CoverSafe, 0.4f), 0.07f);
-                        Vector3 rim = asset + u * _cover.DrawRadius;
-                        _lines.Segment(hit, rim, Palette.A(Palette.CoverSafe, 0.18f), 0.04f);
-                    }
-                }
-                hits[ReachCover.Azimuths] = hits[0];
-                int a0 = 0;
-                int n = ReachCover.Azimuths;
-                while (a0 < n)
-                {
-                    if (!ok[a0]) { a0++; continue; }
-                    int a1 = a0 + 1;
-                    while (a1 < n && ok[a1]) a1++;
-                    int count = a1 - a0;
-                    bool loop = a0 == 0 && a1 == n;
-                    if (loop) count = n + 1;
-                    if (count >= 2)
-                        _lines.Polyline(hits, a0, count, Palette.A(Palette.CoverSafe, 0.9f), 0.14f, loop);
-                    a0 = a1;
-                }
-                if (ok[0] && ok[n - 1])
-                {
-                    bool full = true;
-                    for (int i = 0; i < n; i++)
-                    {
-                        if (!ok[i]) { full = false; break; }
-                    }
-                    if (!full)
-                        _lines.Segment(hits[n - 1], hits[0], Palette.A(Palette.CoverSafe, 0.9f), 0.14f);
-                }
             }
         }
 
@@ -1112,8 +1046,12 @@ namespace SwarmViewer
 
                 if (info.Kind is EntityKind.Hostile or EntityKind.Civilian)
                 {
+                    if (!focus) continue;
                     if ((center - pos).sqrMagnitude < 0.25f) continue;
                     ShowCoastGhost(slot, center, snaps[slot].Rotation);
+                    if (On(CueMask.Kill) && p != null && p.Has(p.KillRadius))
+                        DrawRadius(CueMask.Kill, center, p.KillRadius,
+                            Palette.A(Palette.Opaque(Palette.Kill), 0.85f), 0.22f);
                     continue;
                 }
 
@@ -1336,7 +1274,8 @@ namespace SwarmViewer
             if (spec.Bit == CueMask.Reach)
             {
                 string friendly = SphereOn(spec.Bit) ? "tilt cylinder" : "wire can";
-                return $"{friendly} on friendlies, ghost airframe on hostiles and civilians";
+                string ghost = On(CueMask.Kill) ? "ghost airframe + kill radius" : "ghost airframe";
+                return $"{friendly} on friendlies, {ghost} on hostiles and civilians";
             }
             if (spec.Bit == CueMask.Cover)
                 return "belt around the asset";

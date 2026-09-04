@@ -2,10 +2,10 @@
   "extraRunFolder": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/runs/evidence-bar/0.5",
   "lastRunStem": "C:/Users/Alex_/Documents/Fiducial/fiducial-take-home/viewer/fiducial-swarm-viz/Assets/StreamingAssets\\worst",
   "uiScale": 1.1,
-  "cueMask": 84305,
+  "cueMask": 88433,
   "panelRects": {
     "aircraftPanel": "-111,108,960,472",
-    "cuesPanel": "902,143,1043,376",
+    "cuesPanel": "1352,202,1041,376",
     "inspectorPanel": "362,53,280,526",
     "eventsPanel": "1173,261,579,421",
     "beliefsPanel": "794,189,555,522",
@@ -17,14 +17,14 @@
     "inspector-slot-5": "42,80,859,535",
     "inspector-slot-13": "415,115,826,461",
     "inspector-slot-4": "1214,71,778,554",
-    "inspector-slot-0": "930,219,341,460",
+    "inspector-slot-0": "1249,115,487,460",
     "inspector-slot-6": "468,193,691,501",
     "inspector-slot-11": "1148,201,340,459",
     "inspector-slot-9": "714,138,758,702",
     "inspector-slot-10": "14,53,525,575",
     "inspector-slot-8": "287,32,609,552",
     "inspector-slot-14": "1055,182,340,461",
-    "inspector-slot-1": "904,44,496,472",
+    "inspector-slot-1": "33,79,495,472",
     "inspector-slot-2": "76,2,687,581"
   },
   "legendCollapsed": true,
@@ -36,7 +36,7 @@
   "pickVolumesOn": false,
   "pickVolumeShow": 3,
   "cueSphereMask": 65539,
-  "reachHorizonSeconds": 0.96,
+  "reachHorizonSeconds": 3.18,
   "pingKindMask": 830,
   "playbackStepSeconds": 1.0
 }

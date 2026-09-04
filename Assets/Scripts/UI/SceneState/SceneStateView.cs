@@ -710,7 +710,7 @@ namespace SwarmViewer
             var sl = new Slider(CueOverlay.ReachHorizonMin, CueOverlay.ReachHorizonMax);
             sl.AddToClassList("cue-horizon-slider");
             sl.pickingMode = PickingMode.Position;
-            sl.tooltip = "Seconds of coast. Friendlies: xy from lat, height from maxa. Hostiles and civilians: ghost airframe.";
+            sl.tooltip = "Seconds of coast. Friendlies: xy from lat, height from maxa. Hostiles and civilians: ghost airframe; kill sphere follows if Kill radius is on.";
             sl.SetValueWithoutNotify(cues.ReachHorizon);
             sl.RegisterValueChangedCallback(evt =>
             {
