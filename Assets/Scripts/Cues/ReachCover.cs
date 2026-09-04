@@ -4,11 +4,12 @@
 //
 // Threat: a hostile appears on a ray through the asset, flying params maxv
 // (the same proxy as D37) straight at it. First sight is the outer
-// intersection of that ray with a living friendly's sense sphere. From rest,
-// divert accel is lateral_limit, speed cap is maxv, Reach() matches
-// flight.cpp. A kill is getting within kill_radius of some point on the
-// remaining inbound before the hostile's ground track enters the asset
-// cylinder.
+// intersection of that ray with a living friendly's sense sphere. Divert
+// is Reach() around the defender's ballistic point (pose + velocity × t),
+// accel lateral_limit, speed cap maxv, matching flight.cpp. A parked
+// picket (v=0) is the old from-rest belt. A kill is getting within
+// kill_radius of some point on the remaining inbound before the hostile's
+// ground track enters the asset cylinder.
 //
 // Each inbound direction is a cell on a sphere around the asset. The union
 // of cells any living friendly can still catch is the safety area. Closed
@@ -23,11 +24,13 @@ namespace SwarmViewer
     {
         public readonly int Slot;
         public readonly Vector3 Position;
+        public readonly Vector3 Velocity;
 
-        public CoverDefender(int slot, Vector3 position)
+        public CoverDefender(int slot, Vector3 position, Vector3 velocity)
         {
             Slot = slot;
             Position = position;
+            Velocity = velocity;
         }
     }
 
@@ -110,7 +113,7 @@ namespace SwarmViewer
             {
                 if (!snaps[i].Alive) continue;
                 if (run.Info(i).drone_id < 0) continue;
-                into.Add(new CoverDefender(i, snaps[i].Position));
+                into.Add(new CoverDefender(i, snaps[i].Position, snaps[i].Velocity));
             }
             return into.Count > 0;
         }
@@ -156,7 +159,8 @@ namespace SwarmViewer
                     bool ok = false;
                     for (int i = 0; i < defenders.Count; i++)
                     {
-                        if (CanCatch(asset, assetRadius, defenders[i].Position, u,
+                        if (CanCatch(asset, assetRadius, defenders[i].Position,
+                                     defenders[i].Velocity, u,
                                      sense, maxSpeed, accel, kill))
                         {
                             ok = true;
@@ -197,7 +201,8 @@ namespace SwarmViewer
         }
 
         public static bool CanCatch(Vector3 asset, float assetRadius, Vector3 picket,
-            Vector3 u, float sense, float maxSpeed, float accel, float kill)
+            Vector3 defenderVel, Vector3 u, float sense, float maxSpeed,
+            float accel, float kill)
         {
             if (!FirstSight(asset, picket, u, sense, out Vector3 hit, out _))
                 return false;
@@ -213,7 +218,8 @@ namespace SwarmViewer
                 float t = tHit * (i / (float)TimeSamples);
                 if (t < 0.04f) continue;
                 Vector3 meet = hit + vel * t;
-                float need = Vector3.Distance(picket, meet) - kill;
+                Vector3 ballistic = picket + defenderVel * t;
+                float need = Vector3.Distance(ballistic, meet) - kill;
                 if (need <= 0f) return true;
                 if (Reach(t, accel, maxSpeed) >= need) return true;
             }

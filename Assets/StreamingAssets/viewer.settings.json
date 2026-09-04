@@ -5,7 +5,7 @@
   "cueMask": 88433,
   "panelRects": {
     "aircraftPanel": "-111,108,960,472",
-    "cuesPanel": "1352,202,1041,376",
+    "cuesPanel": "567,103,1041,377",
     "inspectorPanel": "362,53,280,526",
     "eventsPanel": "1173,261,579,421",
     "beliefsPanel": "794,189,555,522",
@@ -36,7 +36,7 @@
   "pickVolumesOn": false,
   "pickVolumeShow": 3,
   "cueSphereMask": 65539,
-  "reachHorizonSeconds": 3.18,
+  "reachHorizonSeconds": 1.83,
   "pingKindMask": 830,
   "playbackStepSeconds": 1.0
 }
